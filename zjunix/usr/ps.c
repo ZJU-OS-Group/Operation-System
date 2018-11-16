@@ -145,8 +145,8 @@ void parse_cmd() {
         result = proc_demo_create();
         kernel_printf("proc return with %d\n", result);
     } else if (kernel_strcmp(ps_buffer, "cat") == 0) {
-        result = fs_cat(param);
-        kernel_printf("cat return with %d\n", result);
+        result = vfs_cat(param);
+        kernel_printf("ext3 cat return with %d\n", result);
     } else if (kernel_strcmp(ps_buffer, "ls") == 0) {
         result = ls(param);
         kernel_printf("ls return with %d\n", result);
@@ -156,7 +156,26 @@ void parse_cmd() {
     } else if (kernel_strcmp(ps_buffer, "exec") == 0) {
         result = exec(param);
         kernel_printf("exec return with %d\n", result);
-    } else {
+    }else if (kernel_strcmp(ps_buffer, "mkdir") == 0){
+    	result = vfs_mkdir(param);
+    	kernel_printf("ext3 mkdir return with %d\n", result);
+   	}else if (kernel_strcmp(ps_buffer, "rm") == 0){
+		result = vfs_rm(param);
+		kernel_printf("ext3 rm return with %d\n", result);
+	} 
+	else if (kernel_strcmp(ps_buffer, "ls") == 0){
+		result = vfs_ls(param);
+		kernel_printf("ext3 ls return with %d\n", result);
+	} 
+	else if (kernel_strcmp(ps_buffer, "cd") == 0){
+		result = vfs_cd(param);
+		kernel_printf("ext3 cd return with %d\n", result);
+	}
+	else if (kernel_strcmp(ps_buffer, "mv") == 0){
+		result = vfs_mv(param);
+		kernel_printf("ext3 mv return with %d\n", result);
+	}  
+	else {
         kernel_puts(ps_buffer, 0xfff, 0);
         kernel_puts(": command not found\n", 0xfff, 0);
     }
