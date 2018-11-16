@@ -1,3 +1,0 @@
-"E:\JetBrains\CLion\CLion 2017.2\bin\cmake\bin\cmake.exe" -E remove -f CMakeFiles\Operation_System.dir/objects.a
-C:\MinGW\bin\ar.exe cr CMakeFiles\Operation_System.dir/objects.a @CMakeFiles\Operation_System.dir\objects1.rsp
-C:\MinGW\bin\gcc.exe -g   -Wl,--whole-archive CMakeFiles\Operation_System.dir/objects.a -Wl,--no-whole-archive  -o Operation_System.exe -Wl,--out-implib,libOperation_System.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\Operation_System.dir\linklibs.rsp
