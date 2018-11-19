@@ -5,6 +5,6 @@
 #ifndef DESMOND_MKDIR_H
 #define DESMOND_MKDIR_H
 
-int vfs_mkdir(char *para);
+#include <zjunix/vfs/vfs.h>
 
 #endif //DESMOND_MKDIR_H
