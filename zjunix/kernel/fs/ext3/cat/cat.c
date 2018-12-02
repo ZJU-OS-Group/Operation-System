@@ -7,7 +7,6 @@
 
 // TODO: vfs_open
 // TODO: 文件打开方式定义（先定义了一部分，之后需要再加）
-// TODO: 错误码定义
 
 // cat：输出文件内容
 u32 vfs_cat(const u8 *path){
