@@ -53,11 +53,16 @@ char* kernel_strcpy(char* dest, const char* src) {
 }
 
 int pow(int x, int z) {
+    if(z == 0) return 1;
+    if(z == 1) return x;
     int ret = 1;
     if (z < 0)
         return -1;
-    while (z--) {
-        ret *= x;
+    int half = pow(x, z >> 1);
+    ret = half * half;
+    if(z % 2 == 1)
+    {
+        ret = ret * x;
     }
     return ret;
 }
