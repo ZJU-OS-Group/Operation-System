@@ -8,7 +8,7 @@
 #include <zjunix/utils.h>
 
 #pragma GCC push_options
-#pragma GCC optimize("O0")
+#pragma GCC optimize("O0") // 编译选项——不优化
 FILE file;
 const unsigned int CACHE_BLOCK_SIZE = 64;
 

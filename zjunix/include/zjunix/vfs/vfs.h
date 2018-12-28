@@ -4,9 +4,9 @@
 #include <zjunix/list.h>
 
 // 文件打开方式，即open函数的入参flags。打开文件时用，vfs_open第二个参数
-#define O_RDONLY	                            0x0000                   // readonly 只读
-#define O_WRONLY	                            0x0001                   // writeonly 只写
-#define O_RDWR		                            0x0002                   // read&write 可读可写
+#define O_RDONLY	                            0x0000                   // read only 只读
+#define O_WRONLY	                            0x0001                   // write only 只写
+#define O_RDWR		                            0x0002                   // read & write 可读可写
 
 // 数据结构定义
 // 打开的文件
@@ -23,6 +23,7 @@ struct file {
 
 
 // 函数声明
+
 
 // for user command
 u32 vfs_cat(const u8 *);
