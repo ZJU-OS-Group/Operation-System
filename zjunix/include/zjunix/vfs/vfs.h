@@ -8,18 +8,213 @@
 #define O_WRONLY	                            0x0001                   // write only 只写
 #define O_RDWR		                            0x0002                   // read & write 可读可写
 
-// 数据结构定义
-// 打开的文件
-struct file {
-    u32                                 f_pos;                  // 文件当前的读写位置
-	struct list_head	                f_list;                 // 用于通用文件对象链表的指针
-	struct dentry		                *f_dentry;              // 与文件相关的目录项对象
-	struct vfsmount                     *f_vfsmnt;              // 含有该文件的已安装文件系统
-	struct file_operations	            *f_op;                  // 指向文件操作表的指针
-	u32 		                        f_flags;                // 当打开文件时所指定的标志
-	u32			                        f_mode;                 // 进程的访问方式
-	struct address_space	            *f_mapping;             // 指向文件地址空间对象的指针
+/*********************************以下定义VFS的四个主要对象********************************************/
+/********************************* 超级块 *********************************/
+struct super_block {
+    struct list_head                s_list;         /* 指向所有超级块的链表 */
+    const struct super_operations   *s_op;          /* 超级块方法 */
+    struct dentry                   *s_root;        /* 目录挂载点 */
+    struct mutex                    s_lock;         /* 超级块信号量 */
+    int                             s_count;        /* 超级块引用计数 */
+
+    struct list_head                s_inodes;       /* inode链表 */
+    struct mtd_info                 *s_mtd;         /* 存储磁盘信息 */
+    fmode_t                         s_mode;         /* 安装权限 */
 };
+// 超级块操作函数
+struct super_operations {
+    struct inode *(*alloc_inode)(struct super_block *sb);       /* 创建和初始化一个索引节点对象 */
+    void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
+
+    void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
+    int (*write_inode) (struct inode *, int);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
+    void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
+    void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
+    void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
+    void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
+    int (*sync_fs)(struct super_block *sb, int wait);           /* 使文件系统中的数据与磁盘上的数据同步 */
+    int (*statfs) (struct dentry *, struct kstatfs *);          /* VFS调用该函数获取文件系统状态 */
+    int (*remount_fs) (struct super_block *, int *, char *);    /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
+    void (*clear_inode) (struct inode *);                       /* VFS调用该函数释放索引节点，并清空包含相关数据的所有页面 */
+    void (*umount_begin) (struct super_block *);                /* VFS调用该函数中断安装操作 */
+};
+
+/******************************* 索引节点 *********************************/
+struct inode {
+    struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
+    struct list_head                    i_list;         /* 索引节点链表 */
+    struct list_head                    i_sb_list;      /* 超级块链表超级块  */
+    struct list_head                    i_dentry;       /* 目录项链表 */
+    unsigned long                       i_ino;          /* 节点号 */
+    atomic_t                            i_count;        /* 引用计数 */
+    unsigned int                        i_nlink;        /* 硬链接数 */
+    uid_t                               i_uid;          /* 使用者id */
+    gid_t                               i_gid;          /* 使用组id */
+    struct timespec                     i_atime;        /* 最后访问时间 */
+    struct timespec                     i_mtime;        /* 最后修改时间 */
+    struct timespec                     i_ctime;        /* 最后改变时间 */
+    const struct inode_operations       *i_op;          /* 索引节点操作函数 */
+    const struct file_operations        *i_fop;         /* 缺省的索引节点操作 */
+    struct super_block                  *i_sb;          /* 相关的超级块 */
+    struct address_space                *i_mapping;     /* 相关的地址映射 */
+    struct address_space                i_data;         /* 设备地址映射 */
+    unsigned int                        i_flags;        /* 文件系统标志 */
+    void                                *i_private;     /* fs 私有指针 */
+};
+// 索引节点操作函数
+struct inode_operations {
+    /* 为dentry对象创造一个新的索引节点 */
+    int (*create) (struct inode *,struct dentry *,int, struct nameidata *);
+    /* 在特定文件夹中寻找索引节点，该索引节点要对应于dentry中给出的文件名 */
+    struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
+    /* 创建硬链接 */
+    int (*link) (struct dentry *,struct inode *,struct dentry *);
+    /* 从一个符号链接查找它指向的索引节点 */
+    void * (*follow_link) (struct dentry *, struct nameidata *);
+    /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */
+    void (*put_link) (struct dentry *, struct nameidata *, void *);
+    /* 该函数由VFS调用，用于修改文件的大小 */
+    void (*truncate) (struct inode *);
+};
+
+/********************************* 目录项 *********************************/
+struct dentry {
+    atomic_t                        d_count;                /* 使用计数 */
+    unsigned int                    d_flags;                /* 目录项标识 */
+    spinlock_t                      d_lock;                 /* 单目录项锁 */
+    int                             d_mounted;              /* 是否登录点的目录项 */
+    struct inode                    *d_inode;               /* 相关联的索引节点 */
+    struct hlist_node               d_hash;                 /* 散列表 */
+    struct dentry                   *d_parent;              /* 父目录的目录项对象 */
+    struct qstr                     d_name;                 /* 目录项名称 */
+    struct list_head                d_lru;                  /* 未使用的链表 */
+    /*
+     * d_child and d_rcu can share memory
+     */
+    union {
+        struct list_head            d_child;                /* 目录项内部形成的链表 */
+        struct rcu_head             d_rcu;                  /* RCU加锁 */
+    } d_u;
+    struct list_head                d_subdirs;              /* 子目录链表 */
+    struct list_head                d_alias;                /* 索引节点别名链表 */
+    unsigned long                   d_time;                 /* 重置时间 */
+    const struct dentry_operations  *d_op;                  /* 目录项操作相关函数 */
+    struct super_block              *d_sb;                  /* 文件的超级块 */
+    void                            *d_fsdata;              /* 文件系统特有数据 */
+
+    unsigned char   d_iname[DNAME_INLINE_LEN_MIN];          /* 短文件名 */
+};
+// 目录项操作函数
+struct dentry_operations {
+    /* 该函数判断目录项对象是否有效。VFS准备从dcache中使用一个目录项时会调用这个函数 */
+    int (*d_revalidate)(struct dentry *, struct nameidata *);
+    /* 为目录项对象生成hash值 */
+    int (*d_hash) (struct dentry *, struct qstr *);
+    /* 比较 qstr 类型的2个文件名 */
+    int (*d_compare) (struct dentry *, struct qstr *, struct qstr *);
+    /* 当目录项对象的 d_count 为0时，VFS调用这个函数 */
+    int (*d_delete)(struct dentry *);
+    /* 当目录项对象将要被释放时，VFS调用该函数 */
+    void (*d_release)(struct dentry *);
+    /* 当目录项对象丢失其索引节点时（也就是磁盘索引节点被删除了），VFS会调用该函数 */
+    void (*d_iput)(struct dentry *, struct inode *);
+};
+
+/********************************** 文件 *********************************/
+struct file {
+    union {
+        struct list_head            fu_list;        /* 文件对象链表 */
+        struct rcu_head             fu_rcuhead;     /* 释放之后的RCU链表 */
+    } f_u;
+    struct path                     f_path;         /* 包含的目录项 */
+    u32                             f_pos;          /* 文件当前的读写位置 */
+    const struct file_operations    *f_op;          /* 文件操作函数 */
+    atomic_long_t                   f_count;        /* 文件对象引用计数 */
+};
+// 文件操作函数
+struct file_operations {
+    /* 用于更新偏移量指针,由系统调用lleek()调用它 */
+    loff_t (*llseek) (struct file *, loff_t, int);
+    /* 由系统调用read()调用它 */
+    ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+    /* 由系统调用write()调用它 */
+    ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+    /* 由系统调用 aio_read() 调用它 */
+    ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
+    /* 由系统调用 aio_write() 调用它 */
+    ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
+    /* 将给定文件映射到指定的地址空间上,由系统调用 mmap 调用它 */
+    int (*mmap) (struct file *, struct vm_area_struct *);
+    /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
+    int (*open) (struct inode *, struct file *);
+    /* 当已打开文件的引用计数减少时,VFS调用该函数 */
+    int (*flush) (struct file *, fl_owner_t id);
+};
+
+/*********************************以下定义VFS相关的其他数据结构****************************************/
+/********************************* 文件系统类型 ***************************/
+// 一个文件系统对应一个file_system_type
+struct file_system_type {
+    const char              *name;          /* 文件系统名称 */
+    int                     fs_flags;       /* 文件系统类型标志 */
+    /* 从磁盘中读取超级块,并且在文件系统被安装时,在内存中组装超级块对象 */
+    int (*get_sb) (struct file_system_type *, int,
+                   const char *, void *, struct vfsmount *);
+    /* 终止访问超级块 */
+    void (*kill_sb) (struct super_block *);
+    struct module           *owner;         /* 文件系统模块 */
+    struct file_system_type * next;         /* 链表中下一个文件系统类型 */
+    struct list_head        fs_supers;      /* 超级块对象链表 */
+
+    /* 下面都是运行时的锁 */
+    struct lock_class_key   s_lock_key;
+    struct lock_class_key   s_umount_key;
+
+    struct lock_class_key   i_lock_key;
+    struct lock_class_key   i_mutex_key;
+    struct lock_class_key   i_mutex_dir_key;
+    struct lock_class_key   i_alloc_sem_key;
+};
+
+/********************************* 文件系统实例 ***************************/
+// 一个文件系统实例对应一个vfsmount，被安装时会在安装点创建一个
+struct vfsmount {
+    struct list_head        mnt_hash;           /* 散列表 */
+    struct vfsmount         *mnt_parent;        /* 父文件系统，也就是要挂载到哪个文件系统 */
+    struct dentry           *mnt_mountpoint;    /* 安装点的目录项 */
+    struct dentry           *mnt_root;          /* 该文件系统的根目录项 */
+    struct super_block      *mnt_sb;            /* 该文件系统的超级块 */
+    struct list_head        mnt_mounts;         /* 子文件系统链表 */
+    struct list_head        mnt_child;          /* 子文件系统链表 */
+    int                     mnt_flags;          /* 安装标志 */
+    /* 4 bytes hole on 64bits arches */
+    const char              *mnt_devname;       /* 设备文件名 e.g. /dev/dsk/hda1 */
+    struct list_head        mnt_list;           /* 描述符链表 */
+    struct list_head        mnt_expire;         /* 到期链表的入口 */
+    struct list_head        mnt_share;          /* 共享安装链表的入口 */
+    struct list_head        mnt_slave_list;     /* 从安装链表 */
+    struct list_head        mnt_slave;          /* 从安装链表的入口 */
+    struct vfsmount         *mnt_master;        /* 从安装链表的主人 */
+    struct mnt_namespace    *mnt_ns;            /* 相关的命名空间 */
+    int                     mnt_id;             /* 安装标识符 */
+    int                     mnt_group_id;       /* 组标识符 */
+    /*
+     * We put mnt_count & mnt_expiry_mark at the end of struct vfsmount
+     * to let these frequently modified fields in a separate cache line
+     * (so that reads of mnt_flags wont ping-pong on SMP machines)
+     */
+    atomic_t                mnt_count;          /* 使用计数 */
+    int                     mnt_expiry_mark;    /* 如果标记为到期，则为 True */
+    int                     mnt_pinned;         /* "钉住"进程计数 */
+    int                     mnt_ghosts;         /* "镜像"引用计数 */
+    atomic_t                mnt_writers;        /* 写者引用计数 */
+//#ifdef CONFIG_SMP
+//    int                     *mnt_writers;       /* 写者引用计数 */
+//#else
+//    int                     mnt_writers;        /* 写者引用计数 */
+//#endif
+};
+
 
 
 // 函数声明

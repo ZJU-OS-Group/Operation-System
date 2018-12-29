@@ -21,8 +21,8 @@ u32 vfs_cat(const u8 *path){
     }
 
     // 读取文件内容到缓存区
-    // base = 0;
-    // file_size = file->f_dentry->d_inode->i_size;
+     base = 0;
+     file_size = file->f_dentry->d_inode->i_size;
 
     // buf = (u8*) kmalloc (file_size + 1);
     // if ( vfs_read(file, buf, file_size, &base) != file_size )
