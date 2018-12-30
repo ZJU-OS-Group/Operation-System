@@ -153,12 +153,8 @@ struct file_operations {
     ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
     /* 由系统调用write()调用它 */
     ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
-    /* 由系统调用 aio_read() 调用它 */
-    ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
-    /* 由系统调用 aio_write() 调用它 */
-    ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
-    /* 将给定文件映射到指定的地址空间上,由系统调用 mmap 调用它 */
-    int (*mmap) (struct file *, struct vm_area_struct *);
+    /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
+    int (*readdir) (struct file *, void *, filldir_t);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
     int (*open) (struct inode *, struct file *);
     /* 当已打开文件的引用计数减少时,VFS调用该函数 */
