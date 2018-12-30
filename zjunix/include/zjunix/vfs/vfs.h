@@ -3,13 +3,22 @@
 #include <zjunix/type.h>
 #include <zjunix/list.h>
 
-// 文件打开方式，即open函数的入参flags。打开文件时用，vfs_open第二个参数
+// 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                   // read only 只读
 #define O_WRONLY	                            0x0001                   // write only 只写
 #define O_RDWR		                            0x0002                   // read & write 可读可写
 
+// 文件查找方式，即lookup函数的参数flags。path_lookup的第二个参数，查找文件时用
+#define LOOKUP_FOLLOW                           0x0001                  // 如果最后一个分量是符号链接，则追踪（解释）它
+#define LOOKUP_DIRECTORY                        0x0002                  // 最后一个分量必须是目录
+#define LOOKUP_CONTINUE                         0x0004                  // 在路径名中还有文件名要检查
+#define LOOKUP_PARENT                           0x0010                  // 查找最后一个分量所在的目录
+#define LOOKUP_CREATE                           0x0200                  // 试图创建一个文件
+
+
 /*********************************以下定义VFS的四个主要对象********************************************/
 /********************************* 超级块 *********************************/
+// 文件系统的有关信息
 struct super_block {
     struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
@@ -40,12 +49,14 @@ struct super_operations {
 };
 
 /******************************* 索引节点 *********************************/
+// 具体文件的一般信息，索引节点号唯一标识
 struct inode {
     struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
     struct list_head                    i_list;         /* 索引节点链表 */
     struct list_head                    i_sb_list;      /* 超级块链表超级块  */
     struct list_head                    i_dentry;       /* 目录项链表 */
     unsigned long                       i_ino;          /* 节点号 */
+    unsigned long                       i_state;        /* 索引节点的状态标志 */
     atomic_t                            i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
     uid_t                               i_uid;          /* 使用者id */
@@ -61,6 +72,7 @@ struct inode {
     unsigned int                        i_flags;        /* 文件系统标志 */
     void                                *i_private;     /* fs 私有指针 */
 };
+// i_state: I_DIRTY_SYNC, I_DIRTY_DATASYNC, I_DIRTY_PAGES对应的磁盘索引节点必须被更新（I_DIRTY宏可检测）
 // 索引节点操作函数
 struct inode_operations {
     /* 为dentry对象创造一个新的索引节点 */
@@ -78,6 +90,7 @@ struct inode_operations {
 };
 
 /********************************* 目录项 *********************************/
+// 目录项与对应文件进行链接的相关信息
 struct dentry {
     atomic_t                        d_count;                /* 使用计数 */
     unsigned int                    d_flags;                /* 目录项标识 */
@@ -121,6 +134,7 @@ struct dentry_operations {
 };
 
 /********************************** 文件 *********************************/
+// 仅进程访问文件期间存在于内核内存中
 struct file {
     union {
         struct list_head            fu_list;        /* 文件对象链表 */
@@ -215,7 +229,18 @@ struct vfsmount {
 //#endif
 };
 
-
+/********************************* 查找操作结果 ***************************/
+struct nameidata {
+    struct dentry       *dentry         /* 目录项对象的地址 */
+    struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
+    struct qstr         last;           /* 路径名的最后一个分量（LOOKUP_PARENT标志被设置时使用） */
+    u32                 flags;          /* 查找标志 */
+    u32                 last_type;      /* 最后一个分量的文件类型（LOOKUP_PARENT标志被设置时使用） */
+    unsigned int        depth;          /* 符号链接嵌套的当前级别，必须小于6 */
+    union {                             /* 单个成员联合体，指定如何访问文件 */
+        struct open_intent open;
+    } intent;
+};
 
 // 函数声明
 
