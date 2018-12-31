@@ -239,7 +239,11 @@ struct nameidata {
 };
 
 // 函数声明
+// open.c for file open system call
 
+// read_write.c for file read and write system call
+
+//
 
 // for user command
 u32 vfs_cat(const u8 *);
