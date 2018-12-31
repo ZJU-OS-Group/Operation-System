@@ -4,9 +4,10 @@
 #include <zjunix/list.h>
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
-#define O_RDONLY	                            0x0000                   // read only 只读
-#define O_WRONLY	                            0x0001                   // write only 只写
-#define O_RDWR		                            0x0002                   // read & write 可读可写
+#define O_RDONLY	                            0x0000                  // read only 只读
+#define O_WRONLY	                            0x0001                  // write only 只写
+#define O_RDWR		                            0x0002                  // read & write 可读可写
+#define O_ACCMODE                               0x0003                  //
 
 // 文件查找方式，即lookup函数的参数flags。path_lookup的第二个参数，查找文件时用
 #define LOOKUP_FOLLOW                           0x0001                  // 如果最后一个分量是符号链接，则追踪（解释）它
@@ -14,6 +15,10 @@
 #define LOOKUP_CONTINUE                         0x0004                  // 在路径名中还有文件名要检查
 #define LOOKUP_PARENT                           0x0010                  // 查找最后一个分量所在的目录
 #define LOOKUP_CREATE                           0x0200                  // 试图创建一个文件
+
+// 文件打开后用
+#define FMODE_READ		                        0x1                     // 文件为读而打开
+#define FMODE_WRITE		                        0x2                     // 文件为写而打开
 
 
 /*********************************以下定义VFS的四个主要对象********************************************/
@@ -141,6 +146,8 @@ struct file {
         struct rcu_head             fu_rcuhead;     /* 释放之后的RCU链表 */
     } f_u;
     struct path                     f_path;         /* 包含的目录项 */
+    u32 		                    f_flags;        /* 当打开文件时所指定的标志 */
+    u32			                    f_mode;         /* 进程的访问方式 */
     u32                             f_pos;          /* 文件当前的读写位置 */
     const struct file_operations    *f_op;          /* 文件操作函数 */
     atomic_long_t                   f_count;        /* 文件对象引用计数 */
@@ -240,6 +247,11 @@ struct nameidata {
 
 // 函数声明
 // open.c for file open system call
+struct file * vfs_open(const u8 *, u32, u32);
+struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
+
+// namei.c for open_namei related functions
+u32 open_namei(const u8 *, u32, u32, struct nameidata *)
 
 // read_write.c for file read and write system call
 
