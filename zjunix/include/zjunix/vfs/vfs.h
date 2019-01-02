@@ -157,9 +157,9 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
     loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-    ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+    ssize_t (*read) (struct file *, char* , size_t, loff_t *);
     /* 由系统调用write()调用它 */
-    ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+    ssize_t (*write) (struct file *, const char* , size_t, loff_t *);
     /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
     int (*readdir) (struct file *, void *, filldir_t);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
@@ -234,7 +234,7 @@ struct vfsmount {
 
 /********************************* 查找操作结果 ***************************/
 struct nameidata {
-    struct dentry       *dentry         /* 目录项对象的地址 */
+    struct dentry       *dentry;         /* 目录项对象的地址 */
     struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
     struct qstr         last;           /* 路径名的最后一个分量（LOOKUP_PARENT标志被设置时使用） */
     u32                 flags;          /* 查找标志 */
@@ -251,7 +251,7 @@ struct file * vfs_open(const u8 *, u32, u32);
 struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
 
 // namei.c for open_namei related functions
-u32 open_namei(const u8 *, u32, u32, struct nameidata *)
+u32 open_namei(const u8 *, u32, u32, struct nameidata *);
 
 // read_write.c for file read and write system call
 
@@ -265,4 +265,6 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
+u32 read_block(u8 *, u32, u32);
+u32 write_block(u8 *, u32, u32);
 #endif

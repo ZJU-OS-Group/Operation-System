@@ -3,6 +3,7 @@
 //
 #include <zjunix/type.h>
 #include <zjunix/list.h>
+#include <zjunix/type.h>
 
 struct cache {
     u8 cache_size;
