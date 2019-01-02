@@ -22,7 +22,7 @@ struct file *vfs_open(const u8 *filename, u32 flags, u32 mode) {
 
 struct file *get_empty_file_pointer() {
     struct file* f = (struct file* ) kmalloc ( sizeof(struct file) );
-    INIT_LIST_HEAD(&f->f_list);
+    INIT_LIST_HEAD(&f->f_u.fu_list);
     return f;
 }
 
@@ -39,14 +39,21 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     }
 
     f->f_flags = flags;
+    f->f_flags &= ~(O_CREAT);
     f->f_mode = (flags+1) & O_ACCMODE;
     inode = dentry->d_inode;
     if (f->f_mode & FMODE_WRITE) {
+        // TODO: continue...
     }
+    f->f_mode = ((flags+1) & O_ACCMODE) | FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE ; // 用来干嘛的，我也不知道呜呜呜
     f->f_dentry = dentry;
-    // TODO: continue...
+    f->f_vfsmnt = mnt;
+    f->f_pos = 0;
+    f->f_op = inode->i_fop; // 附上节点的操作函数
+    return f;
 
-cleanup_dentry:
+
+    cleanup_dentry:
     dput(dentry);
-    return ERR_PTR(error);
+    return ERR_PTR(err);
 }
