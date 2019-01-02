@@ -16,7 +16,7 @@ u32 fs_open_dir(FS_FAT_DIR *dir, u8 *filename) {
     u32 i;
 
     if (filename[0] != '/')
-        goto fs_open_dir_err;
+        goto fs_open_dir_err;  //如果指定地址
 
     dir->cur_sector = fs_dataclus2sec(2);
     dir->loc = 0;

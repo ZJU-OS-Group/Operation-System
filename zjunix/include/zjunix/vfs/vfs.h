@@ -264,9 +264,9 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
 //    loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-//    u32 (*read) (struct file *, char __user *, size_t, loff_t *);
+    ssize_t (*read) (struct file *, char* , size_t, loff_t *);
     /* 由系统调用write()调用它 */
-//    u32 (*write) (struct file *, const char __user *, size_t, loff_t *);
+    ssize_t (*write) (struct file *, const char* , size_t, loff_t *);
     /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
 //    u32 (*readdir) (struct file *, void *, filldir_t);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
@@ -276,6 +276,18 @@ struct file_operations {
 };
 
 
+/********************************* 查找操作结果 ***************************/
+struct nameidata {
+    struct dentry       *dentry;         /* 目录项对象的地址 */
+    struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
+    struct qstr         last;           /* 路径名的最后一个分量（LOOKUP_PARENT标志被设置时使用） */
+    u32                 flags;          /* 查找标志 */
+    u32                 last_type;      /* 最后一个分量的文件类型（LOOKUP_PARENT标志被设置时使用） */
+    unsigned int        depth;          /* 符号链接嵌套的当前级别，必须小于6 */
+    union {                             /* 单个成员联合体，指定如何访问文件 */
+        struct open_intent open;
+    } intent;
+};
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
@@ -311,4 +323,6 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
+u32 read_block(u8 *, u32, u32);
+u32 write_block(u8 *, u32, u32);
 #endif
