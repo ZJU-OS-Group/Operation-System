@@ -2,6 +2,13 @@
 #define _ZJUNIX_VFS_VFS_H
 #include <zjunix/type.h>
 #include <zjunix/list.h>
+#include <zjunix/vfs/errno.h>
+#include <zjunix/slab.h>
+
+#define         SECTOR_SIZE                     512
+#define         SECTOR_LOG_SIZE                 9
+#define         S_CLEAR                         0
+#define         S_DIRTY                         1
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                  // read only 只读
@@ -30,10 +37,13 @@ struct super_block {
     struct dentry                   *s_root;        /* 目录挂载点 */
     struct mutex                    s_lock;         /* 超级块信号量 */
     int                             s_count;        /* 超级块引用计数 */
-
     struct list_head                s_inodes;       /* inode链表 */
     struct mtd_info                 *s_mtd;         /* 存储磁盘信息 */
     fmode_t                         s_mode;         /* 安装权限 */
+    u8                              s_dirt;         /* 是否被写脏    */
+    u32                             s_block_size;   /* 以字节为单位的块大小 */
+    void                            *s_fs_info;     /* 指向文件系统基本信息的指针 */
+    struct file_system_type         *s_type;        /* 指向文件系统类型的指针 */
 };
 // 超级块操作函数
 struct super_operations {
@@ -265,6 +275,6 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
-u32 read_block(u8 *, u32, u32);
-u32 write_block(u8 *, u32, u32);
+u32 read_block(u8 *buf, u32 addr, u32 count);
+u32 write_block(u8 *buf, u32 addr, u32 count);
 #endif
