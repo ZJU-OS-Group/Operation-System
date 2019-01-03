@@ -208,9 +208,9 @@ struct inode_operations {
     int (*link) (struct dentry *,struct inode *,struct dentry *);
     /* 被系统调用mkdir()调用，创建一个新目录，mode指定创建时的初始模式 */
     int (*mkdir) (struct inode*, struct dentry*, u32);
-    /* 被系统调用rmdir()调用，删除 */
+    /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
     int (*rmdir) (struct inode*, struct dentry*);
-    /* */
+    /* 该函数由VFS调用，重命名，前两个是原文件和原目录 */
     int (*rename) (struct inode*, struct dentry*, struct indoe*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
