@@ -176,14 +176,16 @@ struct super_operations {
 /******************************* 索引节点 *********************************/
 // 具体文件的一般信息，索引节点号唯一标识
 struct inode {
-//    struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
+    struct list_head                    i_hash;         /* 散列表，用于快速查找inode */
     struct list_head                    i_list;         /* 索引节点链表 */
     struct list_head                    i_sb_list;      /* 超级块链表超级块  */
     struct list_head                    i_dentry;       /* 目录项链表 */
     unsigned long                       i_ino;          /* 节点号 */
     unsigned long                       i_state;        /* 索引节点的状态标志 */
-//    atomic_t                            i_count;        /* 引用计数 */
+    unsigned long                       i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
+    u32                                 i_block_size;   /* 块大小 */
+    u32                                 i_block_size_bit;   /* 块大小位数 */
 //    uid_t                               i_uid;          /* 使用者id */
 //    gid_t                               i_gid;          /* 使用组id */
 //    struct timespec                     i_atime;        /* 最后访问时间 */
