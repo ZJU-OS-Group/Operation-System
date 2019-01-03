@@ -1,3 +1,5 @@
+#include <zjunix/vfs/vfs.h>
+
 void dput(struct dentry *dentry) {
     dentry->d_count -= 1;
 }

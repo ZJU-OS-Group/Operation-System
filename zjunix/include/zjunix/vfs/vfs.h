@@ -2,8 +2,11 @@
 #define _ZJUNIX_VFS_VFS_H
 #include <zjunix/type.h>
 #include <zjunix/list.h>
+#include <zjunix/vfs/err.h>
 #include <zjunix/vfs/errno.h>
+#include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
+#include <ntsid.h>
 
 #define         SECTOR_SIZE                     512
 #define         SECTOR_LOG_SIZE                 9
@@ -143,10 +146,8 @@ struct super_block {
     struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
     struct dentry                   *s_root;        /* 目录挂载点 */
-    struct mutex                    s_lock;         /* 超级块信号量 */
     struct list_head                s_inodes;       /* inode链表 */
-    fmode_t                         s_mode;         /* 安装权限 */
-    u8                              s_dirt;         /* 是否被写脏    */
+    u8                              s_dirt;         /* 是否被写脏 */
     u32                             s_block_size;   /* 以字节为单位的块大小 */
     void                            *s_fs_info;     /* 指向文件系统基本信息的指针 */
     u32                             s_count;        /* 超级块引用计数 */
@@ -205,6 +206,12 @@ struct inode_operations {
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
+    /* 被系统调用mkdir()调用，创建一个新目录，mode指定创建时的初始模式 */
+    int (*mkdir) (struct inode*, struct dentry*, u32);
+    /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
+    int (*rmdir) (struct inode*, struct dentry*);
+    /* 该函数由VFS调用，重命名，前两个是原文件和原目录 */
+    int (*rename) (struct inode*, struct dentry*, struct indoe*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
     /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */
@@ -277,29 +284,15 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
 //    loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-    ssize_t (*read) (struct file *, char* , size_t, loff_t *);
+    long (*read) (struct file *, char* , u32,  long long *);
     /* 由系统调用write()调用它 */
-    ssize_t (*write) (struct file *, const char* , size_t, loff_t *);
+    long (*write) (struct file *, const char* , u32, long long *);
     /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
 //    u32 (*readdir) (struct file *, void *, filldir_t);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
-    u32 (*open) (struct inode *, struct file *);
+    int (*open) (struct inode *, struct file *);
     /* 当已打开文件的引用计数减少时,VFS调用该函数 */
 //    u32 (*flush) (struct file *, fl_owner_t id);
-};
-
-
-/********************************* 查找操作结果 ***************************/
-struct nameidata {
-    struct dentry       *dentry;         /* 目录项对象的地址 */
-    struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
-    struct qstr         last;           /* 路径名的最后一个分量（LOOKUP_PARENT标志被设置时使用） */
-    u32                 flags;          /* 查找标志 */
-    u32                 last_type;      /* 最后一个分量的文件类型（LOOKUP_PARENT标志被设置时使用） */
-    unsigned int        depth;          /* 符号链接嵌套的当前级别，必须小于6 */
-    union {                             /* 单个成员联合体，指定如何访问文件 */
-        struct open_intent open;
-    } intent;
 };
 
 /****************************************** 以下是函数声明 ***************************************/
@@ -318,6 +311,11 @@ struct dentry * __lookup_hash(struct qstr *, struct dentry *, struct nameidata *
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
 
 // read_write.c for file read and write system call
+u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos);
+u32 vfs_write(struct file *file, char *buf, u32 count, u32 *pos);
+u32 generic_file_read(struct file *, u8 *, u32, u32 *);
+u32 generic_file_write(struct file *, u8 *, u32, u32 *);
+u32 generic_file_flush(struct file *);
 
 // dcache.c for dentry cache
 void dget(struct dentry *);
