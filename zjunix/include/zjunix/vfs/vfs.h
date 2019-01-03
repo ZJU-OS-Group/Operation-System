@@ -7,7 +7,6 @@
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
 #include <zjunix/vfs/vfscache.h>
-#include <ntsid.h>
 
 #define         SECTOR_SIZE                     512
 #define         SECTOR_LOG_SIZE                 9
@@ -158,6 +157,19 @@ struct condition {
     void    *cond3;
 };
 
+/********************************* 单个目录项结构 *****************************/
+struct dirent {
+    u32                                 ino;                    // inode 号
+    u8                                  type;                   // 文件类型
+    const u8                            *name;                  // 文件名
+};
+
+/********************************* 获取目录项结构 *****************************/
+struct getdent {
+    u32                                 count;                  // 目录项数
+    struct dirent                       *dirent;                // 目录项数组
+};
+
 /*********************************以下定义VFS的四个主要对象********************************************/
 /********************************* 超级块 *********************************/
 // 文件系统的有关信息
@@ -250,7 +262,7 @@ struct dentry {
 //    spinlock_t                      d_lock;                 /* 单目录项锁 */
     u32                             d_mounted;              /* 是否登录点的目录项 */
     struct inode                    *d_inode;               /* 相关联的索引节点 */
-    struct hlist_head                d_hash;                 /* 散列表 */
+    struct list_head                d_hash;                 /* 散列表 */
     struct dentry                   *d_parent;              /* 父目录的目录项对象 */
     struct qstr                     d_name;                 /* 目录项名称 */
     struct list_head                d_lru;                  /* 未使用的链表 */
@@ -310,7 +322,7 @@ struct file_operations {
     /* 由系统调用write()调用它 */
     long (*write) (struct file *, const char* , u32, long long *);
     /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
-//    u32 (*readdir) (struct file *, void *, filldir_t);
+    u32 (*readdir) (struct file *, struct getdent *);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
     int (*open) (struct inode *, struct file *);
     /* 当已打开文件的引用计数减少时,VFS调用该函数 */
@@ -338,11 +350,6 @@ u32 vfs_write(struct file *file, char *buf, u32 count, u32 *pos);
 u32 generic_file_read(struct file *, u8 *, u32, u32 *);
 u32 generic_file_write(struct file *, u8 *, u32, u32 *);
 u32 generic_file_flush(struct file *);
-
-// dcache.c for dentry cache
-void dget(struct dentry *);
-void dput(struct dentry *);
-struct dentry * d_lookup(struct dentry *, struct qstr *);
 
 // mount.c for file system mount
 u32 follow_mount(struct vfsmount **, struct dentry **);
