@@ -155,7 +155,7 @@ struct address_space_operations {
     /* 从外存读入一页 */
     u32 (*readpage)(struct vfs_page *);
     /* 映射，根据由相对文件页号得到相对物理页号 */
-    u32 (*bmap)(struct inode *, u32);
+    u32 (*bitmap)(struct inode *, u32);
 };
 
 /********************************* 查找用目录结构 *****************************/
@@ -337,7 +337,7 @@ struct file_operations {
     long (*read) (struct file *, char* , u32,  long long *);
     /* 由系统调用write()调用它 */
     long (*write) (struct file *, const char* , u32, long long *);
-    /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
+    /* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
     u32 (*readdir) (struct file *, struct getdent *);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
     int (*open) (struct inode *, struct file *);

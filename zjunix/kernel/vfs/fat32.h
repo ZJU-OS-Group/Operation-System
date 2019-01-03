@@ -47,13 +47,13 @@ struct fat32_dos_boot_record
 //0x30~0x31：2字节，FSINFO（文件系统信息扇区）扇区号0x01，该扇区为操作系统提供关于空簇总数及下一可用簇的信息。
 //0x52~0x59：8字节，文件系统格式的ASCII码，FAT32。
 //0x5A~0x1FD：共410字节，引导代码。
-}
+};
 
 struct fat32_file_system_information
 {
     u32 base;                              // 基地址（绝对扇区地址）
     u8 data[SECTOR_SIZE];                               // 数据
-}
+};
 
 struct fat32_file_allocation_table
 {
@@ -68,7 +68,7 @@ struct fat32_file_allocation_table
                                                     //0x0FFFFFF0 - 0x0FFFFFF6	保留值
                                                     //0x0FFFFFF7 	坏簇
                                                     //0x0FFFFFF8 - 0x0FFFFFFF 	文件最后一个簇
-}
+};
 
 struct __attribute__((__packed__)) fat_dir_entry {
     u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];             // 文件名(含拓展名)
@@ -89,11 +89,12 @@ u32 init_fat32(u32);
 u32 fat32_delete_inode(struct dentry *);
 u32 fat32_write_inode(struct inode *, struct dentry *);
 struct dentry* fat32_inode_lookup(struct inode *, struct dentry *, struct nameidata *);
-//u32 fat32_create(struct inode *, struct dentry *, u32 mode, struct nameidata *);
+u32 fat32_create(struct inode *, struct dentry *, u32 mode, struct nameidata *);
 u32 fat32_readdir(struct file *, struct getdent *);
 void fat32_convert_filename(struct qstr*, const struct qstr*, u8, u32);
 u32 fat32_readpage(struct vfs_page *);
 u32 fat32_writepage(struct vfs_page *);
 u32 fat32_bitmap(struct inode *, u32);
+u32 generic_compare_filename();
 u32 read_fat(struct inode *, u32);
 #endif

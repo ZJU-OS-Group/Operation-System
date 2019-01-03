@@ -31,7 +31,7 @@ struct inode_operations fat32_inode_operations[2] = {
 };
 
 struct dentry_operations fat32_dentry_operations = {
-    .compare    = generic_compare_filename,
+    .d_compare    = generic_compare_filename,
 };
 
 struct file_operations fat32_file_operations = {
@@ -60,43 +60,43 @@ u32 init_fat32(u32 base)
         return -ENOMEM;
 
     // 构建 fat32_dos_boot_record 结构
-    fat32_BI->fa_DBR = (struct fat32_dos_boot_record *) kmalloc ( sizeof(struct fat32_dos_boot_record) );
-    if (fat32_BI->fa_DBR == 0)
+    fat32_BI->fat32_DBR = (struct fat32_dos_boot_record *) kmalloc ( sizeof(struct fat32_dos_boot_record) );
+    if (fat32_BI->fat32_DBR == 0)
         return -ENOMEM;
-    fat32_BI->fa_DBR->base = base;
-    kernel_memset(fat32_BI->fa_DBR->data, 0, sizeof(fat32_BI->fa_DBR->data));
-    err = read_block(fat32_BI->fa_DBR->data, fat32_BI->fa_DBR->base, 1);        // DBR在基地址所在的一个扇区
+    fat32_BI->fat32_DBR->base = base;
+    kernel_memset(fat32_BI->fat32_DBR->data, 0, sizeof(fat32_BI->fat32_DBR->data));
+    err = read_block(fat32_BI->fat32_DBR->data, fat32_BI->fat32_DBR->base, 1);        // DBR在基地址所在的一个扇区
     if (err)
         return -EIO;
-    fat32_BI->fa_DBR->system_sign_and_version = get_u32(fat32_BI->fa_DBR->data + 0x03);
-    fat32_BI->fa_DBR->sec_per_clu   = *(fat32_BI->fa_DBR->data + 0x0D);
-    fat32_BI->fa_DBR->reserved      = get_u16 (fat32_BI->fa_DBR->data + 0x0E);
-    fat32_BI->fa_DBR->fat_num       = *(fat32_BI->fa_DBR->data + 0x10);
-    fat32_BI->fa_DBR->sec_num       = get_u16 (fat32_BI->fa_DBR->data + 0x20);
-    fat32_BI->fa_DBR->fat_size      = get_u32 (fat32_BI->fa_DBR->data + 0x24);
-    fat32_BI->fa_DBR->fat32_version = get_u16 (fat32_BI->fa_DBR->data + 0x2A)
-    fat32_BI->fa_DBR->root_clu      = get_u32 (fat32_BI->fa_DBR->data + 0x2C);
-    fat32_BI->fa_DBR->system_format_ASCII = (char*) (fat32_BI->fat32_DBR->data + 0x52)
+    fat32_BI->fat32_DBR->system_sign_and_version = get_u32(fat32_BI->fat32_DBR->data + 0x03);
+    fat32_BI->fat32_DBR->sec_per_clu   = *(fat32_BI->fat32_DBR->data + 0x0D);
+    fat32_BI->fat32_DBR->reserved      = get_u16 (fat32_BI->fat32_DBR->data + 0x0E);
+    fat32_BI->fat32_DBR->fat_num       = *(fat32_BI->fat32_DBR->data + 0x10);
+    fat32_BI->fat32_DBR->sec_num       = get_u16 (fat32_BI->fat32_DBR->data + 0x20);
+    fat32_BI->fat32_DBR->fat_size      = get_u32 (fat32_BI->fat32_DBR->data + 0x24);
+    fat32_BI->fat32_DBR->fat32_version = get_u16 (fat32_BI->fat32_DBR->data + 0x2A)
+    fat32_BI->fat32_DBR->root_clu      = get_u32 (fat32_BI->fat32_DBR->data + 0x2C);
+    fat32_BI->fat32_DBR->system_format_ASCII = (char*) (fat32_BI->fat32_DBR->data + 0x52)
 
     // 构建 fat32_file_system_information 结构
-    fat32_BI->fa_FSINFO = (struct fat32_file_system_information *) kmalloc \
+    fat32_BI->fat32_FSINFO = (struct fat32_file_system_information *) kmalloc \
         ( sizeof(struct fat32_file_system_information) );
-    if (fat32_BI->fa_FSINFO == 0)
+    if (fat32_BI->fat32_FSINFO == 0)
         return -ENOMEM;
-    fat32_BI->fa_FSINFO->base = fat32_BI->fa_DBR->base + 1;                     // FSINFO在基地址后一个扇区
-    kernel_memset(fat32_BI->fa_FSINFO->data, 0, sizeof(fat32_BI->fa_FSINFO->data));
-    err = read_block(fat32_BI->fa_FSINFO->data, fat32_BI->fa_FSINFO->base, 1);
+    fat32_BI->fat32_FSINFO->base = fat32_BI->fat32_DBR->base + 1;                     // FSINFO在基地址后一个扇区
+    kernel_memset(fat32_BI->fat32_FSINFO->data, 0, sizeof(fat32_BI->fat32_FSINFO->data));
+    err = read_block(fat32_BI->fat32_FSINFO->data, fat32_BI->fat32_FSINFO->base, 1);
     if (err)
         return -EIO;
 
         // 构建 fat32_file_allocation_table 结构
-    fat32_BI->fa_FAT1 = (struct fat32_file_allocation_table *) kmalloc ( sizeof(struct fat32_file_allocation_table) );
-    if (fat32_BI->fa_FAT1 == 0)
+    fat32_BI->fat32_FAT1 = (struct fat32_file_allocation_table *) kmalloc ( sizeof(struct fat32_file_allocation_table) );
+    if (fat32_BI->fat32_FAT1 == 0)
         return -ENOMEM;
-    fat32_BI->fa_FAT1->base = base + fat32_BI->fa_DBR->reserved;                 // FAT起始于非保留扇区开始的扇区
+    fat32_BI->fat32_FAT1->base = base + fat32_BI->fat32_DBR->reserved;                 // FAT起始于非保留扇区开始的扇区
 
-    fat32_BI->fa_FAT1->data_sec = fat32_BI->fa_FAT1->base + fat32_BI->fa_DBR->fat_num * fat32_BI->fa_DBR->fat_size;
-    fat32_BI->fa_FAT1->root_sec = fat32_BI->fa_FAT1->data_sec + ( fat32_BI->fa_DBR->root_clu - 2 ) * fat32_BI->fa_DBR->sec_per_clu;
+    fat32_BI->fat32_FAT1->data_sec = fat32_BI->fat32_FAT1->base + fat32_BI->fat32_DBR->fat_num * fat32_BI->fat32_DBR->fat_size;
+    fat32_BI->fat32_FAT1->root_sec = fat32_BI->fat32_FAT1->data_sec + ( fat32_BI->fat32_DBR->root_clu - 2 ) * fat32_BI->fat32_DBR->sec_per_clu;
     for(i = 0;i < FAT32_CLUSTER_NUM;i++)
         fat32_BI->fat32_FAT1->clu_situ[i] = 0x00000000;
         
