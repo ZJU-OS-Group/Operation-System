@@ -41,7 +41,7 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 
 }
 
-u32 generic_file_flush(struct file *)
+u32 generic_file_flush(struct file * file)
 {
 
 }
