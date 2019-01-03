@@ -44,7 +44,7 @@ struct file_operations fat32_file_operations = {
 struct address_space_operations fat32_address_space_operations = {
     .writepage  = fat32_writepage,
     .readpage   = fat32_readpage,
-    .bmap       = fat32_bitmap,
+    .bitmap       = fat32_bitmap,
 };
 
 u32 init_fat32(u32 base)
