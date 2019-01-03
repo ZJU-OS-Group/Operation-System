@@ -101,3 +101,8 @@ void release_page(struct vfs_page* page){
     kfree(page->page_data);
     kfree(page);
 }
+
+int getIntHash(long key, long size)
+{
+    return key & (size + 1);
+}

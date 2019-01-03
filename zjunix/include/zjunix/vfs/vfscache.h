@@ -54,8 +54,8 @@ struct dentry * d_alloc(struct dentry *, const struct qstr *);
 void* pcache_look_up(struct cache*, struct condition*);
 void pcache_add(struct cache*, void*);
 void pcache_write_back(void*);
-
-// vfscache.c for generic cache
+//
+int getIntHash(long , long);
 void release_dentry(struct dentry *dentry);
 void release_inode(struct inode *inode);
 void release_page(struct vfs_page* page);
