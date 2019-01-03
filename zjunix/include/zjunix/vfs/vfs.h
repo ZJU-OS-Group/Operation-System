@@ -6,9 +6,10 @@
 #include <zjunix/vfs/errno.h>
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
-#include <ntsid.h>
+#include <driver/sd.h>
 
-#define         SECTOR_SIZE                     512
+
+#define         SECTOR_BYTE_SIZE                512
 #define         SECTOR_LOG_SIZE                 9
 #define         S_CLEAR                         0
 #define         S_DIRTY                         1
@@ -347,4 +348,5 @@ u32 vfs_mv(const u8 *);
 
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
+u32 get_u32(u8 *ch);
 #endif

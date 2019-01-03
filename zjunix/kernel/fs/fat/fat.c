@@ -45,9 +45,9 @@ u32 init_fat_info() {
     dump_bpb_info(&(fat_info.BPB.attr));
 #endif
 
-    /* Sector size (MBR[11]) must be SECTOR_SIZE bytes */
-    if (fat_info.BPB.attr.sector_size != SECTOR_SIZE) {
-        log(LOG_FAIL, "FAT32 Sector size must be %d bytes, but get %d bytes.", SECTOR_SIZE, fat_info.BPB.attr.sector_size);
+    /* Sector size (MBR[11]) must be SECTOR_BYTE_SIZE bytes */
+    if (fat_info.BPB.attr.sector_size != SECTOR_BYTE_SIZE) {
+        log(LOG_FAIL, "FAT32 Sector size must be %d bytes, but get %d bytes.", SECTOR_BYTE_SIZE, fat_info.BPB.attr.sector_size);
         goto init_fat_info_err;
     }
 

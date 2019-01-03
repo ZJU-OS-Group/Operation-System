@@ -10,3 +10,6 @@ u32 write_block(u8 *buf, u32 addr, u32 count) {
     return sd_write_block(buf, addr, count);
 }
 
+u32 get_u32(u8 *ch) {
+    return (*ch) + ((*(ch + 1)) << 8) + ((*(ch + 2)) << 16) + ((*(ch + 3)) << 24);
+}

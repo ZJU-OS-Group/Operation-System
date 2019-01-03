@@ -1,4 +1,6 @@
 #include <zjunix/vfs/vfs.h>
+#include <zjunix/vfs/ext3.h>
+#include "../../../usr/myvi.h"
 
 #define     EXT3_MAX_NAME_LEN               255
 #define     EXT3_BOOT_SECTOR_SIZE           2
@@ -35,6 +37,20 @@ struct ext3_super_block {
     u16                 gid;                                // pid
     u32                 first_inode;                        // 第一个非保留的inode
     u16                 inode_size;                         // inode的大小
+    u16                 block_group;                        // 超级块的组号
+    u32                 feature_compat;                     // 能够兼容的特性
+    u32                 feature_incompat;                   // 不能够兼容的特性
+    u32                 feature_rocompat;                   // 只读的兼容特性
+    u8                  uuid[16];                           //
+    char                volume_name[16];                    //
+    char                last_mounted[64];                   //最后挂载的目录
+    u32                 usage_bitmap;                       //用于压缩
+    u8                  prealloc_blocks;                    //
+    u8                  prealloc_dir_blocks;                //
+    u16                 reserved_gdt_blocks;                //
+    u8                  journal_uuid[16];                   //日志超级块的uuid
+    u32                 journal_inum;                       //日志文件的inode number
+    u32                 journal_dev;                        //日志文件的设备号
 };
 
 struct super_operations ext3_super_ops = {
@@ -87,8 +103,6 @@ struct inode_operations ext3_inode_operations = {
 
 
 struct ext3_super_block_info {
-    u8 first_inode;
-    u8 inode_size;
 
 };
 
@@ -126,15 +140,15 @@ struct ext3_group_description {
     u32	                inode_table;                        // inode列表所在块
     u16	                free_blocks_count;                  // 空闲块数
     u16	                free_inodes_count;                  // 空闲节点数
-    u16	                dirs_count;                         // 目录数
-    u16	                pad;
-    u32	                reserved[3];                        // 保留
+    u16	                used_dirs_count;                    // 目录数
+    u16	                pad;                                // 以下均为保留
+    u32	                reserved[3];
 };
 
 struct ext3_base_information {
     u32                 base;                            // 启动块的基地址（绝对扇区地址，下同）
     u32                 first_sb_sect;                   // 第一个super_block的基地址
-    u32                 first_gd_sect;                  // 第一个组描述符表的基地址
+    u32                 first_gdt_sect;                  // 第一个组描述符表的基地址
     union {
         u8                        *fill;
         struct ext3_super_block   *content;
@@ -159,17 +173,14 @@ u32 ext3_init_base_information(u32 base){
     if (ans == 0) return -ENOMEM;
     ans->base = base;
     ans->first_sb_sect = base + EXT3_BOOT_SECTOR_SIZE;  //跨过引导区数据
-    ans->super_block.fill = (u8*) kmalloc(sizeof(u8) * EXT3_SUPER_SECTOR_SIZE * SECTOR_SIZE);  //初始化super_block区域
+    ans->super_block.fill = (u8*) kmalloc(sizeof(u8) * EXT3_SUPER_SECTOR_SIZE * SECTOR_BYTE_SIZE);  //初始化super_block区域
     if (ans->super_block.fill == 0) return -ENOMEM;
     u32 err = read_block(ans->super_block.fill,ans->first_sb_sect,EXT3_SUPER_SECTOR_SIZE);  //从指定位置开始读取super_block
     if (err) return -EIO;
     //SECTOR是物理的， BASE_BLOCK_SIZE是逻辑的
-    //引导区和超级块各占1k字节
-    //如果逻辑块只有1k的话，那么直接跳过前4个扇区就可以（2个给引导区，2个给超级块）
-    //如果大于1k的话，第一个块给引导区，第二个块给超级块
     u32 ratio = EXT3_BLOCK_SIZE_BASE << ans->super_block.content->block_size >> SECTOR_LOG_SIZE;   //一个block里放多少个sector
-    if (ratio <= 2) ans->first_gd_sect = ans->first_sb_sect + EXT3_SUPER_SECTOR_SIZE;  //如果只能放2个以内的sector，那么gb和sb将紧密排列
-    else ans->first_gd_sect = base + ratio;  //否则直接跳过第一个块
+    if (ratio <= 2) ans->first_gdt_sect = ans->first_sb_sect + EXT3_SUPER_SECTOR_SIZE;  //如果只能放2个以内的sector，那么gb和sb将紧密排列
+    else ans->first_gdt_sect = base + ratio;  //否则直接跳过第一个块
     return (u32) ans;
 }
 
@@ -219,8 +230,52 @@ u32 ext3_init_inode(struct super_block* super_block) {
     return (u32) ans;
 }
 
+u32 get_inode_table_sect(struct inode* inode) {  //通过inode寻找inode_table的地址
+    u8 target_buffer[SECTOR_BYTE_SIZE];  //存储目标组描述符内容
+    struct ext3_base_information* base_information = (struct ext3_base_information*) inode->i_sb->s_fs_info;
+    //获取当前inode内的文件系统信息
+    u32 ext3_base = base_information->base;
+    //获得ext3的基址地址
+    u32 block_size = inode->i_block_size;
+    //获得ext3的块大小
+    u32 inodes_per_group = base_information->super_block.content->inodes_per_group;
+    //获得ext3的每组内的inode数目
+    if (inode->i_ino > base_information->super_block.content->inode_num) return -EFAULT;
+    //如果inode编号超出总数量则抛出异常
+    u32 group_num = (u32) ((inode->i_ino - 1) / inodes_per_group);
+    //获取根据当前节点的节点号获取节点的组号
+    //下一步目标：找到这一个inode对应的组描述符表
+    u32 sect = base_information->first_gdt_sect + group_num / (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
+    //后面部分的算式求一个扇区有多少个组，用组号除以该数据得到inode所在组的组描述符的扇区位置
+    u32 offset = group_num % (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
+    //计算当前扇区里第几个组是inode所在的组
+    u32 err = read_block(target_buffer,sect,1);  //组标识符的全部信息都保存在target_buffer里
+    if (err) return 0;
+    u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
+    u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_BYTE_SIZE);
+    //定位到块位图所在块的起始扇区位置
+    u32 group_inode_table_base = group_sector_base + 2 * (inode->i_block_size >> SECTOR_BYTE_SIZE);
+    //往后面再移动两个块，直接定位到inode_table上
+    return group_inode_table_base;
+}
+
 u32 ext3_fill_inode(struct inode *inode) {
-    u8 target_buffer[SECTOR_SIZE];
+    u8 target_buffer[SECTOR_BYTE_SIZE];
+
+    struct ext3_base_information *ext3_base_information = inode->i_sb->s_fs_info;
+    u32 inode_size = ext3_base_information->super_block.content->inode_size;
+    u32 inode_table_base = get_inode_table_sect(inode);
+    u32 inner_index = (u32) ((inode->i_ino - 1) % ext3_base_information->super_block.content->inodes_per_group);
+    //求该inode在组内的序号
+    u32 offset_sect = inner_index /  (SECTOR_BYTE_SIZE / inode_size);
+    //求组内扇区偏移量：计算方式：下标*大小/扇区大小，之所以用两个除法是为了能够避免每个SECTOR里不能刚好容纳若干inode的情况
+    u32 inode_sect = inode_table_base + offset_sect;
+    u32 err = read_block(target_buffer,inode_sect,1);
+    if (err) return -EIO;
+    u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size));
+    // 求inode在扇区内的偏移量
+    struct ext3_inode * target_inode = (struct ext3_inode*) (target_buffer + inode_sect_offset * inode_size);
+    //计算该inode在指定扇区内的地址
 
     return 0;
 }
