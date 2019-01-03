@@ -289,7 +289,7 @@ struct dentry_operations {
     /* 为目录项对象生成hash值 */
     int (*d_hash) (struct dentry *, struct qstr *);
     /* 比较 qstr 类型的2个文件名 */
-    int (*d_compare) (struct dentry *, struct qstr *, struct qstr *);
+    int (*d_compare) (struct qstr *, struct qstr *);
     /* 当目录项对象的 d_count 为0时，VFS调用这个函数 */
     int (*d_delete)(struct dentry *);
     /* 当目录项对象将要被释放时，VFS调用该函数 */

@@ -44,7 +44,7 @@ struct cache_operations {
 // dcache.c for dentry cache
 void dget(struct dentry *);
 void dput(struct dentry *);
-struct dentry * d_lookup(struct dentry *, struct qstr *);
+void * d_lookup(struct cache *, struct condition *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
 
 #endif //OPERATION_SYSTEM_VFSCACHE_H
