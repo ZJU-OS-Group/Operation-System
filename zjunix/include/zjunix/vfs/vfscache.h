@@ -4,8 +4,17 @@
 
 #ifndef OPERATION_SYSTEM_VFSCACHE_H
 #define OPERATION_SYSTEM_VFSCACHE_H
-
+#include <zjunix/vfs/err.h>
 #include <zjunix/type.h>
+
+
+#define DCACHE_CAPACITY         64
+#define DCACHE_HASHTABLE_SIZE   16
+#define ICACHE_CAPACITY         64
+#define ICACHE_HASHTABLE_SIZE   16
+#define PCACHE_CAPACITY         64
+#define PCACHE_HASHTABLE_SIZE   16
+
 
 struct cache {
     u8 cache_size;

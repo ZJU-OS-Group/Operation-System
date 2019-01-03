@@ -226,7 +226,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
         return;
 }
 // 根据相对页号得到物理页号
-u32 fat32_bmap(struct inode* _inode, u32 pageNo)
+u32 fat32_bitmap(struct inode* _inode, u32 pageNo)
 {
     if(pageNo < 0) return -EIO;
     return _inode->i_data.a_page[pageNo];
