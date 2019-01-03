@@ -1,12 +1,15 @@
 #include "pc.h"
+#include "../../arch/mips32/intr.h"
 
 #include <driver/vga.h>
-#include <intr.h>
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
 
-task_struct pcb[8];
-int curr_proc;
+struct list_head wait;          //等待状态
+struct list_head exited;        //结束状态
+struct list_head tasks;         //所有进程
+unsigned char ready_map[32];
+struct ready_queue_element ready_queue[32];
 
 static void copy_context(context* src, context* dest) {
     dest->epc = src->epc;
@@ -43,12 +46,25 @@ static void copy_context(context* src, context* dest) {
     dest->ra = src->ra;
 }
 
+void init_pc_list() {
+
+}
+
 void init_pc() {
+    struct task_struct *idle;
+    init_pc_list();
+
     int i;
     for (i = 1; i < 8; i++)
         pcb[i].ASID = -1;
     pcb[0].ASID = 0;
-    pcb[0].counter = PROC_DEFAULT_TIMESLOTS;
+    pcb[0].time_counter = PROC_DEFAULT_TIMESLOTS;
+    for (i = 0; i < PRIORITY_LEVELS; i++)
+    {
+        ready_map[i] = 0;                               //初始化就绪位图
+        ready_queue[i].number = 0;                      //初始化队列内链表长度
+        INIT_LIST_HEAD(&(ready_queue[i].queue_head));   //初始化链表头
+    }
     kernel_strcpy(pcb[0].name, "init");
     curr_proc = 0;
     register_syscall(10, pc_kill_syscall);
@@ -71,8 +87,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     }
     if (i == 8) {
         kernel_puts("Error: PCB[0] is invalid!\n", 0xfff, 0);
-        while (1)
-            ;
+        while (1);
     }
     // Load context
     copy_context(&(pcb[curr_proc].context), pt_context);
@@ -115,7 +130,7 @@ int pc_kill(int proc) {
         return 2;
 }
 
-task_struct* get_curr_pcb() {
+struct task_struct* get_curr_pcb() {
     return &pcb[curr_proc];
 }
 

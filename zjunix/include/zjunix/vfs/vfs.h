@@ -140,7 +140,7 @@ struct path {
 /********************************* 超级块 *********************************/
 // 文件系统的有关信息
 struct super_block {
-//    struct list_head                s_list;         /* 指向所有超级块的链表 */
+    struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
     struct dentry                   *s_root;        /* 目录挂载点 */
     struct mutex                    s_lock;         /* 超级块信号量 */
