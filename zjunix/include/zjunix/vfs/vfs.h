@@ -2,6 +2,7 @@
 #define _ZJUNIX_VFS_VFS_H
 #include <zjunix/type.h>
 #include <zjunix/list.h>
+#include <zjunix/vfs/err.h>
 #include <zjunix/vfs/errno.h>
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
@@ -283,13 +284,13 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
 //    loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-    ssize_t (*read) (struct file *, char* , size_t, loff_t *);
+    long (*read) (struct file *, char* , u32,  long long *);
     /* 由系统调用write()调用它 */
-    ssize_t (*write) (struct file *, const char* , size_t, loff_t *);
+    long (*write) (struct file *, const char* , u32, long long *);
     /* 返回目录列表中的下一个目录，由系统调用readdir()调用它 */
 //    u32 (*readdir) (struct file *, void *, filldir_t);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
-    u32 (*open) (struct inode *, struct file *);
+    int (*open) (struct inode *, struct file *);
     /* 当已打开文件的引用计数减少时,VFS调用该函数 */
 //    u32 (*flush) (struct file *, fl_owner_t id);
 };
@@ -310,6 +311,11 @@ struct dentry * __lookup_hash(struct qstr *, struct dentry *, struct nameidata *
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
 
 // read_write.c for file read and write system call
+u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos);
+u32 vfs_write(struct file *file, char *buf, u32 count, u32 *pos);
+u32 generic_file_read(struct file *, u8 *, u32, u32 *);
+u32 generic_file_write(struct file *, u8 *, u32, u32 *);
+u32 generic_file_flush(struct file *);
 
 // dcache.c for dentry cache
 void dget(struct dentry *);
