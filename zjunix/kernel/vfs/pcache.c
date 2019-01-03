@@ -1,9 +1,10 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/vfscache.h>
 
-unsigned long pcache_write_back(void* obj)
+void pcache_write_back(void* obj)
 {
-
+        struct vfs_page* tempPage = (struct vfs_page*) obj;
+        tempPage->p_address_space->a_op->writepage(tempPage);
 }
 unsigned long pcache_add(struct cache* this, void* obj)
 {
