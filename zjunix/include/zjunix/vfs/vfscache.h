@@ -15,6 +15,8 @@
 #define PCACHE_CAPACITY         64
 #define PCACHE_HASHTABLE_SIZE   16
 
+#define         P_CLEAR                         0
+#define         P_DIRTY                         1
 
 #include <zjunix/vfs/vfs.h>
 struct condition;
@@ -44,9 +46,15 @@ struct cache_operations {
 // dcache.c for dentry cache
 void dget(struct dentry *);
 void dput(struct dentry *);
-struct dentry * d_lookup(struct dentry *, struct qstr *);
+struct dentry * dcache_look_up(struct dentry *, struct qstr *);
+struct dentry * dcache_add(struct dentry *, struct qstr *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
+// pcache.c for page cache
+void* pcache_look_up(struct cache* this, struct condition* conditions);
+void pcache_add(struct cache* this, void* obj);
+void pcache_write_back(),
 void release_dentry(struct dentry *dentry);
 void release_inode(struct inode *inode);
 void release_page(struct vfs_page* page);
+u8 cache_is_full(struct cache *);
 #endif //OPERATION_SYSTEM_VFSCACHE_H

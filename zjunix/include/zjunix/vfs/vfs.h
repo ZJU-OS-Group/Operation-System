@@ -7,6 +7,7 @@
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
 #include <zjunix/vfs/vfscache.h>
+#include <zjunix/utils.h>
 
 #define         SECTOR_SIZE                     512
 #define         SECTOR_LOG_SIZE                 9

@@ -80,6 +80,14 @@ unsigned long init_cache()
     return 0;
 }
 
+u8 cache_is_full(struct cache * this)
+{
+    if(this->cache_size == this->cache_capacity)
+        return 1;
+    else
+        return 0;
+}
+
 void release_dentry(struct dentry *dentry){
     kfree(dentry);
 }
