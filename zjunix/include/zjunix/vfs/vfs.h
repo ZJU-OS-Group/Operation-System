@@ -275,20 +275,6 @@ struct file_operations {
 //    u32 (*flush) (struct file *, fl_owner_t id);
 };
 
-
-/********************************* 查找操作结果 ***************************/
-struct nameidata {
-    struct dentry       *dentry;         /* 目录项对象的地址 */
-    struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
-    struct qstr         last;           /* 路径名的最后一个分量（LOOKUP_PARENT标志被设置时使用） */
-    u32                 flags;          /* 查找标志 */
-    u32                 last_type;      /* 最后一个分量的文件类型（LOOKUP_PARENT标志被设置时使用） */
-    unsigned int        depth;          /* 符号链接嵌套的当前级别，必须小于6 */
-    union {                             /* 单个成员联合体，指定如何访问文件 */
-        struct open_intent open;
-    } intent;
-};
-
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
 struct file * vfs_open(const u8 *, u32, u32);
