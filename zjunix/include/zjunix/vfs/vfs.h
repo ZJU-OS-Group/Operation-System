@@ -205,6 +205,12 @@ struct inode_operations {
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
+    /* 被系统调用mkdir()调用，创建一个新目录，mode指定创建时的初始模式 */
+    int (*mkdir) (struct inode*, struct dentry*, u32);
+    /* 被系统调用rmdir()调用，删除 */
+    int (*rmdir) (struct inode*, struct dentry*);
+    /* */
+    int (*rename) (struct inode*, struct dentry*, struct indoe*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
     /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */
