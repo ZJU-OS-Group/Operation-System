@@ -48,7 +48,7 @@ static inline struct hlist_head *d_hash(struct dentry *parent,
     return dentry_hashtable + (hash & D_HASHMASK);
 }
 
-void* d_lookup(struct cache *this, struct condition *cond) {
+void* dcache_lookup(struct cache *this, struct condition *cond) {
     u32 found;
     u32 hash;
     struct qstr         *name; // qstr 包装字符串
@@ -69,7 +69,7 @@ void* d_lookup(struct cache *this, struct condition *cond) {
     found = 0;
     while ( current->next != start ){
         current = current->next;
-        tested = container_of(current, struct dentry, d_hash);
+        tested = container_of(current, struct dentry, d_hash); // 通过d_hash的指针获得结构体的指针
         qstr = &(tested->d_name);
         if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
@@ -79,8 +79,8 @@ void* d_lookup(struct cache *this, struct condition *cond) {
 
     // 找到的话返回指向对应dentry的指针,同时更新哈希链表、LRU链表状态
     if (found) {
-        list_del(&(tested->d_hash));
-        list_add(&(tested->d_hash), &(this->c_hashtable[hash]));
+        list_del(&tested->d_hash);
+        list_add(&tested->d_hash, &(this->c_hashtable[hash]));
         list_del(&(tested->d_lru));
         list_add(&(tested->d_lru), this->c_lru);
         return (void*)tested;

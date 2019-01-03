@@ -124,6 +124,19 @@ struct nameidata {
     } intent;
 };
 
+/****************************************vfs页 ************************************************/
+struct vfs_page
+{
+    u8*     page_data;
+    u32     page_state;
+    u32     page_address;
+    struct list_head*           page_hashtable;                     // 哈希表链表
+    struct list_head*           p_lru;                      // LRU链表
+    struct list_head*           page_list;                     // 同一文件已缓冲页的链表
+    struct address_space*       p_address_space;                 // 所属的address_space结构
+
+};
+
 /********************************* 已缓存的页 ********************************/
 // 管理缓存项和页I/O操作
 struct address_space {
@@ -328,18 +341,7 @@ struct file_operations {
     /* 当已打开文件的引用计数减少时,VFS调用该函数 */
 //    u32 (*flush) (struct file *, fl_owner_t id);
 };
-/****************************************vfs页 ************************************************/
-struct vfs_page
-{
-    u8*     page_data;
-    u32     page_state;
-    u32     page_address;
-    struct list_head*           page_hashtable;                     // 哈希表链表
-    struct list_head*           p_lru;                      // LRU链表
-    struct list_head*           page_list;                     // 同一文件已缓冲页的链表
-    struct address_space*       p_address_space;                 // 所属的address_space结构
 
-};
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
 struct file * vfs_open(const u8 *, u32, u32);

@@ -20,6 +20,7 @@
 struct condition;
 struct qstr;
 struct dentry;
+struct vfs_page;
 struct cache {
     u8 cache_size;
     u8 cache_capacity;
@@ -46,6 +47,8 @@ void dget(struct dentry *);
 void dput(struct dentry *);
 void * d_lookup(struct cache *, struct condition *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
+
+// vfscache.c for generic cache
 void release_dentry(struct dentry *dentry);
 void release_inode(struct inode *inode);
 void release_page(struct vfs_page* page);
