@@ -6,7 +6,10 @@
 #define OPERATION_SYSTEM_VFSCACHE_H
 
 #include <zjunix/type.h>
-
+#include <zjunix/vfs/vfs.h>
+struct condition;
+struct qstr;
+struct dentry;
 struct cache {
     u8 cache_size;
     u8 cache_capacity;
@@ -26,5 +29,12 @@ struct cache_operations {
     /* 根据某一条件，用哈希表在缓冲区中查找对应元素是否存在 */
     void* (*look_up)(struct cache*, struct condition*);
 };
+
+
+// dcache.c for dentry cache
+void dget(struct dentry *);
+void dput(struct dentry *);
+struct dentry * d_lookup(struct dentry *, struct qstr *);
+struct dentry * d_alloc(struct dentry *, const struct qstr *);
 
 #endif //OPERATION_SYSTEM_VFSCACHE_H

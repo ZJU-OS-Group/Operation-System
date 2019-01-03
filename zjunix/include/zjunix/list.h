@@ -14,6 +14,10 @@ struct hlist_node {
     struct hlist_node *next, **pprev;
 };
 
+#define hlist_for_each_rcu(pos, head) \
+	for ((pos) = (head)->first; pos && ({ prefetch((pos)->next); 1; }); \
+		(pos) = rcu_dereference((pos)->next))
+
 #define LIST_POISON1 (void *)0x10101010
 #define LIST_POISON2 (void *)0x20202020
 
