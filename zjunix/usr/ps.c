@@ -9,7 +9,7 @@
 #include <zjunix/time.h>
 #include <zjunix/utils.h>
 #include <zjunix/vfs/vfs.h>
-#include "../usr/ls.h"
+#include "ls.h"
 #include "exec.h"
 #include "myvi.h"
 

@@ -29,7 +29,12 @@ u32 vfs_write(struct file *file, char *buf, u32 count, u32 *pos) {
 // 通用读文件方法fat32 ext3均使用此方法
 u32 generic_file_read(struct file * file, u8 * buf u32 count, u32 * pos)
 {
-	struct inode file_inode = file->f_dentry->d_inode;
+
+	struct inode* file_inode;
+	u32 startPageNo;
+	u32 startPageCur;
+    	u32 endPageNo;
+	file_inode = file->f_dentry->d_inode
 }
 u32 generic_file_write(struct file * file, u8 * buf u32 count, u32 * pos)
 {

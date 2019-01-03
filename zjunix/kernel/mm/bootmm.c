@@ -224,3 +224,9 @@ void bootmap_info(unsigned char *msg) {
         kernel_printf("\t%x-%x : %s\n", bmm.info[index].start, bmm.info[index].end, mem_msg[bmm.info[index].type]);
     }
 }
+
+//Won't be used actually
+void bootmm_free_pages(unsigned int size, unsigned int start)
+{
+    
+}

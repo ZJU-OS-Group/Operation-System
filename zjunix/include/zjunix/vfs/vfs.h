@@ -3,6 +3,13 @@
 #include <zjunix/type.h>
 #include <zjunix/list.h>
 #include <zjunix/vfs/err.h>
+#include <zjunix/vfs/errno.h>
+#include <zjunix/slab.h>
+
+#define         SECTOR_SIZE                     512
+#define         SECTOR_LOG_SIZE                 9
+#define         S_CLEAR                         0
+#define         S_DIRTY                         1
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                  // read only 只读
@@ -137,6 +144,12 @@ struct super_block {
 //    struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
     struct dentry                   *s_root;        /* 目录挂载点 */
+    struct mutex                    s_lock;         /* 超级块信号量 */
+    struct list_head                s_inodes;       /* inode链表 */
+    fmode_t                         s_mode;         /* 安装权限 */
+    u8                              s_dirt;         /* 是否被写脏    */
+    u32                             s_block_size;   /* 以字节为单位的块大小 */
+    void                            *s_fs_info;     /* 指向文件系统基本信息的指针 */
     u32                             s_count;        /* 超级块引用计数 */
 //    struct list_head                s_inodes;       /* inode链表 */
     struct file_system_type         *s_type;        /* 文件系统类型 */
@@ -329,6 +342,6 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
-u32 read_block(u8 *, u32, u32);
-u32 write_block(u8 *, u32, u32);
+u32 read_block(u8 *buf, u32 addr, u32 count);
+u32 write_block(u8 *buf, u32 addr, u32 count);
 #endif
