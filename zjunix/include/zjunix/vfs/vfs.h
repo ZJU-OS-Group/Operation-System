@@ -3,7 +3,9 @@
 #include <zjunix/type.h>
 #include <zjunix/list.h>
 #include <zjunix/vfs/errno.h>
+#include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
+#include <ntsid.h>
 
 #define         SECTOR_SIZE                     512
 #define         SECTOR_LOG_SIZE                 9
@@ -143,10 +145,8 @@ struct super_block {
 //    struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
     struct dentry                   *s_root;        /* 目录挂载点 */
-    struct mutex                    s_lock;         /* 超级块信号量 */
     struct list_head                s_inodes;       /* inode链表 */
-    fmode_t                         s_mode;         /* 安装权限 */
-    u8                              s_dirt;         /* 是否被写脏    */
+    u8                              s_dirt;         /* 是否被写脏 */
     u32                             s_block_size;   /* 以字节为单位的块大小 */
     void                            *s_fs_info;     /* 指向文件系统基本信息的指针 */
     u32                             s_count;        /* 超级块引用计数 */
