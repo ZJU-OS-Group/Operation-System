@@ -37,6 +37,12 @@
 #define FMODE_PREAD		                        0x8                     // 文件可用pread
 #define FMODE_PWRITE	                        0x10                    // 文件可用pwrite
 
+// 文件类型
+#define FTYPE_NORM                              1                       // 普通文件
+#define FTYPE_DIR                               2                       // 目录
+#define FTYPE_LINK                              3                       // 链接
+#define FTYPE_UNKOWN                            4                       // 其他类型
+
 // LOOKUP_PARENT 中最后分量的类型
 enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 
@@ -126,8 +132,7 @@ struct nameidata {
 };
 
 /****************************************vfs页 ************************************************/
-struct vfs_page
-{
+struct vfs_page {
     u8*     page_data;
     u32     page_state;
     u32     page_address;
@@ -352,7 +357,7 @@ struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
 int vfs_close(struct file *); // 关闭并释放文件
 
 // namei.c for open_namei related functions
-u32 open_namei(const u8 *, u32, u32, struct nameidata *);
+u32 open_namei(const u8 *, u32, struct nameidata *);
 u32 path_lookup(const u8 *, u32, struct nameidata *);
 inline void follow_dotdot(struct nameidata *);
 u32 link_path_walk(const u8 *, struct nameidata *);
@@ -376,6 +381,7 @@ struct vfsmount * lookup_mnt(struct vfsmount *, struct dentry *);
 u32 vfs_cat(const u8 *);
 u32 vfs_mkdir(const u8 *);
 u32 vfs_rm(const u8 *);
+u32 vfs_rm_r(const u8 *);
 u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
