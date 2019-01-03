@@ -347,7 +347,7 @@ struct file_operations {
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
-struct file * vfs_open(const u8 *, u32, u32); // 打开文件
+struct file * vfs_open(const u8 *, u32); // 打开文件
 struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
 int vfs_close(struct file *); // 关闭并释放文件
 

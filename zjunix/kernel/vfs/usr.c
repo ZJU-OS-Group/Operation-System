@@ -86,9 +86,9 @@ u32 vfs_rm_r(const u8 * path) {
 
     // 打开目录
     if (path[0] == 0)
-        file = vfs_open(".", LOOKUP_DIRECTORY, 0);
+        file = vfs_open(".", LOOKUP_DIRECTORY);
     else
-        file = vfs_open(path, LOOKUP_DIRECTORY, 0);
+        file = vfs_open(path, LOOKUP_DIRECTORY);
     if (IS_ERR_OR_NULL(file)) {
         if (PTR_ERR(file) == -ENOENT)
             kernel_printf("Directory not found!\n");
@@ -108,9 +108,9 @@ u32 vfs_ls(const u8 * path) {
 
     // 打开目录
     if (path[0] == 0)
-        file = vfs_open(".", LOOKUP_DIRECTORY, 0);
+        file = vfs_open(".", LOOKUP_DIRECTORY);
     else
-        file = vfs_open(path, LOOKUP_DIRECTORY, 0);
+        file = vfs_open(path, LOOKUP_DIRECTORY);
     if (IS_ERR_OR_NULL(file)) {
         if (PTR_ERR(file) == -ENOENT)
             kernel_printf("Directory not found!\n");
