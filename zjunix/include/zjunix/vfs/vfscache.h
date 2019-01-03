@@ -46,5 +46,7 @@ void dget(struct dentry *);
 void dput(struct dentry *);
 struct dentry * d_lookup(struct dentry *, struct qstr *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
-
+void release_dentry(struct dentry *dentry);
+void release_inode(struct inode *inode);
+void release_page(struct vfs_page* page);
 #endif //OPERATION_SYSTEM_VFSCACHE_H
