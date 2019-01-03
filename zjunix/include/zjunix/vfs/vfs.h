@@ -216,6 +216,7 @@ struct super_operations {
     int (*remount_fs) (struct super_block *, int *, char *);    /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
     void (*clear_inode) (struct inode *);                       /* VFS调用该函数释放索引节点，并清空包含相关数据的所有页面 */
     void (*umount_begin) (struct super_block *);                /* VFS调用该函数中断安装操作 */
+    u32 (*delete_dentry_inode) (struct dentry *);               /* 删除目录项对应的内存中的VFS索引节点和磁盘上文件数据及元数 */
 };
 
 /******************************* 索引节点 *********************************/
@@ -249,7 +250,7 @@ struct inode {
 // 索引节点操作函数
 struct inode_operations {
     /* 为dentry对象创造一个新的索引节点 */
-    int (*create) (struct inode *,struct dentry *,int, struct nameidata *);
+    int (*create) (struct inode *,struct dentry *, struct nameidata *);
     /* 在特定文件夹中寻找索引节点，该索引节点要对应于dentry中给出的文件名 */
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
@@ -325,7 +326,8 @@ struct file {
     struct vfsmount                 *f_vfsmnt;      /* 含有该文件的已安装文件系统 */
     u32                             f_pos;          /* 文件当前的读写位置 */
     const struct file_operations    *f_op;          /* 文件操作函数 */
-//    atomic_long_t                   f_count;        /* 文件对象引用计数 */
+    u32                             f_error;        /* 文件写操作的错误码 */
+    u32                             f_count;        /* 文件对象引用计数 */
 };
 // 文件操作函数
 struct file_operations {
@@ -339,14 +341,15 @@ struct file_operations {
     u32 (*readdir) (struct file *, struct getdent *);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
     int (*open) (struct inode *, struct file *);
-    /* 当已打开文件的引用计数减少时,VFS调用该函数 */
-//    u32 (*flush) (struct file *, fl_owner_t id);
+    /* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
+    u32 (*flush) (struct file *);
 };
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
-struct file * vfs_open(const u8 *, u32, u32);
+struct file * vfs_open(const u8 *, u32, u32); // 打开文件
 struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
+int vfs_close(struct file *); // 关闭并释放文件
 
 // namei.c for open_namei related functions
 u32 open_namei(const u8 *, u32, u32, struct nameidata *);

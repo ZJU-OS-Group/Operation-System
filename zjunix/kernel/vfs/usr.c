@@ -19,7 +19,7 @@ u32 vfs_cat(const u8 *path) {
     struct file *file;
 
     // 打开文件
-    file = vfs_open(path, O_RDONLY, base);
+    file = vfs_open(path, O_RDONLY);
     // 处理打开文件的错误
     if (IS_ERR_OR_NULL(file)){
         if ( PTR_ERR(file) == -ENOENT )
@@ -31,7 +31,7 @@ u32 vfs_cat(const u8 *path) {
      base = 0;
      file_size = file->f_dentry->d_inode->i_size;
 
-     buf = (u8*) kmalloc (file_size + 1);
+     buf = (u8*) kmalloc ((unsigned int) (file_size + 1));
      if ( vfs_read(file, buf, file_size, &base) != file_size )
          return 1;
 
@@ -70,7 +70,7 @@ u32 vfs_rm(const u8 * path) {
 
     /* 删除对应文件在外存上的相关信息 */
     // 由dentry去找inode去找super_block去调用相关的删除文件的操作
-    err = nd.dentry->d_inode->i_sb->s_op->delete_inode(nd.dentry);
+    err = nd.dentry->d_inode->i_sb->s_op->delete_dentry_inode(nd.dentry);
     if (err)
         return err;
 
@@ -80,7 +80,7 @@ u32 vfs_rm(const u8 * path) {
     return 0;
 }
 
-u32 vfs_rm_r(const u8 *) {
+u32 vfs_rm_r(const u8 * path) {
     u32 err;
     struct file *file;
 
@@ -101,9 +101,10 @@ u32 vfs_rm_r(const u8 *) {
 }
 
 // ls：列出目录项下的文件信息
-u32 vfs_ls(const u8 *) {
+u32 vfs_ls(const u8 * path) {
     u32 err;
     struct file *file;
+    struct getdent getdent;
 
     // 打开目录
     if (path[0] == 0)
@@ -118,11 +119,19 @@ u32 vfs_ls(const u8 *) {
         return PTR_ERR(file);
     }
 
-    // 读取目录
-    err = file->f_op->readdir(file, &getdent); //TODO: don't know if use getdent
+    // 读取目录到gedent中
+    err = file->f_op->readdir(file, &getdent);
     if (err)
         return err;
 
+    // 遍历gedent，向屏幕打印结果
+    for (int i = 0; i < getdent.count; ++i) {
+        // TODO: 这里之后可以添加上根据文件类型打印不同颜色的功能
+        kernel_puts(getdent.dirent[i].name, VGA_WHITE,VGA_BLACK);
+        kernel_printf(" ");
+    }
+    kernel_printf("\n");
+    return 0;
 }
 
 // cd：切换当前工作目录
@@ -131,7 +140,7 @@ u32 vfs_cd(const u8 * path) {
     struct nameidata nd;
 
     /* 查找目的目录 */
-    err = path_lookup(path, LOOK_DIRECTORY, &nd);
+    err = path_lookup(path, LOOKUP_DIRECTORY, &nd);
     if (err == -ENOENT) { // 返回No such file or directory的错误信息
         kernel_printf("No such directory.\n");
         return err;
@@ -146,7 +155,7 @@ u32 vfs_cd(const u8 * path) {
     return 0;
 }
 
-// mv：移动文件或文件夹（同目录下移动则为重命名）
-u32 vfs_mv(const u8 *) {
+// mv：移动文件（同目录下移动则为重命名）
+u32 vfs_mv(const u8 * path) {
 
 }

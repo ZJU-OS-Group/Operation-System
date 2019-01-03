@@ -51,9 +51,10 @@ void * dcache_look_up(struct cache *, struct condition *);
 struct dentry * dcache_add(struct dentry *, struct qstr *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
 // pcache.c for page cache
-void* pcache_look_up(struct cache* this, struct condition* conditions);
-void pcache_add(struct cache* this, void* obj);
-void pcache_write_back(),
+void* pcache_look_up(struct cache*, struct condition*);
+void pcache_add(struct cache*, void*);
+void pcache_write_back(void*);
+
 // vfscache.c for generic cache
 void release_dentry(struct dentry *dentry);
 void release_inode(struct inode *inode);

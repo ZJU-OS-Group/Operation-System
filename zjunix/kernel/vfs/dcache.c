@@ -48,7 +48,7 @@ static inline struct hlist_head *d_hash(struct dentry *parent,
     return dentry_hashtable + (hash & D_HASHMASK);
 }
 
-void* dcache_lookup(struct cache *this, struct condition *cond) {
+void* dcache_look_up(struct cache *this, struct condition *cond) {
     u32 found;
     u32 hash;
     struct qstr         *name; // qstr 包装字符串
@@ -83,7 +83,7 @@ void* dcache_lookup(struct cache *this, struct condition *cond) {
         list_add(&tested->d_hash, &(this->c_hashtable[hash]));
         list_del(&(tested->d_lru));
         list_add(&(tested->d_lru), this->c_lru);
-        return (void*)tested;
+        return (void*)tested; // 返回对应的dentry指针，转换为void*是为了适配统一的接口
     }
     else{
         return 0;
