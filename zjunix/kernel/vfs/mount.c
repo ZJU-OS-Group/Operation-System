@@ -1,4 +1,4 @@
-
+#include <zjunix/vfs/vfs.h>
 // TODO：现在只是抄了cy的
 // 检查dentry处是否是挂载点，如果是，就更新
 u32 follow_mount(struct vfsmount **mnt, struct dentry **dentry) {
