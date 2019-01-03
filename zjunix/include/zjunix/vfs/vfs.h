@@ -133,6 +133,15 @@ struct address_space {
     struct address_space_operations     *a_op;                  // 操作函数
 };
 
+/********************************* 已经缓存的页的地址空间操作函数 ****************************/
+struct address_space_operations{
+     // 把一页写回外存
+    u32 (*writepage)(struct vfs_page *);
+    // 从外存读入一页
+    u32 (*readpage)(struct vfs_page *);
+    // 根据由相对文件页号得到相对物理页号
+    u32 (*bitmap)(struct inode *, u32);
+}
 /********************************* 查找用目录结构 *****************************/
 struct path {
     struct vfsmount                     *mnt;                   // 对应目录项
