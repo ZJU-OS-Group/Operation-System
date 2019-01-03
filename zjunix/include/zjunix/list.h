@@ -6,6 +6,14 @@ struct list_head {
     struct list_head *next;
 };
 
+struct hlist_head {
+    struct hlist_node *first;
+};
+
+struct hlist_node {
+    struct hlist_node *next, **pprev;
+};
+
 #define LIST_POISON1 (void *)0x10101010
 #define LIST_POISON2 (void *)0x20202020
 

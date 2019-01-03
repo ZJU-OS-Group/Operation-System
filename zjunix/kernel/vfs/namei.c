@@ -1,7 +1,7 @@
 #include <zjunix/vfs/vfs.h>
 
 
-// 外部变量
+/********************************** 外部变量 ************************************/
 extern struct cache     *dcache;
 extern struct dentry    *root_dentry;
 extern struct dentry    *pwd_dentry;
@@ -12,7 +12,7 @@ extern struct vfsmount  *pwd_mnt;
 // 通过path_work()轮流调用real_lookup()函数，再调用各文件系统自己的inode_op->lookup
 // 得到给定路径名对应的dentry和vfsmount结构
 u32 open_namei(const u8 *pathname, u32 flag, u32 mode, struct nameidata *nd){
-    u32 acc_mode, err = 0;
+    u32 err = 0;
     struct inode *indoe;
     struct dentry *dentry;
     struct dentry *dir;
@@ -244,7 +244,33 @@ inline void follow_dotdot(struct nameidata *nd) {
 
 // 搜索父目录parent的孩子是否有名为name的entry结构
 u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
+    struct vfsmount *mnt = nd->mnt;
+    // 在目录项高速缓存中寻找，查找文件名和父目录项相符的目录缓冲项
+    struct condition cond;
+    cond.cond1 = (void*) nd->dentry;
+    cond.cond2 = (void*) name;
+    struct dentry* dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
 
+    // 目录项高速缓冲（内存）没有，到外存中找
+    if (!dentry)
+        goto need_lookup;
+
+    done:
+    // 找到，修改path的字段，返回无错误
+    path->mnt = mnt;
+    path->dentry = dentry;
+    dget(dentry);
+    return 0;
+
+    need_lookup:
+    // 即将使用底层文件系统在外存中查找，并构建需要的目录项
+    dentry = real_lookup(nd->dentry, name, nd);
+    if (IS_ERR(dentry))
+        goto fail;
+    goto done;
+
+    fail:
+    return PTR_ERR(dentry);
 }
 
 // 对实际文件系统进行查找，调用具体文件系统节点的查找函数执行查找

@@ -6,6 +6,7 @@
 #include <zjunix/vfs/errno.h>
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
+#include <zjunix/vfs/vfscache.h>
 #include <ntsid.h>
 
 #define         SECTOR_SIZE                     512
@@ -40,7 +41,7 @@
 enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 
 /*********************************以下定义VFS相关的其他数据结构****************************************/
-/********************************* 文件系统类型 ***************************/
+/********************************* 文件系统类型 ******************************/
 // 一个文件系统对应一个file_system_type
 struct file_system_type {
     const char              *name;          /* 文件系统名称 */
@@ -64,7 +65,7 @@ struct file_system_type {
 //    struct lock_class_key   i_alloc_sem_key;
 };
 
-/********************************* 文件系统实例 ***************************/
+/********************************* 文件系统实例 ******************************/
 // 一个文件系统实例对应一个vfsmount，被安装时会在安装点创建一个
 struct vfsmount {
     struct list_head        mnt_hash;           /* 散列表 */
@@ -98,20 +99,20 @@ struct vfsmount {
 //    atomic_t                mnt_writers;        /* 写者引用计数 */
 };
 
-/********************************* 包装字符串 ****************************/
+/********************************* 包装字符串 ********************************/
 struct qstr {
     const u8                            *name;                  // 字符串
     u32                                 len;                    // 长度
     u32                                 hash;                   // 哈希值
 };
 
-/********************************* 文件打开标志 ***************************/
+/********************************* 文件打开标志 ******************************/
 struct open_intent {
     u32	                                flags;
     u32	                                create_mode;
 };
 
-/********************************* 查找操作结果 ***************************/
+/********************************* 查找操作结果 ******************************/
 struct nameidata {
     struct dentry       *dentry;        /* 目录项对象的地址 */
     struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
@@ -124,19 +125,35 @@ struct nameidata {
     } intent;
 };
 
-/********************************* 已缓存的页 *****************************/
+/********************************* 已缓存的页 ********************************/
+// 管理缓存项和页I/O操作
 struct address_space {
-    u32                                 a_pagesize;             // 页大小(字节)
-    u32                                 *a_page;                // 文件页到逻辑页的映射表
-    struct inode                        *a_host;                // 相关联的inode
-    struct list_head                    a_cache;                // 已缓冲的页链表
-    struct address_space_operations     *a_op;                  // 操作函数
+    u32                                 a_pagesize;             /* 页大小(字节) */
+    u32                                 *a_page;                /* 文件页到逻辑页的映射表 */
+    u32                                 nrpages;                /* 页总数 */
+    struct inode                        *a_host;                /* 相关联的inode */
+    struct list_head                    a_cache;                /* 已缓冲的页链表 */
+    struct address_space_operations     *a_op;                  /* 操作函数 */
+};
+// 缓存页相关操作
+struct address_space_operations {
+    /* 将一页写回外存 */
+    int (*writepage) (struct vfs_page*);
+    /* 从外存读入一页 */
+    u32 (*readpage)(struct vfs_page *);
+    /* 映射，根据由相对文件页号得到相对物理页号 */
+    u32 (*bmap)(struct inode *, u32);
 };
 
 /********************************* 查找用目录结构 *****************************/
 struct path {
     struct vfsmount                     *mnt;                   // 对应目录项
     struct dentry                       *dentry;                // 对应文件系统挂载项
+};
+
+/********************************* 查找条件结构 ******************************/
+struct condition {
+
 };
 
 /*********************************以下定义VFS的四个主要对象********************************************/
@@ -157,7 +174,7 @@ struct super_block {
 };
 // 超级块操作函数
 struct super_operations {
-    struct inode *(*alloc_inode)(struct super_block *sb);       /* 创建和初始化一个索引节点对象 */
+    struct inode *(*alloc_inode)(struct super_block *);         /* 创建和初始化一个索引节点对象 */
     void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
 
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
@@ -166,7 +183,7 @@ struct super_operations {
     void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
     void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
     void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
-    int (*sync_fs)(struct super_block *sb, int wait);           /* 使文件系统中的数据与磁盘上的数据同步 */
+    int (*sync_fs)(struct super_block *, int);                  /* 使文件系统中的数据与磁盘上的数据同步 */
     int (*statfs) (struct dentry *, struct kstatfs *);          /* VFS调用该函数获取文件系统状态 */
     int (*remount_fs) (struct super_block *, int *, char *);    /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
     void (*clear_inode) (struct inode *);                       /* VFS调用该函数释放索引节点，并清空包含相关数据的所有页面 */
@@ -176,13 +193,14 @@ struct super_operations {
 /******************************* 索引节点 *********************************/
 // 具体文件的一般信息，索引节点号唯一标识
 struct inode {
-//    struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
+    struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
     struct list_head                    i_list;         /* 索引节点链表 */
     struct list_head                    i_sb_list;      /* 超级块链表超级块  */
     struct list_head                    i_dentry;       /* 目录项链表 */
-    unsigned long                       i_ino;          /* 节点号 */
-    unsigned long                       i_state;        /* 索引节点的状态标志 */
-//    atomic_t                            i_count;        /* 引用计数 */
+    u32                                 i_ino;          /* 节点号 */
+    u32                                 i_size;         /* inode对应文件的字节数 */
+    u32                                 i_state;        /* 索引节点的状态标志 */
+    u32                                 i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
 //    uid_t                               i_uid;          /* 使用者id */
 //    gid_t                               i_gid;          /* 使用组id */
@@ -223,12 +241,12 @@ struct inode_operations {
 /********************************* 目录项 *********************************/
 // 目录项与对应文件进行链接的相关信息
 struct dentry {
-    u32                        d_count;                /* 使用计数 */
+    u32                             d_count;                /* 使用计数 */
     unsigned int                    d_flags;                /* 目录项标识 */
 //    spinlock_t                      d_lock;                 /* 单目录项锁 */
     u32                             d_mounted;              /* 是否登录点的目录项 */
     struct inode                    *d_inode;               /* 相关联的索引节点 */
-//    struct hlist_node               d_hash;                 /* 散列表 */
+    struct hlist_head                d_hash;                 /* 散列表 */
     struct dentry                   *d_parent;              /* 父目录的目录项对象 */
     struct qstr                     d_name;                 /* 目录项名称 */
     struct list_head                d_lru;                  /* 未使用的链表 */

@@ -1,6 +1,8 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/err.h>
 #include <zjunix/vfs/errno.h>
+#include <driver/vga.h>
+#include <errno.h>
 
 /****************************** 外部变量 *******************************/
 extern struct dentry                    * pwd_dentry;   /* 当前工作目录 */
@@ -47,12 +49,12 @@ u32 vfs_cat(const u8 *path) {
 }
 
 // mkdir：新建目录
-u32 vfs_mkdir(const u8 *) {
-
+u32 vfs_mkdir(const u8 * path) {
+    // 判断是否
 }
 
 // rm：删除文件
-u32 vfs_rm(const u8 *) {
+u32 vfs_rm(const u8 * path) {
     u32 err;
     struct nameidata nd;
 
