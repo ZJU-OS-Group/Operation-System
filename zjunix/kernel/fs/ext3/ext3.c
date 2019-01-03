@@ -5,6 +5,7 @@
 #define     EXT3_SUPER_SECTOR_SIZE          2
 #define     EXT3_BLOCK_SIZE_BASE            1024
 #define     EXT3_N_BLOCKS                   15
+#define     EXT3_ROOT_INO                   2
 
 struct ext3_super_block {
     u32                 inode_num;                          // inode数
@@ -55,7 +56,6 @@ struct super_operations ext3_super_ops = {
 //void (*umount_begin) (struct super_block *);
 
 struct file_operations ext3_file_operations = {
-        .readdir = ext3_read_dir,
         //.write   = write
         //.flush =
         //.read =
@@ -64,6 +64,18 @@ struct file_operations ext3_file_operations = {
 struct dentry_operations ext3_dentry_operations = {
 
 };
+
+u32 ext3_create(struct inode *pInode, struct dentry *pDentry, int i, struct nameidata *pNameidata){
+
+}
+
+struct dentry * ext3_lookup(struct inode *pInode, struct dentry *pDentry, struct nameidata *pNameidata){
+
+}
+
+u32 ext3_link(struct dentry *pDentry, struct inode *pInode, struct dentry *pDentry1){
+
+}
 
 struct inode_operations ext3_inode_operations = {
         .create = ext3_create,
@@ -92,7 +104,7 @@ struct ext3_dir_entry{
     u16     entry_len;          //目录项长度
     u8      file_name_len;      //文件名长度
     u8      file_type;          //文件类型
-    char   file_name[EXT3_BOOT_SECTOR_SIZE];  //文件名
+    char    file_name[EXT3_BOOT_SECTOR_SIZE];  //文件名
 };
 
 struct file_system_type ext3_fs_type = {
@@ -136,8 +148,9 @@ u32 ext3_init_super(struct ext3_base_information* information) {
     ans->s_dirt = S_CLEAR;  //标记当前超级块是否被写脏
     ans->s_root = 0;  //留待下一步构造根目录
     ans->s_op = (&ext3_super_ops);
-    ans->s_block_size = EXT3_BLOCK_SIZE_BASE << information->super_block.content->block_size >> SECTOR_SIZE;
+    ans->s_block_size = EXT3_BLOCK_SIZE_BASE << information->super_block.content->block_size;
     ans->s_fs_info = (void*) information;
+    ans->s_type = (&ext3_fs_type);
     return (u32) ans;
 }
 
@@ -160,21 +173,79 @@ u32 ext3_init_base_information(u32 base){
     return (u32) ans;
 }
 
+
+u32 ext3_init_dir_entry(struct super_block* super_block) {
+    struct dentry* ans = (struct dentry*)kmalloc(sizeof(struct dir_entry));
+    if (ans == 0) return -ENOMEM;
+    ans->d_name.name = "/";
+    ans->d_mounted = 0;
+    ans->d_name.len = 1;
+    ans->d_count = 1;
+    ans->d_parent = 0;
+    ans->d_op = (&ext3_dentry_operations);
+    ans->d_inode = 0;
+    ans->d_sb = super_block;
+    ans->d_parent = 0;
+    INIT_LIST_HEAD(&(ans->d_alias));
+    INIT_LIST_HEAD(&(ans->d_lru));
+    INIT_LIST_HEAD(&(ans->d_subdirs));
+    return (u32) ans;
+}
+
+u32 ext3_init_inode(struct super_block* super_block) {
+    struct inode* ans = (struct inode*) kmalloc(sizeof(struct inode));
+    if (ans == 0) return -ENOMEM;
+    ans->i_op = &ext3_inode_operations;
+    ans->i_ino = EXT3_ROOT_INO;
+    ans->i_fop = &ext3_file_operations;
+    ans->i_count = 1;
+    ans->i_sb = super_block;
+    ans->i_block_size = super_block->s_block_size;
+    INIT_LIST_HEAD(&(ans->i_list)); //初始化索引节点链表
+    INIT_LIST_HEAD(&(ans->i_dentry));  //初始化目录项链表
+    INIT_LIST_HEAD(&(ans->i_hash));  //初始化散列表
+    //todo
+    switch (ans->i_block_size){
+        case 1024: ans->i_block_size_bit = 10; break;
+        case 2048: ans->i_block_size_bit = 11; break;
+        case 4096: ans->i_block_size_bit = 12; break;
+        case 8192: ans->i_block_size_bit = 13; break;
+        default: return -EFAULT;
+    }
+    ans->i_data.a_host = ans;
+    ans->i_data.a_pagesize = super_block->s_block_size;
+    //ans->i_data.a_op = todo
+    INIT_LIST_HEAD(&(ans->i_data.a_cache));
+    return (u32) ans;
+}
+
+u32 ext3_fill_inode(struct inode *inode) {
+    u8 target_buffer[SECTOR_SIZE];
+
+    return 0;
+}
+
 void init_ext3(u32 base){
-    struct ext3_base_information* base_information = (struct ext3_base_information *) ext3_init_base_information(base);  //读取ext3基本信息
-    struct ext3_super_block* super_block = (struct ext3_super_block *) ext3_init_super(base_information);
+    u32 base_information_pointer = ext3_init_base_information(base);  //读取ext3基本信息
+    if (base_information_pointer < 0) goto err;
 
-}
+    u32 super_block_pointer = ext3_init_super(
+            (struct ext3_base_information *) base_information_pointer);         //初始化超级块
+    if (super_block_pointer < 0) goto err;
+    struct super_block* super_block = (struct super_block *) super_block_pointer;
 
-u32 ext3_create(){
+    u32 root_dentry_pointer = ext3_init_dir_entry(super_block);  //初始化目录项
+    if (root_dentry_pointer < 0) goto err;
+    super_block->s_root = (struct dentry *) root_dentry_pointer;
 
-}
+    u32 root_inode_pointer = ext3_init_inode(super_block);      //初始化索引节点
+    if (root_inode_pointer < 0) goto err;
+    struct inode* root_inode = (struct inode *) root_inode_pointer;
 
-struct dentry * ext3_lookup(){
+    u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
+    if (result < 0) goto err;
 
-}
-
-u32 ext3_link(){
+    err: {} //pass
 
 }
 

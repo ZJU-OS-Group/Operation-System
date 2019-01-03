@@ -160,7 +160,7 @@ struct condition {
 /********************************* 超级块 *********************************/
 // 文件系统的有关信息
 struct super_block {
-//    struct list_head                s_list;         /* 指向所有超级块的链表 */
+    struct list_head                s_list;         /* 指向所有超级块的链表 */
     const struct super_operations   *s_op;          /* 超级块方法 */
     struct dentry                   *s_root;        /* 目录挂载点 */
     struct list_head                s_inodes;       /* inode链表 */
@@ -202,6 +202,8 @@ struct inode {
     u32                                 i_state;        /* 索引节点的状态标志 */
     u32                                 i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
+    u32                                 i_block_size;   /* 块大小 */
+    u32                                 i_block_size_bit;   /* 块大小位数 */
 //    uid_t                               i_uid;          /* 使用者id */
 //    gid_t                               i_gid;          /* 使用组id */
 //    struct timespec                     i_atime;        /* 最后访问时间 */
