@@ -189,8 +189,14 @@ u32 vfs_ls(const u8 * path) {
 
     // 遍历gedent，向屏幕打印结果
     for (int i = 0; i < getdent.count; ++i) {
-        // TODO: 这里之后可以添加上根据文件类型打印不同颜色的功能
-        kernel_puts(getdent.dirent[i].name, VGA_WHITE,VGA_BLACK);
+        if (getdent.dirent[i].type == FTYPE_DIR)
+            kernel_puts(getdent.dirent[i].name, VGA_GREEN,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_NORM)
+            kernel_puts(getdent.dirent[i].name, VGA_WHITE,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_LINK)
+            kernel_puts(getdent.dirent[i].name, VGA_BLUE,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_UNKOWN)
+            kernel_puts(getdent.dirent[i].name, VGA_RED, VGA_BLACK);
         kernel_printf(" ");
     }
     kernel_printf("\n");
