@@ -316,8 +316,7 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
 }
 
 // 寻找一个dentry，如果不存在则新建
-struct dentry *lookup_create(struct nameidata *nd, int is_dir)
-{
+struct dentry *lookup_create(struct nameidata *nd, int is_dir) {
     struct dentry *dentry;
 
     dentry = ERR_PTR(-EEXIST);

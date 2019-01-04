@@ -5,12 +5,13 @@
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
 
-struct list_head wait;          //等待状态
-struct list_head exited;        //结束状态
-struct list_head tasks;         //所有进程
-unsigned char ready_map[32];
-struct ready_queue_element ready_queue[32];
+struct list_head wait;                          // 等待状态
+struct list_head exited;                        // 结束状态
+struct list_head tasks;                         // 所有进程
+unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
+struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 
+// 复制上下文
 static void copy_context(context* src, context* dest) {
     dest->epc = src->epc;
     dest->at = src->at;
@@ -46,7 +47,18 @@ static void copy_context(context* src, context* dest) {
     dest->ra = src->ra;
 }
 
+// 初始化进程管理的相关全局链表和数组
 void init_pc_list() {
+    INIT_LIST_HEAD(&wait);
+    INIT_LIST_HEAD(&exited);
+    INIT_LIST_HEAD(&tasks);
+
+    for (int i=0; i<PRIORITY_LEVELS; ++i) {
+        /* 初始化就绪队列 */
+        INIT_LIST_HEAD(&(ready_queue[i].queue_head));
+        ready_queue[i].number = 0;
+        ready_bitmap[i] = 0; // 初始化就绪位图
+    }
 
 }
 
@@ -54,26 +66,17 @@ void init_pc() {
     struct task_struct *idle;
     init_pc_list();
 
-    int i;
-    for (i = 1; i < 8; i++)
-        pcb[i].ASID = -1;
-    pcb[0].ASID = 0;
-    pcb[0].time_counter = PROC_DEFAULT_TIMESLOTS;
-    for (i = 0; i < PRIORITY_LEVELS; i++)
-    {
-        ready_map[i] = 0;                               //初始化就绪位图
-        ready_queue[i].number = 0;                      //初始化队列内链表长度
-        INIT_LIST_HEAD(&(ready_queue[i].queue_head));   //初始化链表头
-    }
-    kernel_strcpy(pcb[0].name, "init");
-    curr_proc = 0;
+//    idle = (struct task_struct*)(kernel_sp - KERNEL_STACK_SIZE);
+    idle[0].ASID = 0;
+    idle[0].time_counter = PROC_DEFAULT_TIMESLOTS;
+    kernel_strcpy(idle[0].name, "init");
     register_syscall(10, pc_kill_syscall);
     register_interrupt_handler(7, pc_schedule);
 
     asm volatile(
-        "li $v0, 1000000\n\t"
-        "mtc0 $v0, $11\n\t"
-        "mtc0 $zero, $9");
+        "li $v0, 1000000\n\t"   // 1000000->v0
+        "mtc0 $v0, $11\n\t"     // $11 compare
+        "mtc0 $zero, $9");      // $9 count
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {

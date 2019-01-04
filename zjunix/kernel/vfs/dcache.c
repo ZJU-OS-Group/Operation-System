@@ -173,8 +173,7 @@ void dcache_put_LRU(struct cache * this) {
     release_dentry(put_dentry);
 }
 
-void dentry_iput(struct dentry * dentry)
-{
+void dentry_iput(struct dentry * dentry) {
     struct inode *inode = dentry->d_inode;
     if (inode) {
         dentry->d_inode = NULL;

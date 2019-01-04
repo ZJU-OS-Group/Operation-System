@@ -219,7 +219,7 @@ struct super_operations {
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
     int (*write_inode) (struct inode *, int);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
     void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
-    void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
+    void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点（禁用） */
     void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
     void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
     int (*sync_fs)(struct super_block *, int);                  /* 使文件系统中的数据与磁盘上的数据同步 */
