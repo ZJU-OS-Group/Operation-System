@@ -1,4 +1,3 @@
-
 #include <zjunix/vfs/vfs.h>
 
 void pcache_write_back(void* obj)
@@ -6,6 +5,7 @@ void pcache_write_back(void* obj)
         struct vfs_page* tempPage = (struct vfs_page*) obj;
         tempPage->p_address_space->a_op->writepage(tempPage);
 }
+
 void pcache_LRU(struct cache *this) {
         struct  list_head* replaced_page;
         struct vfs_page*  _replaced_page;
@@ -22,8 +22,8 @@ void pcache_LRU(struct cache *this) {
         //释放页
         release_page(_replaced_page);
 }
-void pcache_add(struct cache* this, void* obj)
-{
+
+void pcache_add(struct cache* this, void* obj) {
         u32 hash_value;
         if(cache_is_full(this))//缓存已满
         {
@@ -37,8 +37,8 @@ void pcache_add(struct cache* this, void* obj)
         list_add(this->c_lru, tempPage->p_lru);
         this->cache_size++;
 }
-void* pcache_look_up(struct cache* this, struct condition* conditions)
-{
+
+void* pcache_look_up(struct cache* this, struct condition* conditions) {
         u8 found = 0;
         u32 page_address = conditions->cond1;
         u32 hash_value;

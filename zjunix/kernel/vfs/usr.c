@@ -13,9 +13,9 @@ extern struct vfsmount                  * pwd_mnt;
 
 const char* __my_strcat(const u8* dest,const u8* src)
 {
-    char* res = dest;
+    char* res = (char *) dest;
     while(*res) res++;// *res != '\0'
-    while(*res++ = *src++);
+    while((*res++ = *src++));
     return dest;
 }
 
@@ -61,6 +61,7 @@ u32 vfs_cat(const u8 *path) {
 u32 vfs_mkdir(const u8 * path) {
     //
     // 判断是否可以创建
+
 
 //    if (!dir->i_op || !dir->i_op->mkdir)
 //        return -EPERM;
@@ -111,6 +112,7 @@ u32 vfs_rm_r(const u8 * path) {
     u32 err;
     struct file *file;
     struct getdent getdent;
+    struct nameidata nd;
 
     // 打开目录
     if (path[0] == 0) {
@@ -131,7 +133,7 @@ u32 vfs_rm_r(const u8 * path) {
     err = file->f_op->readdir(file, &getdent);
     if (err)
         return err;
-    // TODO: 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
+    // 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
     for (int i = 0; i < getdent.count; ++i) {
         if (getdent.dirent[i].type == FTYPE_DIR) {
             const u8* tmp_path = __my_strcat(path, "/");
@@ -147,6 +149,17 @@ u32 vfs_rm_r(const u8 * path) {
             return -ENOENT;
         }
     }
+    // 删除目录本身的dentry和inode
+    err = path_lookup(path, 0, &nd);
+    if (err == -ENOENT) { // 返回No such file or directory的错误信息
+        kernel_printf("No such directory.\n");
+        return err;
+    } else if (IS_ERR_VALUE(err)) { // 如果有其他错误
+        kernel_printf("Other error: %d\n", err);
+        return err;
+    }
+    nd.dentry->d_inode->i_op->rmdir(nd.dentry->d_inode,nd.dentry);
+    nd.dentry->d_op->d_delete(nd.dentry);
     return 0;
 }
 

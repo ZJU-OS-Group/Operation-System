@@ -4,11 +4,6 @@
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/vfs/hash.h>
 
-#define L1_CACHE_BYTES 32
-#define D_HASHBITS     d_hash_shift
-#define D_HASHMASK     d_hash_mask
-static u32 d_hash_mask;
-static u32 d_hash_shift;
 /********************************** 外部变量 ************************************/
 extern struct cache     *dcache;
 extern struct dentry    *root_dentry;
@@ -22,7 +17,7 @@ void dput(struct dentry *dentry) {
 }
 
 // 为字符串计算哈希值
-u32 __stringHash(struct qstr * qstr, u32 size){
+u32 __stringHash(struct qstr * qstr, u32 size) {
     u32 i = 0;
     u32 value = 0;
     for (i = 0; i < qstr->len; i++)
@@ -63,6 +58,7 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
 
     // 找到的话返回指向对应dentry的指针,同时更新哈希链表、LRU链表状态
     if (found) {
+        // 以下操作可以使更新lru链表，将最近的往前插
         list_del(&tested->d_hash);
         list_add(&tested->d_hash, &(this->c_hashtable[hash]));
         list_del(&(tested->d_lru));
@@ -73,7 +69,6 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
         return 0;
     }
 }
-
 
 void dget(struct dentry *dentry) {
     dentry->d_count += 1;
@@ -122,3 +117,58 @@ struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
     return dentry;
 }
 
+void dcache_add(struct cache *this, void * object) {
+    u32 hash;
+    struct dentry* addend;
+
+    // 计算目录项名字对应的哈希值
+    addend = (struct dentry *) object;
+    hash = __stringHash(&addend->d_name, this->cache_tablesize);
+
+    // 如果整个目录项缓冲已满，替换一页出去
+    if (cache_is_full(this))
+        dcache_put_LRU(this);
+
+    // 找到那个哈希值对应页面的链表头，建立联系
+    list_add(&(addend->d_hash), &(this->c_hashtable[hash]));
+
+    // 同时也在LRU链表的头部插入，表示最新访问
+    list_add(&(addend->d_lru), this->c_lru);
+
+    // 当前cache的size加一
+    this->cache_size += 1;
+}
+
+// 从LRU中移除一项
+void dcache_put_LRU(struct cache * this) {
+    struct list_head        *put;
+    struct list_head        *start;
+    struct dentry           *put_dentry; // 存储要被从cache中替换出去的dentry
+
+    // 搜寻LRU的链表尾
+    start = this->c_lru;
+    put = start->prev;
+    put_dentry = container_of(put, struct dentry, d_lru); // 找到put对应的dentry的指针
+
+    // put和start一致意味着一个循环回来了，是环形双向链表
+    while ( put != start && put_dentry->d_count > 0 ){ // 如果找到引用数为0的就跳出，此时put和start不相等
+        put = put->prev;
+        put_dentry = container_of(put, struct dentry, d_lru);
+    }
+
+    // 若引用数都不为0，找最远最少使用
+    if (put == start) {
+        put = start->prev;
+        put_dentry = container_of(put, struct dentry, d_lru);
+    }
+
+    // 在有联系的链表里清除
+    list_del(&(put_dentry->d_lru));
+    list_del(&(put_dentry->d_hash));
+    list_del(&(put_dentry->d_alias));
+    list_del(&(put_dentry->d_subdirs));
+    this->cache_size -= 1;
+
+    // 内存清理
+    release_dentry(put_dentry);
+}
