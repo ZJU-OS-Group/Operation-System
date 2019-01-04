@@ -96,3 +96,5 @@ void kernel_serial_putc(char c) {
 unsigned int is_bound(unsigned int val, unsigned int bound) {
     return !(val & (bound - 1));
 }
+
+

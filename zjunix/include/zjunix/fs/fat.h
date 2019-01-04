@@ -7,7 +7,7 @@
 /* 4k data buffer number in each file struct */
 #define LOCAL_DATA_BUF_NUM 4
 
-#define SECTOR_SIZE 512
+#define SECTOR_BYTE_SIZE 512
 #define CLUSTER_SIZE 4096
 
 
@@ -105,7 +105,7 @@ struct fs_info {
     u32 total_data_sectors;
     u32 first_data_sector;
     union BPB_info BPB;
-    u8 fat_fs_info[SECTOR_SIZE];
+    u8 fat_fs_info[SECTOR_BYTE_SIZE];
 };
 
 unsigned long fs_find(FILE *file);
