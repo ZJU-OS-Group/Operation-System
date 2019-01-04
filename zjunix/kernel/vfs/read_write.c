@@ -103,7 +103,6 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 }
 u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 {
-	
 	struct inode* file_inode;
 	u32 init_pos = (*pos);
 	u32 startPageNo;

@@ -41,8 +41,8 @@ struct super_operations ext3_super_ops = {
 //void (*umount_begin) (struct super_block *);
 
 struct file_operations ext3_file_operations = {
-        .write   = ext3_write,
-        .read = ext3_read,
+        .write   = generic_file_write,
+        .read = generic_file_read,
         .readdir = ext3_readdir,
         .open = ext3_open,
         .flush = ext3_flush
@@ -350,7 +350,7 @@ u32 ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) 
     return (u32) ans;
 }
 
-void init_ext3(u32 base){
+u32 init_ext3(u32 base){
     u32 base_information_pointer = ext3_init_base_information(base);  //读取ext3基本信息
     if (IS_ERR_VALUE(base_information_pointer)) goto err;
 
@@ -377,8 +377,10 @@ void init_ext3(u32 base){
     list_add(&(root_dentry->d_alias),&(root_inode->i_dentry));
 
     u32 root_mnt = ext3_init_mount(root_dentry,super_block);
-    err: {} //pass
+    err: {
 
+    } //pass
+    return 0;
 }
 
 u32 ext3_check_inode_bitmap(struct inode *inode) { //返回0说明不存在该inode的位图，返回1则存在且为1
@@ -400,6 +402,26 @@ u32 ext3_check_inode_bitmap(struct inode *inode) { //返回0说明不存在该in
     if (err) return 0;
     u8 ans = get_bit(target_buffer,sect_index);
     return ans;
+}
+
+u32 ext3_read (struct file * file, char* buf , u32 aha,  long long * uh){
+
+}
+/* 由系统调用write()调用它 */
+u32 ext3_write (struct file * file, const char* buf, u32 aha, long long * uh){
+
+}
+/* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
+u32 ext3_readdir (struct file * file, struct getdent * getdent){
+
+}
+/* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
+u32 ext3_open (struct inode * inode, struct file * file){
+
+}
+/* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
+u32 ext3_flush (struct file * file){
+
 }
 
 void ext3_unlink(){
@@ -453,6 +475,4 @@ u32 ext3_statfs (struct dentry *a, struct kstatfs *b){
 u32 ext3_remount_fs (struct super_block* a, u32 * b, char *c){
 
 }
-
-
 /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */

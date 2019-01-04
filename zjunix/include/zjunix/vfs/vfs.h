@@ -349,9 +349,9 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
 //    loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-    u32 (*read) (struct file *, char* , u32,  long long *);
+    u32 (*read) (struct file *, u8 * , u32,  u32 *);
     /* 由系统调用write()调用它 */
-    u32 (*write) (struct file *, const char* , u32, long long *);
+    u32 (*write) (struct file *, u8 * , u32, u32 *);
     /* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
     u32 (*readdir) (struct file *, struct getdent *);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
