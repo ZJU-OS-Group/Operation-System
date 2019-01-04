@@ -148,13 +148,13 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 		{
 			writeCount = endPageCur;
 			src = buf + tempCur;
-			dest = tempPage->p_data;		
+			dest = tempPage->page_data;
 		}
 		else
 		{
 			writeCount = file_inode->i_block_size;
 			src = buf + tempCur;
-			dest = tempPage->p_data;
+			dest = tempPage->page_data;
 		}
 		kernel_memcpy(dest, src, writeCount);
 		tempCur += writeCount;
