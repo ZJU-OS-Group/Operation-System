@@ -10,6 +10,15 @@ extern struct vfsmount                  * pwd_mnt;
 // TODO: vfs_open
 // TODO: path_lookup
 
+
+const char* __my_strcat(const u8* dest,const u8* src)
+{
+    char* res = dest;
+    while(*res) res++;// *res != '\0'
+    while(*res++ = *src++);
+    return dest;
+}
+
 // cat：连接文件并打印到标准输出设备上
 u32 vfs_cat(const u8 *path) {
     u8 *buf;
@@ -80,13 +89,17 @@ u32 vfs_rm(const u8 * path) {
     return 0;
 }
 
+// rm -r：递归删除目录
 u32 vfs_rm_r(const u8 * path) {
     u32 err;
     struct file *file;
+    struct getdent getdent;
 
     // 打开目录
-    if (path[0] == 0)
-        file = vfs_open(".", LOOKUP_DIRECTORY);
+    if (path[0] == 0) {
+        kernel_printf("No parameter.\n");
+        return -ENOENT;
+    }
     else
         file = vfs_open(path, LOOKUP_DIRECTORY);
     if (IS_ERR_OR_NULL(file)) {
@@ -96,8 +109,26 @@ u32 vfs_rm_r(const u8 * path) {
             kernel_printf("Other error: %d\n", -PTR_ERR(file));
         return PTR_ERR(file);
     }
+    err = file->f_op->readdir(file, &getdent);
+    if (err)
+        return err;
     // TODO: 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
-
+    for (int i = 0; i < getdent.count; ++i) {
+        if (getdent.dirent[i].type == FTYPE_DIR) {
+            const u8* tmp_path = __my_strcat(path, "/");
+            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+            vfs_rm_r(new_path);
+        } else if (getdent.dirent[i].type == FTYPE_NORM) {
+            const u8* tmp_path = __my_strcat(path, "/");
+            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+            vfs_rm(new_path);
+        } else if (getdent.dirent[i].type == FTYPE_LINK) {
+            // TODO: 如何处理链接文件
+        } else {
+            return -ENOENT;
+        }
+    }
+    return 0;
 }
 
 // ls：列出目录项下的文件信息

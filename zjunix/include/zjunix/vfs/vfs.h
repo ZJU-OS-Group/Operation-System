@@ -6,13 +6,16 @@
 #include <zjunix/vfs/errno.h>
 #include <zjunix/vfs/err.h>
 #include <zjunix/slab.h>
+#include <driver/sd.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/utils.h>
 
-#define         SECTOR_SIZE                     512
+
+#define         SECTOR_BYTE_SIZE                512
 #define         SECTOR_LOG_SIZE                 9
 #define         S_CLEAR                         0
 #define         S_DIRTY                         1
+#define         P_CLEAR                         0
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                  // read only 只读
@@ -36,6 +39,12 @@
 #define FMODE_LSEEK		                        0x4                     // 文件可以寻址
 #define FMODE_PREAD		                        0x8                     // 文件可用pread
 #define FMODE_PWRITE	                        0x10                    // 文件可用pwrite
+
+// 文件类型
+#define FTYPE_NORM                              1                       // 普通文件
+#define FTYPE_DIR                               2                       // 目录
+#define FTYPE_LINK                              3                       // 链接
+#define FTYPE_UNKOWN                            4                       // 其他类型
 
 // LOOKUP_PARENT 中最后分量的类型
 enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
@@ -126,15 +135,14 @@ struct nameidata {
 };
 
 /****************************************vfs页 ************************************************/
-struct vfs_page
-{
+struct vfs_page {
     u8*     page_data;
     u32     page_state;
     u32     page_address;
     struct list_head*           page_hashtable;                     // 哈希表链表
-    struct list_head*           p_lru;                      // LRU链表
-    struct list_head*           page_list;                     // 同一文件已缓冲页的链表
-    struct address_space*       p_address_space;                 // 所属的address_space结构
+    struct list_head*           p_lru;                              // LRU链表
+    struct list_head*           page_list;                          // 同一文件已缓冲页的链表
+    struct address_space*       p_address_space;                    // 所属的address_space结构
 
 };
 
@@ -155,7 +163,7 @@ struct address_space_operations {
     /* 从外存读入一页 */
     u32 (*readpage)(struct vfs_page *);
     /* 映射，根据由相对文件页号得到相对物理页号 */
-    u32 (*bitmap)(struct inode *, u32);
+    u32 (*bmap)(struct inode *, u32);
 };
 
 /********************************* 查找用目录结构 *****************************/
@@ -222,23 +230,26 @@ struct super_operations {
 /******************************* 索引节点 *********************************/
 // 具体文件的一般信息，索引节点号唯一标识
 struct inode {
-    struct hlist_node                   i_hash;         /* 散列表，用于快速查找inode */
+    struct list_head                    i_hash;         /* 散列表，用于快速查找inode */
     struct list_head                    i_list;         /* 索引节点链表 */
     struct list_head                    i_sb_list;      /* 超级块链表超级块  */
     struct list_head                    i_dentry;       /* 目录项链表 */
     u32                                 i_ino;          /* 节点号 */
+    u32                                 i_blocks;       /* inode对应的文件所用块数 */
     u32                                 i_size;         /* inode对应文件的字节数 */
+    u32                                 i_type;         /* inode对应文件的类型 */
     u32                                 i_state;        /* 索引节点的状态标志 */
     u32                                 i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
     u32                                 i_block_count;   /* 文件所占块数 */
     u32                                 i_block_size;   /* 块大小 */
     u32                                 i_block_size_bit;   /* 块大小位数 */
-//    uid_t                               i_uid;          /* 使用者id */
-//    gid_t                               i_gid;          /* 使用组id */
-//    struct timespec                     i_atime;        /* 最后访问时间 */
-//    struct timespec                     i_mtime;        /* 最后修改时间 */
-//    struct timespec                     i_ctime;        /* 最后改变时间 */
+    u16                                 i_uid;          /* 使用者id */
+    u16                                 i_gid;          /* 使用组id */
+    u32                                 i_atime;        /* 最后访问时间 */
+    u32                                 i_mtime;        /* 最后修改时间 */
+    u32                                 i_ctime;        /* 最后改变时间 */
+    u32	                                i_dtime;        // 删除时间
     const struct inode_operations       *i_op;          /* 索引节点操作函数 */
     const struct file_operations        *i_fop;         /* 缺省的索引节点操作 */
     struct super_block                  *i_sb;          /* 相关的超级块 */
@@ -345,6 +356,7 @@ struct file_operations {
     /* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
     u32 (*flush) (struct file *);
 };
+/****************************************vfs页 ************************************************/
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
@@ -353,7 +365,7 @@ struct file * dentry_open(struct dentry *, struct vfsmount *, u32);
 int vfs_close(struct file *); // 关闭并释放文件
 
 // namei.c for open_namei related functions
-u32 open_namei(const u8 *, u32, u32, struct nameidata *);
+u32 open_namei(const u8 *, u32, struct nameidata *);
 u32 path_lookup(const u8 *, u32, struct nameidata *);
 inline void follow_dotdot(struct nameidata *);
 u32 link_path_walk(const u8 *, struct nameidata *);
@@ -377,10 +389,12 @@ struct vfsmount * lookup_mnt(struct vfsmount *, struct dentry *);
 u32 vfs_cat(const u8 *);
 u32 vfs_mkdir(const u8 *);
 u32 vfs_rm(const u8 *);
+u32 vfs_rm_r(const u8 *);
 u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
+u32 get_u32(u8 *ch);
 #endif

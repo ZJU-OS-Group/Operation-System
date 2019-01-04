@@ -34,7 +34,7 @@ struct fat32_dos_boot_record
     u8 root_clu;                          // 根目录起始所在簇号（算上0号和1号簇），
     u16 fat32_version;                     //fat32版本号
     char system_format_ASCII[8];           //文件系统格式ASCII码
-    u8 data[SECTOR_SIZE];                 // 数据
+    u8 data[SECTOR_BYTE_SIZE];                 // 数据
     //0x03~0x0A：8字节，文件系统标志和版本号，这里为MSDOS5.0。
 //0x0B~0x0C：2字节，每扇区字节数，0x0200=512
 //0x0D~0x0D：1字节，每簇扇区数，0x08。
@@ -52,7 +52,7 @@ struct fat32_dos_boot_record
 struct fat32_file_system_information
 {
     u32 base;                              // 基地址（绝对扇区地址）
-    u8 data[SECTOR_SIZE];                               // 数据
+    u8 data[SECTOR_BYTE_SIZE];                               // 数据     // 数据
 };
 
 struct fat32_file_allocation_table
