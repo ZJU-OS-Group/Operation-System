@@ -110,59 +110,65 @@ u32 vfs_rm(const u8 * path) {
 }
 
 // rm -r：递归删除目录
-u32 vfs_rm_r(const u8 * path) {
-    u32 err;
-    struct file *file;
-    struct getdent getdent;
-    struct nameidata nd;
+//u32 vfs_rm_r(const u8 * path) {
+//    u32 err;
+//    struct file *file;
+//    struct getdent getdent;
+//    struct nameidata nd;
+//
+//    // 打开目录
+//    if (path[0] == 0) {
+//        kernel_printf("No parameter.\n");
+//        return -ENOENT;
+//    }
+//    else
+//        file = vfs_open(path, LOOKUP_DIRECTORY);
+//    if (file->f_dentry->d_inode->i_type!=FTYPE_DIR)
+//        vfs_rm(path);
+//    if (IS_ERR_OR_NULL(file)) {
+//        if (PTR_ERR(file) == -ENOENT)
+//            kernel_printf("Directory not found!\n");
+//        else
+//            kernel_printf("Other error: %d\n", -PTR_ERR(file));
+//        return PTR_ERR(file);
+//    }
+//    err = file->f_op->readdir(file, &getdent);
+//    if (err)
+//        return err;
+//    // 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
+//    for (int i = 0; i < getdent.count; ++i) {
+//        if (getdent.dirent[i].type == FTYPE_DIR) {
+//            const u8* tmp_path = __my_strcat(path, "/");
+//            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+//            vfs_rm_r(new_path);
+//        } else if (getdent.dirent[i].type == FTYPE_NORM) {
+//            const u8* tmp_path = __my_strcat(path, "/");
+//            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+//            vfs_rm(new_path);
+//        } else if (getdent.dirent[i].type == FTYPE_LINK) {
+//            // TODO: 如何处理链接文件
+//        } else {
+//            return -ENOENT;
+//        }
+//    }
+//    // 删除目录本身的dentry和inode
+//    err = path_lookup(path, 0, &nd);
+//    if (err == -ENOENT) { // 返回No such file or directory的错误信息
+//        kernel_printf("No such directory.\n");
+//        return err;
+//    } else if (IS_ERR_VALUE(err)) { // 如果有其他错误
+//        kernel_printf("Other error: %d\n", err);
+//        return err;
+//    }
+//    nd.dentry->d_inode->i_op->rmdir(nd.dentry->d_inode,nd.dentry);
+//    nd.dentry->d_op->d_delete(nd.dentry);
+//    return 0;
+//}
 
-    // 打开目录
-    if (path[0] == 0) {
-        kernel_printf("No parameter.\n");
-        return -ENOENT;
-    }
-    else
-        file = vfs_open(path, LOOKUP_DIRECTORY);
-    if (file->f_dentry->d_inode->i_type!=FTYPE_DIR)
-        vfs_rm(path);
-    if (IS_ERR_OR_NULL(file)) {
-        if (PTR_ERR(file) == -ENOENT)
-            kernel_printf("Directory not found!\n");
-        else
-            kernel_printf("Other error: %d\n", -PTR_ERR(file));
-        return PTR_ERR(file);
-    }
-    err = file->f_op->readdir(file, &getdent);
-    if (err)
-        return err;
-    // 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
-    for (int i = 0; i < getdent.count; ++i) {
-        if (getdent.dirent[i].type == FTYPE_DIR) {
-            const u8* tmp_path = __my_strcat(path, "/");
-            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
-            vfs_rm_r(new_path);
-        } else if (getdent.dirent[i].type == FTYPE_NORM) {
-            const u8* tmp_path = __my_strcat(path, "/");
-            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
-            vfs_rm(new_path);
-        } else if (getdent.dirent[i].type == FTYPE_LINK) {
-            // TODO: 如何处理链接文件
-        } else {
-            return -ENOENT;
-        }
-    }
-    // 删除目录本身的dentry和inode
-    err = path_lookup(path, 0, &nd);
-    if (err == -ENOENT) { // 返回No such file or directory的错误信息
-        kernel_printf("No such directory.\n");
-        return err;
-    } else if (IS_ERR_VALUE(err)) { // 如果有其他错误
-        kernel_printf("Other error: %d\n", err);
-        return err;
-    }
-    nd.dentry->d_inode->i_op->rmdir(nd.dentry->d_inode,nd.dentry);
-    nd.dentry->d_op->d_delete(nd.dentry);
-    return 0;
+// rm -r：递归删除目录
+u32 vfs_rm_r(const u8 * path) {
+    u32 err = 0;
+    struct dentry * dentry;
 }
 
 // ls：列出目录项下的文件信息
