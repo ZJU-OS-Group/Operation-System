@@ -50,6 +50,7 @@ struct address_space_operations fat32_address_space_operations = {
 u32 init_fat32(u32 base)
 {
     u32 i, j, k;
+    u32 err;
     struct fat32_basic_information* fat32_BI;
     struct file_system_type* fat32_fs_type;
     struct super_block* fat32_sb;
@@ -112,6 +113,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
     u8* name;
     int i;
     u32 j;
+    u32 err;
     int dot;
     int end, null_len, dot_pos;
 
@@ -240,4 +242,40 @@ u32 fat32_readpage(struct vfs_page* page)
 u32 fat32_writepage(struct vfs_page* page)
 {
 
+}
+u32 fat32_readdir(struct file * file, struct getdent * getdent)
+{
+    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];
+    u32 err;
+    u32 realPageNo;
+    int i;
+    struct inode* file_inode;
+    struct vfs_page* tempPage;
+    struct condition* conditions;
+    file_inode = file->f_dentry->d_inode;
+    getdent->count = 0;
+    getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_block_count * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
+    if (getdent->dirent == 0)
+        return -ENOMEM;
+    for(i = 0;i < file_inode->i_block_count;i++)
+    {
+        realPageNo = file_inode->i_data.a_op->bitmap(file_inode, i);
+        if(!realPageNo) return -ENOMEM;
+
+        conditions->cond1 = &(realPageNo);
+        conditions->cond2 = file_inode;
+        tempPage = (struct vfs_page*)pcache->c_op->look_up(pcache, conditions);
+        //页不在高速缓存中就需要调重新分配
+        if(tempPage == 0)
+        {
+            tempPage = (struct vfs_page*)kmalloc(sizeof(struct vfs_page));
+            if(!tempPage) return -ENOMEM;
+
+            tempPage->page_state =  P_CLEAR;
+            tempPage->page_address = realPageNo;
+            tempPage->p_address_space = file_inode->i_data;
+
+        }
+
+    }
 }
