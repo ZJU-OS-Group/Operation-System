@@ -28,7 +28,7 @@ struct cache_operations page_cache_operations = {
     .write_back = pcache_write_back,
 };
 
-unsigned long init_cache()
+u32 init_cache()
 {
     u32 err, i;
     err = -ENOMEM;
@@ -80,7 +80,7 @@ unsigned long init_cache()
     return 0;
 }
 
-u8 cache_is_full(struct cache * this)
+u32 cache_is_full(struct cache * this)
 {
     if(this->cache_size == this->cache_capacity)
         return 1;
@@ -93,7 +93,6 @@ void release_dentry(struct dentry *dentry){
 }
 
 void release_inode(struct inode *inode){
-
     kfree(inode);
 }
 
@@ -102,7 +101,7 @@ void release_page(struct vfs_page* page){
     kfree(page);
 }
 
-int getIntHash(long key, long size)
+u32 getIntHash(long key, long size)
 {
-    return key & (size + 1);
+    return (u32) (key & (size + 1));
 }
