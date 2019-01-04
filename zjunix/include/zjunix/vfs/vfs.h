@@ -231,6 +231,7 @@ struct inode {
     u32                                 i_state;        /* 索引节点的状态标志 */
     u32                                 i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
+    u32                                 i_block_count;   /* 文件所占块数 */
     u32                                 i_block_size;   /* 块大小 */
     u32                                 i_block_size_bit;   /* 块大小位数 */
 //    uid_t                               i_uid;          /* 使用者id */
