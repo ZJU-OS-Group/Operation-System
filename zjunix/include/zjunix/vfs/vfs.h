@@ -16,6 +16,9 @@
 #define         S_CLEAR                         0
 #define         S_DIRTY                         1
 #define         P_CLEAR                         0
+#define         MAX_ERRNO	                    4095
+#define         BITS_PER_BYTE                   8
+#define         IS_ERR_VALUE(x)                 ((x) >= (u32)-MAX_ERRNO)
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                  // read only 只读
@@ -344,13 +347,13 @@ struct file_operations {
     /* 用于更新偏移量指针,由系统调用lleek()调用它 */
 //    loff_t (*llseek) (struct file *, loff_t, int);
     /* 由系统调用read()调用它 */
-    long (*read) (struct file *, char* , u32,  long long *);
+    u32 (*read) (struct file *, char* , u32,  long long *);
     /* 由系统调用write()调用它 */
-    long (*write) (struct file *, const char* , u32, long long *);
+    u32 (*write) (struct file *, const char* , u32, long long *);
     /* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
     u32 (*readdir) (struct file *, struct getdent *);
     /* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
-    int (*open) (struct inode *, struct file *);
+    u32 (*open) (struct inode *, struct file *);
     /* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
     u32 (*flush) (struct file *);
 };
@@ -395,4 +398,5 @@ u32 vfs_mv(const u8 *);
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
 u32 get_u32(u8 *ch);
+u8 get_bit(const u8 *source, u32 index);
 #endif
