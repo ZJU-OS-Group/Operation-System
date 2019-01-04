@@ -141,7 +141,7 @@ struct nameidata {
 struct vfs_page {
     u8*     page_data;
     u32     page_state;
-    u32     page_address;
+    u32     page_address;                                            //对应文件系统定义的块地址
     struct list_head*           page_hashtable;                     // 哈希表链表
     struct list_head*           p_lru;                              // LRU链表
     struct list_head*           page_list;                          // 同一文件已缓冲页的链表
@@ -397,6 +397,7 @@ u32 vfs_mv(const u8 *);
 
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
+u16 get_u16(u8)
 u32 get_u32(u8 *ch);
 u8 get_bit(const u8 *source, u32 index);
 #endif
