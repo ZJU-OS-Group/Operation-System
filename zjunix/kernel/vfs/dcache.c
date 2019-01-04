@@ -3,9 +3,8 @@
 #include <stddef.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/vfs/hash.h>
-#define DNAME_INLINE_LEN (sizeof(struct dentry)-offsetof(struct dentry,d_iname))
+
 #define L1_CACHE_BYTES 32
-#define MAX_CACHE_SIZE 8192
 #define D_HASHBITS     d_hash_shift
 #define D_HASHMASK     d_hash_mask
 static u32 d_hash_mask;
@@ -23,10 +22,22 @@ void dput(struct dentry *dentry) {
 }
 
 // 搜索父目录为parent的孩子中是否有名为name的dentry结构，查找到就返回
-struct dentry * d_lookup(struct dentry * parent, struct qstr * name) {
-    u32 len = name->len;
-    u32 hash = name->hash;
-    u8  str = name->name;
+//struct dentry * d_lookup(struct dentry * parent, struct qstr * name) {
+//    u32 len = name->len;
+//    u32 hash = name->hash;
+//    u8  str = name->name;
+//}
+
+
+// 为字符串计算哈希值
+u32 __stringHash(struct qstr * qstr, u32 size){
+    u32 i = 0;
+    u32 value = 0;
+    for (i = 0; i < qstr->len; i++)
+        value = value * 31 + (u32)(qstr->name[i]);            // 参考Java
+
+    u32 mask = size - 1;                        // 求余
+    return value & mask;
 }
 
 static inline struct hlist_head *d_hash(struct dentry *parent,
@@ -37,7 +48,7 @@ static inline struct hlist_head *d_hash(struct dentry *parent,
     return dentry_hashtable + (hash & D_HASHMASK);
 }
 
-void* d_lookup(struct cache *this, struct condition *cond) {
+void* dcache_look_up(struct cache *this, struct condition *cond) {
     u32 found;
     u32 hash;
     struct qstr         *name; // qstr 包装字符串
@@ -50,7 +61,7 @@ void* d_lookup(struct cache *this, struct condition *cond) {
     name    = (struct qstr*) (cond->cond2);
 
     // 计算名字对应的哈希值，找到那个哈希值对应页面的链表头
-    hash = __stringHash(name, this->c_tablesize);
+    hash = __stringHash(name, this->cache_tablesize);
     current = &(this->c_hashtable[hash]);
     start = current;
 
@@ -58,9 +69,9 @@ void* d_lookup(struct cache *this, struct condition *cond) {
     found = 0;
     while ( current->next != start ){
         current = current->next;
-        tested = container_of(current, struct dentry, d_hash);
+        tested = container_of(current, struct dentry, d_hash); // 通过d_hash的指针获得结构体的指针
         qstr = &(tested->d_name);
-        if ( !parent->d_op->compare(qstr, name) && tested->d_parent == parent ){
+        if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
             break;
         }
@@ -68,11 +79,11 @@ void* d_lookup(struct cache *this, struct condition *cond) {
 
     // 找到的话返回指向对应dentry的指针,同时更新哈希链表、LRU链表状态
     if (found) {
-        list_del(&(tested->d_hash));
-        list_add(&(tested->d_hash), &(this->c_hashtable[hash]));
-        list_del(&(tested->d_LRU));
-        list_add(&(tested->d_LRU), &(this->c_LRU));
-        return (void*)tested;
+        list_del(&tested->d_hash);
+        list_add(&tested->d_hash, &(this->c_hashtable[hash]));
+        list_del(&(tested->d_lru));
+        list_add(&(tested->d_lru), this->c_lru);
+        return (void*)tested; // 返回对应的dentry指针，转换为void*是为了适配统一的接口
     }
     else{
         return 0;

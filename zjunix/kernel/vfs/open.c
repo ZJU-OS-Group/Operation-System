@@ -1,7 +1,8 @@
 #include <zjunix/vfs/vfs.h>
+#include <driver/vga.h>
 
 //
-struct file *vfs_open(const u8 *filename, u32 flags, u32 mode) {
+struct file *vfs_open(const u8 *filename, u32 flags) {
     u32 err;
     struct nameidata nd;
 
@@ -13,7 +14,7 @@ struct file *vfs_open(const u8 *filename, u32 flags, u32 mode) {
         flags |= 2;
     }
 
-    err = open_namei(filename,flags,mode,&nd);
+    err = open_namei(filename,flags,&nd);
     if (!err) {
         return dentry_open(nd.dentry, nd.mnt, flags);
     }
@@ -58,3 +59,28 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     return ERR_PTR(err);
 }
 
+int vfs_close(struct file *file)
+{
+    int retval;
+
+    /* Report and clear outstanding errors */
+    retval = file->f_error;
+    if (retval)
+        file->f_error = 0;
+
+    if (!file->f_count) { // 如果文件引用计数为0，表示没有被打开过，就没必要关闭了
+        kernel_puts("VFS: Close: file count is 0\n",VGA_RED,VGA_BLACK);
+        return retval;
+    }
+
+    // 如果flush函数存在，将内容写回磁盘
+    if (file->f_op && file->f_op->flush) {
+        int err = file->f_op->flush(file);
+        if (!err)
+            kfree(file);
+        if (!retval)
+            retval = err;
+    }
+
+    return retval;
+}

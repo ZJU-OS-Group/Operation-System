@@ -11,7 +11,7 @@ extern struct vfsmount  *pwd_mnt;
 // 打开操作中的主要函数，通过路径名得到相应的nameidata结构
 // 通过path_work()轮流调用real_lookup()函数，再调用各文件系统自己的inode_op->lookup
 // 得到给定路径名对应的dentry和vfsmount结构
-u32 open_namei(const u8 *pathname, u32 flag, u32 mode, struct nameidata *nd){
+u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
     u32 err = 0;
     struct inode *indoe;
     struct dentry *dentry;
@@ -50,7 +50,7 @@ u32 open_namei(const u8 *pathname, u32 flag, u32 mode, struct nameidata *nd){
 
     /* 目录不存在，则证明该分量需要新建 */
     if (!dentry->d_inode) {
-        err = dir->d_inode->i_op->create(dir->d_inode, dentry, mode, nd);
+        err = dir->d_inode->i_op->create(dir->d_inode, dentry, nd);
         dput(nd->dentry);
         nd->dentry = dentry; // 把nd中的dentry更换为新建出来的
         if (err) {

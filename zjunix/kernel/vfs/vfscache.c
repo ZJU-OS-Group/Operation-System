@@ -80,6 +80,14 @@ unsigned long init_cache()
     return 0;
 }
 
+u8 cache_is_full(struct cache * this)
+{
+    if(this->cache_size == this->cache_capacity)
+        return 1;
+    else
+        return 0;
+}
+
 void release_dentry(struct dentry *dentry){
     kfree(dentry);
 }
@@ -92,4 +100,9 @@ void release_inode(struct inode *inode){
 void release_page(struct vfs_page* page){
     kfree(page->page_data);
     kfree(page);
+}
+
+int getIntHash(long key, long size)
+{
+    return key & (size + 1);
 }
