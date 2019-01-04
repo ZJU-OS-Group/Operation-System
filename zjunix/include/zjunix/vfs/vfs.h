@@ -15,6 +15,7 @@
 #define         SECTOR_LOG_SIZE                 9
 #define         S_CLEAR                         0
 #define         S_DIRTY                         1
+#define         S_DEAD		                    16	        /* removed, but still open directory */
 #define         P_CLEAR                         0
 #define         MAX_ERRNO	                    4095
 #define         BITS_PER_BYTE                   8
@@ -214,8 +215,7 @@ struct super_block {
 // 超级块操作函数
 struct super_operations {
     struct inode *(*alloc_inode)(struct super_block *);         /* 创建和初始化一个索引节点对象 */
-    void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
-
+    void (*put_inode)(struct inode *);                      /* 释放给定的索引节点 */
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
     int (*write_inode) (struct inode *, int);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
     void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */

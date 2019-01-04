@@ -172,3 +172,19 @@ void dcache_put_LRU(struct cache * this) {
     // 内存清理
     release_dentry(put_dentry);
 }
+
+void dentry_iput(struct dentry * dentry)
+{
+    struct inode *inode = dentry->d_inode;
+    if (inode) {
+        dentry->d_inode = NULL;
+        list_del_init(&dentry->d_alias);
+        if (dentry->d_op && dentry->d_op->d_iput)
+            dentry->d_op->d_iput(dentry, inode);
+        else {
+            if (inode->i_sb->s_op && inode->i_sb->s_op->put_inode) {
+                inode->i_sb->s_op->put_inode(inode);
+            }
+        }
+    }
+}

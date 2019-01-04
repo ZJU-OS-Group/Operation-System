@@ -169,6 +169,46 @@ u32 vfs_rm(const u8 * path) {
 u32 vfs_rm_r(const u8 * path) {
     u32 err = 0;
     struct dentry * dentry;
+    struct nameidata nd;
+
+    err = path_lookup(path, LOOKUP_PARENT, &nd);
+    if (err)
+        return err;
+
+    switch (nd.last_type) {
+        case LAST_DOTDOT:
+            err = -ENOTEMPTY;
+            dput(nd.dentry);
+            return err;
+        case LAST_DOT:
+            err = -EINVAL;
+            dput(nd.dentry);
+            return err;
+        case LAST_ROOT:
+            err = -EBUSY;
+            dput(nd.dentry);
+            return err;
+        default:break;
+    }
+    dentry = __lookup_hash(&nd.last, nd.dentry, 0);
+    err = PTR_ERR(dentry);
+    if (!IS_ERR(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->rmdir)
+            return -EPERM;
+        if (dentry->d_mounted) {
+            dput(nd.dentry);
+            return -EBUSY;
+        }
+        err = dir->i_op->rmdir(dir,dentry);
+        if (!err) {
+            dentry->d_inode->i_flags |= S_DEAD;
+            dentry_iput(dentry);
+        }
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    return err;
 }
 
 // ls：列出目录项下的文件信息
@@ -236,3 +276,8 @@ u32 vfs_cd(const u8 * path) {
 u32 vfs_mv(const u8 * path) {
 
 }
+
+
+//void vfs_pwd() {
+//    kernel_puts()
+//}

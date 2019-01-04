@@ -51,7 +51,9 @@ void dput(struct dentry *);
 void * dcache_look_up(struct cache *, struct condition *);
 void dcache_add(struct cache *, void *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
-void dcache_put_LRU(struct cache * this);
+void dcache_put_LRU(struct cache *);
+void dentry_iput(struct dentry *);
+
 // pcache.c for page cache
 void* pcache_look_up(struct cache*, struct condition*);
 void pcache_add(struct cache*, void*);
