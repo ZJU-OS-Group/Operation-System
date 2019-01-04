@@ -59,25 +59,27 @@ u32 vfs_cat(const u8 *path) {
 
 // mkdir：新建目录
 u32 vfs_mkdir(const u8 * path) {
-    //
-    // 判断是否可以创建
+    u32 err=0;
+    struct dentry *dentry;
+    struct nameidata nd;
+    // 找到path对应的nd信息
+    err = path_lookup(path,LOOKUP_PARENT,&nd);
+    if (err)
+        return err;
 
-
-//    if (!dir->i_op || !dir->i_op->mkdir)
-//        return -EPERM;
-//
-//    mode &= (S_IRWXUGO|S_ISVTX);
-//    error = security_inode_mkdir(dir, dentry, mode);
-//    if (error)
-//        return error;
-//
-//    DQUOT_INIT(dir);
-//    error = dir->i_op->mkdir(dir, dentry, mode);
-//    if (!error) {
-//        inode_dir_notify(dir, DN_CREATE);
-//        security_inode_post_mkdir(dir,dentry, mode);
-//    }
-//    return error;
+    // 若是没有则创建dentry
+    dentry = lookup_create(&nd, 1);
+    err = PTR_ERR(dentry);
+    if (!IS_ERR(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->mkdir)
+            return -EPERM;
+        // 调用文件系统对应的mkdir
+        err = dir->i_op->mkdir(dir, dentry, 0);
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    return err;
 }
 
 // rm：删除文件

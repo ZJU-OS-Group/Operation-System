@@ -284,7 +284,7 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
     return result;
 }
 
-// 根据父目录和名字查找对应的目录项（创建模式会调用）
+// 根据父目录和名字查找对应的目录项
 struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nameidata *nd) {
     struct dentry   *dentry;
     struct inode    *inode;
@@ -312,5 +312,27 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
             dput(new);
     }
 
+    return dentry;
+}
+
+// 寻找一个dentry，如果不存在则新建
+struct dentry *lookup_create(struct nameidata *nd, int is_dir)
+{
+    struct dentry *dentry;
+
+    dentry = ERR_PTR(-EEXIST);
+    if (nd->last_type != LAST_NORM)
+        goto fail;
+    nd->flags &= ~LOOKUP_PARENT;
+    dentry = __lookup_hash(&nd->last, nd->dentry, 0);
+    if (IS_ERR(dentry))
+        goto fail;
+    if (!is_dir && nd->last.name[nd->last.len] && !dentry->d_inode)
+        goto enoent;
+    return dentry;
+enoent:
+    dput(dentry);
+    dentry = ERR_PTR(-ENOENT);
+fail:
     return dentry;
 }

@@ -374,6 +374,7 @@ u32 link_path_walk(const u8 *, struct nameidata *);
 u32 do_lookup(struct nameidata *, struct qstr *, struct path *);
 struct dentry * real_lookup(struct dentry *, struct qstr *, struct nameidata *);
 struct dentry * __lookup_hash(struct qstr *, struct dentry *, struct nameidata *);
+struct dentry *lookup_create(struct nameidata *, int);
 
 // read_write.c for file read and write system call
 u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos);
