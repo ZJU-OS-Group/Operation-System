@@ -3,6 +3,15 @@
 #include <zjunix/utils.h>
 #include "../../../usr/myvi.h"
 
+extern struct dentry                    * root_dentry;              // vfs.c
+extern struct dentry                    * pwd_dentry;       //当前工作目录
+extern struct vfsmount                  * root_mnt;
+extern struct vfsmount                  * pwd_mnt;
+
+extern struct cache                     * dcache;                   // vfscache.c
+extern struct cache                     * pcache;
+extern struct cache                     * icache;
+
 struct address_space_operations ext3_address_space_operations = {  //地址空间操作
         .writepage  = ext3_writepage,
         .readpage   = ext3_readpage,
@@ -32,10 +41,11 @@ struct super_operations ext3_super_ops = {
 //void (*umount_begin) (struct super_block *);
 
 struct file_operations ext3_file_operations = {
-        .write   = ext3_write,
-        .read = ext3_read,
+        .write   = generic_file_write,
+        .read = generic_file_read,
         .readdir = ext3_readdir,
-        .open = ext3_open
+        .open = ext3_open,
+        .flush = ext3_flush
 };
 
 /*long (*read) (struct file *, char* , u32,  long long *);
@@ -117,9 +127,9 @@ u32 ext3_bmap(struct inode* inode, u32 target_page){
 
 u32 ext3_writepage(struct vfs_page * page) {
     struct inode * target_inode = page->p_address_space->a_host;  //获得对应的inode
-    u32 sector_num = target_inode->i_block_size >> SECTOR_BYTE_SIZE; //由于一块大小和一页大小相等，所以需要写出的扇区是这么大
+    u32 sector_num = target_inode->i_block_size >> SECTOR_LOG_SIZE; //由于一块大小和一页大小相等，所以需要写出的扇区是这么大
     u32 base_addr = ((struct ext3_information *) target_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
-    u32 target_addr = base_addr + page->page_address * (target_inode->i_block_size >> SECTOR_BYTE_SIZE); //加上页地址
+    u32 target_addr = base_addr + page->page_address * (target_inode->i_block_size >> SECTOR_LOG_SIZE); //加上页地址
     u32 err = write_block(page->page_data,target_addr,sector_num);      //向目标地址写目标数量个扇区
     if (err) return -EIO;
     return 0;
@@ -127,9 +137,9 @@ u32 ext3_writepage(struct vfs_page * page) {
 
 u32 ext3_readpage(struct vfs_page * page){
     struct inode * source_inode = page->p_address_space->a_host;
-    u32 sector_num = source_inode -> i_block_size >> SECTOR_BYTE_SIZE;
+    u32 sector_num = source_inode -> i_block_size >> SECTOR_LOG_SIZE;
     u32 base_addr = ((struct ext3_information *) source_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
-    u32 source_addr = base_addr + page->page_address * (source_inode->i_block_size >> SECTOR_BYTE_SIZE); //加上页地址
+    u32 source_addr = base_addr + page->page_address * (source_inode->i_block_size >> SECTOR_LOG_SIZE); //加上页地址
     page->page_data = (u8*)kmalloc(sizeof(u8) * source_inode->i_block_size);
     if (page->page_data == 0) return -ENOMEM;
     kernel_memset(page->page_data,0,sizeof(u8) * source_inode->i_block_size);
@@ -219,7 +229,7 @@ u32 ext3_init_inode(struct super_block* super_block) {
     INIT_LIST_HEAD(&(ans->i_list)); //初始化索引节点链表
     INIT_LIST_HEAD(&(ans->i_dentry));  //初始化目录项链表
     INIT_LIST_HEAD(&(ans->i_hash));  //初始化散列表
-    //todo
+    //todo, LRU?
     switch (ans->i_block_size){
         case 1024: ans->i_block_size_bit = 10; break;
         case 2048: ans->i_block_size_bit = 11; break;
@@ -256,9 +266,9 @@ u32 get_inode_table_sect(struct inode* inode) {  //通过inode寻找inode_table�
     u32 err = read_block(target_buffer,sect,1);  //组标识符的全部信息都保存在target_buffer里
     if (err) return 0;
     u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
-    u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_BYTE_SIZE);
+    u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_LOG_SIZE);
     //定位到块位图所在块的起始扇区位置
-    u32 group_inode_table_base = group_sector_base + 2 * (inode->i_block_size >> SECTOR_BYTE_SIZE);
+    u32 group_inode_table_base = group_sector_base + 2 * (inode->i_block_size >> SECTOR_LOG_SIZE);
     //往后面再移动两个块，直接定位到inode_table上
     return group_inode_table_base;
 }
@@ -276,7 +286,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     u32 inode_sect = inode_table_base + offset_sect;
     u32 err = read_block(target_buffer,inode_sect,1);
     if (err) return -EIO;
-    u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size));
+    u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
     // 求inode在扇区内的偏移量
     struct ext3_inode * target_inode = (struct ext3_inode*) (target_buffer + inode_sect_offset * inode_size);
     //计算该inode在指定扇区内的地址
@@ -297,36 +307,16 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     return 0;
 }
 
-void init_ext3(u32 base){
-    u32 base_information_pointer = ext3_init_base_information(base);  //读取ext3基本信息
-    if (base_information_pointer < 0) goto err;
-
-    u32 super_block_pointer = ext3_init_super(
-            (struct ext3_base_information *) base_information_pointer);         //初始化超级块
-    if (super_block_pointer < 0) goto err;
-    struct super_block* super_block = (struct super_block *) super_block_pointer;
-
-    u32 root_dentry_pointer = ext3_init_dir_entry(super_block);  //初始化目录项
-    if (root_dentry_pointer < 0) goto err;
-    super_block->s_root = (struct dentry *) root_dentry_pointer;
-
-    u32 root_inode_pointer = ext3_init_inode(super_block);      //初始化索引节点
-    if (root_inode_pointer < 0) goto err;
-    struct inode* root_inode = (struct inode *) root_inode_pointer;
-
-    u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
-    if (result < 0) goto err;
-
+u32 fetch_root_data(struct inode* root_inode){
     u32 i; //Loop
-    u32 target_location;
-    struct vfs_page* current_page;
     //获取根目录数据
-    for (int i = 0; i < root_inode->i_blocks; ++i) {
-        target_location = root_inode->i_data.a_op->bmap(root_inode, i);
+    for (i = 0; i < root_inode->i_blocks; ++i) {
+        u32 target_location = root_inode->i_data.a_op->bmap(root_inode, i);
         //计算第i个块的物理地址
-        if (target_location < 0) goto err;
+        if (target_location < 0) return -EFAULT;
+        struct vfs_page* current_page;
         current_page = (struct vfs_page *)kmalloc(sizeof(struct vfs_page));
-        if (current_page == 0) goto err;
+        if (current_page == 0) return -ENOMEM;
         current_page->page_state = P_CLEAR;
         current_page->page_address = target_location;
         current_page->p_address_space = &(root_inode->i_data);
@@ -337,12 +327,100 @@ void init_ext3(u32 base){
         //读取当前页
         if (err < 0) {
             release_page(current_page);
-            goto err;
+            return -EFAULT;
         }
-
-
+        pcache->c_op->add(pcache,(void*)current_page);
+        //把current_page加入到pcache
+        list_add(current_page->page_list,&(current_page->p_address_space->a_cache));
+        //todo: * may be needed
     }
-    err: {} //pass
+    return 0;
+};
+
+u32 ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) {
+    struct vfsmount* ans = (struct vfsmount*) kmalloc(sizeof(struct vfsmount));
+    if (ans == 0) return -ENOMEM;
+    ans->mnt_parent = ans;
+    ans->mnt_mountpoint = root_entry; //挂载点
+    ans->mnt_root = root_entry; //根目录项
+    ans->mnt_sb = super_block; //超级块
+    INIT_LIST_HEAD(&(ans->mnt_hash));
+    //mnt_hash加入root_mnt链表
+    list_add(&(ans->mnt_hash),&(root_mnt->mnt_hash));
+    return (u32) ans;
+}
+
+u32 init_ext3(u32 base){
+    u32 base_information_pointer = ext3_init_base_information(base);  //读取ext3基本信息
+    if (IS_ERR_VALUE(base_information_pointer)) goto err;
+
+    u32 super_block_pointer = ext3_init_super(
+            (struct ext3_base_information *) base_information_pointer);         //初始化超级块
+    if (IS_ERR_VALUE(super_block_pointer)) goto err;
+    struct super_block* super_block = (struct super_block *) super_block_pointer;
+
+    u32 root_dentry_pointer = ext3_init_dir_entry(super_block);  //初始化目录项
+    if (IS_ERR_VALUE(root_dentry_pointer)) goto err;
+    struct dentry * root_dentry = (struct dentry *) root_dentry_pointer;
+    super_block->s_root = root_dentry;
+
+    u32 root_inode_pointer = ext3_init_inode(super_block);      //初始化索引节点
+    if (IS_ERR_VALUE(root_inode_pointer)) goto err;
+    struct inode* root_inode = (struct inode *) root_inode_pointer;
+
+    u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
+    if (IS_ERR_VALUE(result)) goto err;
+    if (IS_ERR_VALUE(fetch_root_data(root_inode))) goto err;
+
+    //将root_inode和root_dentry进行关联
+    root_dentry->d_inode = root_inode;
+    list_add(&(root_dentry->d_alias),&(root_inode->i_dentry));
+
+    u32 root_mnt = ext3_init_mount(root_dentry,super_block);
+    err: {
+
+    } //pass
+    return 0;
+}
+
+u32 ext3_check_inode_bitmap(struct inode *inode) { //返回0说明不存在该inode的位图，返回1则存在且为1
+    u8 target_buffer[SECTOR_BYTE_SIZE];
+    u32 target_inode_base = get_inode_table_sect(inode);
+    //找到inode数据区的基址
+    //然后往前推一个block就是inode位图所在的block
+    u32 block_size = ((struct ext3_base_information*) inode->i_sb->s_fs_info)->super_block.content->block_size;
+    u32 inodes_per_group = ((struct ext3_base_information*) inode->i_sb->s_fs_info)->super_block.content->inodes_per_group;
+    u32 target_sect = target_inode_base - block_size >> SECTOR_LOG_SIZE;
+    //此处获得了inode对应的块的inode位图所在的首个扇区
+    u32 group_inner_index = (inode->i_ino - 1) % inodes_per_group;
+    //计算inode在这一组内的下标
+    //每个inode位图位1位，所以前面有sect_num这么多扇区
+    //后面的部分计算的是一个sector里面多少个bit
+    u32 sect_addr = target_sect + group_inner_index / (BITS_PER_BYTE * SECTOR_BYTE_SIZE);
+    u32 sect_index = group_inner_index % (BITS_PER_BYTE * SECTOR_BYTE_SIZE);  //该sector内的定位
+    u32 err = read_block(target_buffer,sect_addr,1); //读一块就行，因为一个扇区肯定能包含这个bit
+    if (err) return 0;
+    u8 ans = get_bit(target_buffer,sect_index);
+    return ans;
+}
+
+u32 ext3_read (struct file * file, char* buf , u32 aha,  long long * uh){
+
+}
+/* 由系统调用write()调用它 */
+u32 ext3_write (struct file * file, const char* buf, u32 aha, long long * uh){
+
+}
+/* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
+u32 ext3_readdir (struct file * file, struct getdent * getdent){
+
+}
+/* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
+u32 ext3_open (struct inode * inode, struct file * file){
+
+}
+/* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
+u32 ext3_flush (struct file * file){
 
 }
 
@@ -397,6 +475,4 @@ u32 ext3_statfs (struct dentry *a, struct kstatfs *b){
 u32 ext3_remount_fs (struct super_block* a, u32 * b, char *c){
 
 }
-
-
 /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
