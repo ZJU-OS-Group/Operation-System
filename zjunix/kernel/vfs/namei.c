@@ -13,17 +13,15 @@ extern struct vfsmount  *pwd_mnt;
 // 得到给定路径名对应的dentry和vfsmount结构
 u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
     u32 err = 0;
-    struct inode *indoe;
     struct dentry *dentry;
     struct dentry *dir;
-    u32 count = 0;
 
     /* 仅查找，不用create */
     if (!(flag&O_CREAT)) {
         err = path_lookup(pathname, LOOKUP_FOLLOW, nd);
         if (err)
             return err;
-        dentry = nd->dentry;
+//        dentry = nd->dentry;
         return 0;
     }
     /* create，查找父目录 */
@@ -60,7 +58,7 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
     }
 
     /* 若分量已经存在 */
-    err = -ENOENT;
+//    err = -ENOENT;
     dput(nd->dentry);
     nd->dentry = dentry;
     return 0;
@@ -85,8 +83,7 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
 
 // 基本的路径解析函数，有路径名查找到最终的dentry结构，将信息保存在nd中返回
 u32 link_path_walk(const u8 *name, struct nameidata *nd) {
-    struct dentry* dentry;
-    u32 err;
+    u32 err = 0;
     u32 lookup_flags = nd->flags;
     struct path next;
 
@@ -104,14 +101,13 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     // 解析每一个分量
     while (1) {
         u8 c;
-        u32 hash;
         struct qstr this;
         this.name = name;
         do { // 处理到'/'为止
             name++;
-            c = *(const u8 *)name;
+            c = *name;
         } while (c && (c != '/'));
-        this.len = name - (const u8*) this.name;
+        this.len = (u32) (name - this.name);
 
         if (!c) { // 解析完毕了，后面没有'/'了
             goto last_component;
@@ -214,7 +210,6 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         break;
     }
     dput(nd->dentry);
-    return_err:
     return err;
 }
 
@@ -291,9 +286,31 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
 
 // 根据父目录和名字查找对应的目录项（创建模式会调用）
 struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nameidata *nd) {
+    struct dentry   *dentry;
+    struct inode    *inode;
 
-}
+    inode = base->d_inode;
+    // 在目录项高速缓存中寻找，查找文件名和父目录项相符的目录缓冲项
+    struct condition cond;
+    cond.cond1 = (void*) nd->dentry;
+    cond.cond2 = (void*) name;
+    dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
 
-struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
+    // 如果没有找到，尝试在外存找
+    if (!dentry) {
+        // 新dentry首先需要被创建
+        struct dentry *new = d_alloc(base, name);
+        dentry = ERR_PTR(-ENOMEM);
+        if (!new)
+            return dentry;
 
+        // 尝试在外存中查找需要的dentry对应的inode。若找到，相应的inode会被新建并加入高速缓存，dentry与之的联系也会被建立
+        dentry = inode->i_op->lookup(inode, new, nd);
+        if (!dentry)
+            dentry = new;   // 若相应的inode并没能找到，则需要进一步创建inode。dentry的引用计数暂时需要保持
+        else
+            dput(new);
+    }
+
+    return dentry;
 }

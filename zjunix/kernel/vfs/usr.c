@@ -59,7 +59,24 @@ u32 vfs_cat(const u8 *path) {
 
 // mkdir：新建目录
 u32 vfs_mkdir(const u8 * path) {
-    // 判断是否
+    //
+    // 判断是否可以创建
+
+//    if (!dir->i_op || !dir->i_op->mkdir)
+//        return -EPERM;
+//
+//    mode &= (S_IRWXUGO|S_ISVTX);
+//    error = security_inode_mkdir(dir, dentry, mode);
+//    if (error)
+//        return error;
+//
+//    DQUOT_INIT(dir);
+//    error = dir->i_op->mkdir(dir, dentry, mode);
+//    if (!error) {
+//        inode_dir_notify(dir, DN_CREATE);
+//        security_inode_post_mkdir(dir,dentry, mode);
+//    }
+//    return error;
 }
 
 // rm：删除文件
@@ -102,6 +119,8 @@ u32 vfs_rm_r(const u8 * path) {
     }
     else
         file = vfs_open(path, LOOKUP_DIRECTORY);
+    if (file->f_dentry->d_inode->i_type!=FTYPE_DIR)
+        vfs_rm(path);
     if (IS_ERR_OR_NULL(file)) {
         if (PTR_ERR(file) == -ENOENT)
             kernel_printf("Directory not found!\n");

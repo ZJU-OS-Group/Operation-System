@@ -59,8 +59,7 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     return ERR_PTR(err);
 }
 
-int vfs_close(struct file *file)
-{
+int vfs_close(struct file *file) {
     int retval;
 
     /* Report and clear outstanding errors */

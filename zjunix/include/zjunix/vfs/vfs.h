@@ -355,7 +355,6 @@ struct file_operations {
     /* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
     u32 (*flush) (struct file *);
 };
-/****************************************vfs页 ************************************************/
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
@@ -371,7 +370,6 @@ u32 link_path_walk(const u8 *, struct nameidata *);
 u32 do_lookup(struct nameidata *, struct qstr *, struct path *);
 struct dentry * real_lookup(struct dentry *, struct qstr *, struct nameidata *);
 struct dentry * __lookup_hash(struct qstr *, struct dentry *, struct nameidata *);
-struct dentry * d_alloc(struct dentry *, const struct qstr *);
 
 // read_write.c for file read and write system call
 u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos);

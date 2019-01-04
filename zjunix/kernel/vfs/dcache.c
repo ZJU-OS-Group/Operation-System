@@ -21,14 +21,6 @@ void dput(struct dentry *dentry) {
     dentry->d_count -= 1;
 }
 
-// 搜索父目录为parent的孩子中是否有名为name的dentry结构，查找到就返回
-//struct dentry * d_lookup(struct dentry * parent, struct qstr * name) {
-//    u32 len = name->len;
-//    u32 hash = name->hash;
-//    u8  str = name->name;
-//}
-
-
 // 为字符串计算哈希值
 u32 __stringHash(struct qstr * qstr, u32 size){
     u32 i = 0;
@@ -38,14 +30,6 @@ u32 __stringHash(struct qstr * qstr, u32 size){
 
     u32 mask = size - 1;                        // 求余
     return value & mask;
-}
-
-static inline struct hlist_head *d_hash(struct dentry *parent,
-                                        u32 hash)
-{
-    hash += ((u32) parent ^ GOLDEN_RATIO_PRIME) / L1_CACHE_BYTES;
-    hash = (u32) (hash ^ ((hash ^ GOLDEN_RATIO_PRIME) >> D_HASHBITS));
-    return dentry_hashtable + (hash & D_HASHMASK);
 }
 
 void* dcache_look_up(struct cache *this, struct condition *cond) {
