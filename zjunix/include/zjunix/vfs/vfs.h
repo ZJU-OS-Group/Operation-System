@@ -237,6 +237,7 @@ struct inode {
     u32                                 i_ino;          /* 节点号 */
     u32                                 i_blocks;       /* inode对应的文件所用块数 */
     u32                                 i_size;         /* inode对应文件的字节数 */
+    u32                                 i_type;         /* inode对应文件的类型 */
     u32                                 i_state;        /* 索引节点的状态标志 */
     u32                                 i_count;        /* 引用计数 */
     unsigned int                        i_nlink;        /* 硬链接数 */
