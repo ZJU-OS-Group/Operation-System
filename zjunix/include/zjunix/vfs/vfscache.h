@@ -24,14 +24,15 @@ struct qstr;
 struct dentry;
 struct vfs_page;
 struct cache {
-    u8 cache_size;
-    u8 cache_capacity;
-    u32 cache_tablesize;
-    struct list_head *c_lru;
-    struct list_head *c_hashtable;
-    struct cache_operations *c_op;
+    u8                          cache_size;         /* cache当前大小 */
+    u8                          cache_capacity;     /* cache最大可容纳的大小 */
+    u32                         cache_tablesize;    /* cache hash表的大小，计算string hash时用 */
+    struct list_head            *c_lru;             /* cache对应的lru链表，采用lru策略进行cache替换 */
+    struct list_head            *c_hashtable;       /* hash表 */
+    struct cache_operations     *c_op;              /* cache操作函数 */
 };
 
+// cache操作函数
 struct cache_operations {
     /* 往缓冲区加入一个元素。如果发生缓冲区满，执行使用LRU算法的替换操作 */
     void (*add)(struct cache*, void*);
@@ -48,8 +49,9 @@ struct cache_operations {
 void dget(struct dentry *);
 void dput(struct dentry *);
 void * dcache_look_up(struct cache *, struct condition *);
-struct dentry * dcache_add(struct dentry *, struct qstr *);
+void dcache_add(struct cache *, void *);
 struct dentry * d_alloc(struct dentry *, const struct qstr *);
+void dcache_put_LRU(struct cache * this);
 // pcache.c for page cache
 void* pcache_look_up(struct cache*, struct condition*);
 void pcache_add(struct cache*, void*);

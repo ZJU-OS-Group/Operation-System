@@ -177,7 +177,7 @@ struct path {
 
 /********************************* 查找条件结构 ******************************/
 struct condition {
-    void    *cond1; // parent 目录 // pageNum
+    void    *cond1; // parent 目录 or pageNum
     void    *cond2; // name
     void    *cond3;
 };
@@ -275,7 +275,7 @@ struct inode_operations {
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
     int (*rmdir) (struct inode*, struct dentry*);
     /* 该函数由VFS调用，重命名，前两个是原文件和原目录 */
-    int (*rename) (struct inode*, struct dentry*, struct indoe*, struct dentry*);
+    int (*rename) (struct inode*, struct dentry*, struct inode*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
     /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */
