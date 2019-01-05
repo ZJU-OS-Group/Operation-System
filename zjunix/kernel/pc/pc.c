@@ -11,6 +11,7 @@ struct list_head exited;                        // 结束列表
 struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
+struct task_struct *current = 0;                // 当前进程
 
 // 复制上下文
 static void copy_context(context* src, context* dest) {
@@ -148,6 +149,26 @@ int print_proc() {
     return 0;
 }
 
+// 在就绪队列中寻找下一个要运行的进程并返回
+struct task_struct* find_next_task() {
+    struct task_struct* next;
+    u32 current_priority = current->priority-1; // priority从1～32，但是就绪队列数组从0～31
+
+    next = current;
+    // 从高到低寻找比current优先级高的
+    for (int i = PRIORITY_LEVELS; i > current_priority; --i) {
+        if (ready_bitmap[i]) {
+            next = container_of(ready_queue[i].queue_head.next, struct task_struct, schedule_list);
+            return next;
+        }
+    }
+    // 如果没有找到，那么找同级的
+    if (ready_bitmap[current_priority]) {
+        next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
+    }
+    return next;
+}
+
 /**************************************** 一些对队列的功能性操作 ********************************************/
 
 // 将进程添加进等待列表
@@ -167,7 +188,7 @@ void add_task(struct task_struct *task) {
 
 // 将进程添加进就绪队列
 void add_ready(struct task_struct *task) {
-    u32 priority = task->priority;
+    u32 priority = task->priority-1;
     list_add_tail(&(task->schedule_list), &ready_queue[priority].queue_head);
     ready_queue[priority].number++; // 该优先级的就绪队列长度加一
     if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
@@ -194,10 +215,14 @@ void remove_task(struct task_struct *task) {
 
 // 从就绪队列中删除进程
 void remove_ready(struct task_struct *task) {
-    u32 priority = task->priority;
+    u32 priority = task->priority-1;
     list_del(&(task->schedule_list));
     INIT_LIST_HEAD(&(task->schedule_list));
     ready_queue[priority].number--;
     if (ready_queue[priority].number == 0) // 更新就绪位图对应位状态
         ready_bitmap[priority] = 0;
+}
+
+void change_priority(struct task_struct *task, int delta) {
+    task->priority += delta;
 }
