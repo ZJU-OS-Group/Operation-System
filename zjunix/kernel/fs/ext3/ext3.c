@@ -50,8 +50,7 @@ struct inode_operations ext3_inode_operations[2] = {{
         .mkdir = ext3_mkdir,
         .rmdir = ext3_rmdir
 },{
-        .create = ext3_create,
-        .lookup = ext3_lookup
+        .create = ext3_create
 }};
 
 
@@ -193,7 +192,7 @@ struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
 struct inode *ext3_init_inode(struct super_block *super_block, u32 ino_num) {
     struct inode *ans = (struct inode *) kmalloc(sizeof(struct inode));
     if (ans == 0) return ERR_PTR(-ENOMEM);
-    ans->i_op = &ext3_inode_operations;
+    ans->i_op = &(ext3_inode_operations[1]);
     ans->i_ino = ino_num;
     ans->i_fop = &ext3_file_operations;
     ans->i_count = 1;
@@ -692,6 +691,7 @@ u32 ext3_mkdir(struct inode *dir, struct dentry *target_dentry, u32 mode) {  //å
     struct nameidata* nd = (struct nameidata*) kmalloc(sizeof(struct nameidata));
     if (nd == 0) return -ENOMEM;
     u32 err = ext3_create(dir,target_dentry,nd);
+    target_dentry->d_inode->i_op = &(ext3_inode_operations[0]);
     if (IS_ERR_VALUE(err)) return err;
     target_dentry->d_inode->i_type = EXT3_DIR;
     return 0;
