@@ -5,7 +5,9 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/ext3.h>
 #include <zjunix/utils.h>
+#include <driver/vga.h>
 #include "../../../usr/myvi.h"
+#include "mkdir/mkdir.h"
 
 extern struct dentry                    * root_dentry;              // vfs.c
 extern struct dentry                    * pwd_dentry;       //当前工作目录
@@ -154,38 +156,38 @@ u32 ext3_readpage(struct vfs_page * page){
     return 0;
 }
 
-u32 ext3_init_super(struct ext3_base_information* information) {
+struct super_block* ext3_init_super(struct ext3_base_information* information) {
     struct super_block* ans = (struct super_block *)kmalloc(sizeof(struct super_block));
-    if (ans == 0) return -ENOMEM;
+    if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->s_dirt = S_CLEAR;  //标记当前超级块是否被写脏
     ans->s_root = 0;  //留待下一步构造根目录
     ans->s_op = (&ext3_super_ops);
     ans->s_block_size = EXT3_BLOCK_SIZE_BASE << information->super_block.content->block_size;
     ans->s_fs_info = (void*) information;
     ans->s_type = (&ext3_fs_type);
-    return (u32) ans;
+    return ans;
 }
 
-u32 ext3_init_base_information(u32 base){
+struct ext3_base_information* ext3_init_base_information(u32 base){
     struct ext3_base_information* ans = (struct ext3_base_information *)kmalloc(sizeof(struct ext3_base_information));
-    if (ans == 0) return -ENOMEM;
+    if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->base = base;
     ans->first_sb_sect = base + EXT3_BOOT_SECTOR_SIZE;  //跨过引导区数据
     ans->super_block.fill = (u8*) kmalloc(sizeof(u8) * EXT3_SUPER_SECTOR_SIZE * SECTOR_BYTE_SIZE);  //初始化super_block区域
-    if (ans->super_block.fill == 0) return -ENOMEM;
+    if (ans->super_block.fill == 0) return ERR_PTR(-ENOMEM);
     u32 err = read_block(ans->super_block.fill,ans->first_sb_sect,EXT3_SUPER_SECTOR_SIZE);  //从指定位置开始读取super_block
-    if (err) return -EIO;
+    if (err) return ERR_PTR(-EIO);
     //SECTOR是物理的， BASE_BLOCK_SIZE是逻辑的
     u32 ratio = EXT3_BLOCK_SIZE_BASE << ans->super_block.content->block_size >> SECTOR_LOG_SIZE;   //一个block里放多少个sector
     if (ratio <= 2) ans->first_gdt_sect = ans->first_sb_sect + EXT3_SUPER_SECTOR_SIZE;  //如果只能放2个以内的sector，那么gb和sb将紧密排列
     else ans->first_gdt_sect = base + ratio;  //否则直接跳过第一个块
-    return (u32) ans;
+    return ans;
 }
 
 
-u32 ext3_init_dir_entry(struct super_block* super_block) {
+struct dentry* ext3_init_dir_entry(struct super_block* super_block) {
     struct dentry* ans = (struct dentry*)kmalloc(sizeof(struct dir_entry));
-    if (ans == 0) return -ENOMEM;
+    if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->d_name.name = "/";
     ans->d_mounted = 0;
     ans->d_name.len = 1;
@@ -198,12 +200,12 @@ u32 ext3_init_dir_entry(struct super_block* super_block) {
     INIT_LIST_HEAD(&(ans->d_alias));
     INIT_LIST_HEAD(&(ans->d_lru));
     INIT_LIST_HEAD(&(ans->d_subdirs));
-    return (u32) ans;
+    return ans;
 }
 
-u32 ext3_init_inode(struct super_block* super_block) {
+struct inode* ext3_init_inode(struct super_block* super_block) {
     struct inode* ans = (struct inode*) kmalloc(sizeof(struct inode));
-    if (ans == 0) return -ENOMEM;
+    if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->i_op = &ext3_inode_operations;
     ans->i_ino = EXT3_ROOT_INO;
     ans->i_fop = &ext3_file_operations;
@@ -213,19 +215,18 @@ u32 ext3_init_inode(struct super_block* super_block) {
     INIT_LIST_HEAD(&(ans->i_list)); //初始化索引节点链表
     INIT_LIST_HEAD(&(ans->i_dentry));  //初始化目录项链表
     INIT_LIST_HEAD(&(ans->i_hash));  //初始化散列表
-    //todo, LRU?
     switch (ans->i_block_size){
         case 1024: ans->i_block_size_bit = 10; break;
         case 2048: ans->i_block_size_bit = 11; break;
         case 4096: ans->i_block_size_bit = 12; break;
         case 8192: ans->i_block_size_bit = 13; break;
-        default: return -EFAULT;
+        default: return ERR_PTR(-EFAULT);
     }
     ans->i_data.a_host = ans;
     ans->i_data.a_pagesize = super_block->s_block_size;
     ans->i_data.a_op = (&ext3_address_space_operations);
     INIT_LIST_HEAD(&(ans->i_data.a_cache));
-    return (u32) ans;
+    return ans;
 }
 
 u32 get_group_info_base(struct inode *inode, u8 block_offset) {
@@ -320,9 +321,9 @@ u32 fetch_root_data(struct inode* root_inode){
     return 0;
 };
 
-u32 ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) {
+struct vfsmount* ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) {
     struct vfsmount* ans = (struct vfsmount*) kmalloc(sizeof(struct vfsmount));
-    if (ans == 0) return -ENOMEM;
+    if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->mnt_parent = ans;
     ans->mnt_mountpoint = root_entry; //挂载点
     ans->mnt_root = root_entry; //根目录项
@@ -330,26 +331,22 @@ u32 ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) 
     INIT_LIST_HEAD(&(ans->mnt_hash));
     //mnt_hash加入root_mnt链表
     list_add(&(ans->mnt_hash),&(root_mnt->mnt_hash));
-    return (u32) ans;
+    return ans;
 }
 
 u32 init_ext3(u32 base){
-    u32 base_information_pointer = ext3_init_base_information(base);  //读取ext3基本信息
-    if (IS_ERR_VALUE(base_information_pointer)) goto err;
+    struct ext3_base_information * base_information = ext3_init_base_information(base);  //读取ext3基本信息
+    if (IS_ERR_OR_NULL(base_information)) goto err;
 
-    u32 super_block_pointer = ext3_init_super(
-            (struct ext3_base_information *) base_information_pointer);         //初始化超级块
-    if (IS_ERR_VALUE(super_block_pointer)) goto err;
-    struct super_block* super_block = (struct super_block *) super_block_pointer;
+    struct super_block* super_block = ext3_init_super(base_information);         //初始化超级块
+    if (IS_ERR_OR_NULL(super_block)) goto err;
 
-    u32 root_dentry_pointer = ext3_init_dir_entry(super_block);  //初始化目录项
-    if (IS_ERR_VALUE(root_dentry_pointer)) goto err;
-    struct dentry * root_dentry = (struct dentry *) root_dentry_pointer;
+    struct dentry * root_dentry = ext3_init_dir_entry(super_block);  //初始化目录项
+    if (IS_ERR_OR_NULL(root_dentry)) goto err;
     super_block->s_root = root_dentry;
 
-    u32 root_inode_pointer = ext3_init_inode(super_block);      //初始化索引节点
-    if (IS_ERR_VALUE(root_inode_pointer)) goto err;
-    struct inode* root_inode = (struct inode *) root_inode_pointer;
+    struct inode* root_inode = ext3_init_inode(super_block);      //初始化索引节点
+    if (IS_ERR_OR_NULL(root_inode)) goto err;
 
     u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
     if (IS_ERR_VALUE(result)) goto err;
@@ -359,9 +356,10 @@ u32 init_ext3(u32 base){
     root_dentry->d_inode = root_inode;
     list_add(&(root_dentry->d_alias),&(root_inode->i_dentry));
 
-    u32 root_mnt = ext3_init_mount(root_dentry,super_block);
+    struct vfsmount *root_mount = ext3_init_mount(root_dentry,super_block);
     err: {
-
+        kernel_printf("ERROR: fail to initialize VFS!");
+        return -1;
     } //pass
     return 0;
 }
@@ -404,8 +402,8 @@ u32 ext3_readdir (struct file * file, struct getdent * getdent){
     getdent->count = 0;  //初始化当前目标填充区域的计数器为0
     getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (MAX_DIRENT_NUM));
     for (i = 0; i < inode->i_blocks; i++) { //遍历这个目录文件内的所有块
-        curPage = (struct vfs_page *) ext3_fetch_page(inode, i);
-        if (IS_ERR_VALUE(curPage)) return -ENOMEM;
+        curPage = ext3_fetch_page(inode, i);
+        if (IS_ERR_OR_NULL(curPage)) return -ENOMEM;
         //这里curPage一定已经加载进来了，现在是第i块，现在需要遍历每一个目录项
         curAddr = curPage->page_data;
         pageTail = curPage->page_data + inode->i_block_size;  //当前页的尾部地址
@@ -436,7 +434,7 @@ u32 ext3_readdir (struct file * file, struct getdent * getdent){
 }
 
 //lpn是target_inode里的逻辑页号
-u32 ext3_fetch_page(struct inode * target_inode, u32 logical_page_num) {
+struct vfs_page * ext3_fetch_page(struct inode * target_inode, u32 logical_page_num) {
     struct address_space *target_address_space = target_inode->i_mapping;  //寻找父级目录的索引节点地址
     struct condition find_condition;
     u32 actual_page_num = target_address_space->a_op->bmap(target_inode,logical_page_num);
@@ -445,7 +443,7 @@ u32 ext3_fetch_page(struct inode * target_inode, u32 logical_page_num) {
     struct vfs_page * curPage = (struct vfs_page*) pcache->c_op->look_up(pcache,&find_condition);
     if (curPage == 0) {  //说明在pcache里面没找到，这样的话要去外存上加载这一页
         curPage = (struct vfs_page*)kmalloc(sizeof(struct vfs_page));
-        if (curPage == 0) return -ENOMEM;
+        if (curPage == 0) return ERR_PTR(-ENOMEM);
         curPage->p_address_space = target_address_space;
         curPage->page_address = actual_page_num;
         curPage->page_state = P_CLEAR;
@@ -455,12 +453,12 @@ u32 ext3_fetch_page(struct inode * target_inode, u32 logical_page_num) {
         u32 err = target_address_space->a_op->readpage(curPage);  //填完最后一项data就大功告成啦！这里完成了页的预处理
         if (IS_ERR_VALUE(err)) {
             release_page(curPage);
-            return err;
+            ERR_PTR(err);
         }
         pcache->c_op->add(pcache,curPage);
         list_add(curPage->page_list,&(target_address_space->a_cache)); //把当前已缓存的页添加到已缓存的页链表首部
     }
-    return (u32) curPage;
+    return curPage;
 }
 
 u32 ext3_write_inode (struct inode * target_inode, struct dentry* parent){  //因为没有icache所以直接写回外存就可以
@@ -575,8 +573,8 @@ u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完del
     struct vfs_page *target_page;
     //获得该dentry下的a-page
     for (i = 0; i < dir->i_blocks; i++) {  //对该目录下的所有数据块进行扫描
-        target_page = (struct vfs_page *) ext3_fetch_page(dir, i);
-        if (IS_ERR_VALUE(target_page)) return -ENOMEM;
+        target_page = ext3_fetch_page(dir, i);
+        if (IS_ERR_OR_NULL(target_page)) return -ENOMEM;
         curAddr = target_page->page_data;
         pageTail = curAddr + dir->i_block_size;
         while (*curAddr != 0 && curAddr < pageTail) {
@@ -604,5 +602,30 @@ u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完del
     }
     else kernel_memset(sourceHead, 0, (int) (sourceTail - sourceHead));  //但是如果后面没有的话还是要删除的
     target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+    return 0;
+}
+
+/* 在特定文件夹中寻找索引节点，该索引节点要对应于dentry中给出的文件名 */
+struct dentry * ext3_lookup(struct inode *target_inode, struct dentry *target_dentry, struct nameidata * nd){
+    struct ext3_base_information* base_information = target_inode->i_sb->s_fs_info;
+    u32 i; //for loop
+    u8 *pageHead,*pageTail;
+    struct qstr newStr;
+    for (i = 0; i < target_inode->i_blocks; i++) {
+        struct vfs_page* target_page = ext3_fetch_page(target_inode,i); //加载目标页
+        if (IS_ERR_OR_NULL(target_page)) return 0;
+        pageHead = (u8 *) target_page;
+        pageTail = pageHead + base_information->super_block.content->block_size;  //标记该页的首尾
+        while (*pageHead != 0 && pageHead < pageTail) {
+            struct ext3_dir_entry* curDentry = (struct ext3_dir_entry *) pageHead;
+            newStr.len = curDentry->file_name_len;
+            newStr.name = curDentry->file_name;
+            if (generic_qstr_compare(&(target_dentry->d_name),&newStr) == 0) {  //如果找到了的话
+                nd->dentry = target_dentry;  //写回nd
+                return target_dentry;       //返回目标dentry
+            }
+            pageHead += curDentry->entry_len;
+        }
+    }
     return 0;
 }
