@@ -1,10 +1,10 @@
-#include "pc.h"
 #include "../../arch/mips32/intr.h"
 #include "../../arch/mips32/arch.h"
 
 #include <driver/vga.h>
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
+#include <zjunix/pc.h>
 
 struct list_head wait;                          // 等待列表
 struct list_head exited;                        // 结束列表
@@ -95,7 +95,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     }
     // Load context
     copy_context(&(pcb[curr_proc].context), pt_context);
-    asm volatile("mtc0 $zero, $9\n\t");
+    asm volatile("mtc0 $zero, $9\n\t");  //恢复时钟中断
 }
 
 int pc_peek() {
