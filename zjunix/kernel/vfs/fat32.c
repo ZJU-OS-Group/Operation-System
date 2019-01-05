@@ -767,12 +767,23 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
 int fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct inode* new_inode, struct dentry* new_dentry)
 {
 
-        return 0;
+    return 0;
 }
 int fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 {
     u32 err;
-    
+    struct dentry* parent_dentry;
+
+    parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
+    err = fat32_delete_inode(temp_dentry);
+    if(err)
+    {
+        return err;
+    }
+    temp_dentry->d_name[0] = 0xE5;
+    list_del(&(temp_dentry->d_lru));
+    list_del(&(temp_dentry->d_hash));
+    list_del(&(temp_dentry->d_subdirs));
     return 0;
 }
 u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode)
