@@ -7,6 +7,7 @@
 #include <zjunix/pc.h>
 #include <zjunix/slab.h>
 #include <zjunix/vfs/vfs.h>
+#include <zjunix/vfs/errno.h>
 
 struct list_head wait;                          // 等待列表
 struct list_head exited;                        // 结束列表
@@ -83,23 +84,56 @@ void init_pc() {
         "mtc0 $zero, $9");      // $9 count
 }
 
-
-int pc_peek() {
-    int i = 0;
-    for (i = 0; i < 8; i++)
-        if (pcb[i].ASID < 0)
-            break;
-    if (i == 8)
-        return -1;
-    return i;
+void init_context(context * reg_context){
+    kernel_memset(reg_context,0,sizeof(context));
 }
 
-void pc_create(int asid, void (*func)(), unsigned int init_sp, unsigned int init_gp, char* name) {
-    pcb[asid].context.epc = (unsigned int)func;
-    pcb[asid].context.sp = init_sp;
-    pcb[asid].context.gp = init_gp;
-    kernel_strcpy(pcb[asid].name, name);
-    pcb[asid].ASID = asid;
+int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
+               unsigned int argc, void *args, pid_t *retpid, int is_user) {
+    //这里暂时不考虑is_user的情况
+    if (is_user){
+
+    }
+    else {
+
+    }
+    unsigned int init_gp;
+    task_union* new_task;
+    pid_t pid_num = -1;
+    if (!pid_alloc(&pid_num)) {
+        goto err_handler;
+    }
+    new_task = (task_union *) kmalloc(sizeof(unsigned char) * KERNEL_STACK_SIZE);
+    if (new_task == 0) {
+        goto err_handler;
+    }
+    kernel_strcpy(new_task->task.name,task_name);
+    new_task->task.parent = current->pid;  //todo: 这里保存的是父进程的pid号
+    new_task->task.time_counter = PROC_DEFAULT_TIMESLOTS; //分配一整个默认时间配额
+    new_task->task.priority = NORMAL_PRIORITY_CLASS; //暂时设置成正常的priority
+    context* new_context = &(new_task->task.context);
+    init_context(new_context); //初始化新进程的上下文信息
+    new_task->task.ASID = new_task->task.pid = pid_num;
+    new_task->task.state = S_INIT;
+    INIT_LIST_HEAD(&(new_task->task.schedule_list));
+    INIT_LIST_HEAD(&(new_task->task.task_node));
+    new_task->task.task_files = 0;
+    new_context->epc = (unsigned int) entry;  //初始化pc地址
+    new_context->sp = (unsigned int) (new_context + KERNEL_STACK_SIZE); //初始化栈顶指针
+    asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
+    new_context->gp = init_gp;  //初始化全局指针
+    new_context->a0 = argc;     //初始化参数寄存器a0 a1
+    new_context->a1 = (unsigned int) args;
+    if (retpid != 0) *retpid = pid_num;  //提供返回pid
+    add_task(&(new_task->task));
+    new_task->task.state = S_READY;     //标记当前进程状态为READY
+    add_ready(&(new_task->task));  //todo: 这里没有做抢占
+    return 1;
+    err_handler:
+    {
+        if (pid_num != -1) pid_free(pid_num);
+        return 0;
+    }
 }
 
 /*************************************************************************************************/

@@ -52,7 +52,6 @@ struct task_struct{
     context context;                    /* 进程上下文信息 */
     int ASID;                           /* 进程地址空间ID号 */
     char name[TASK_NAME_LEN];           /* 进程名 */
-    unsigned long start_time;           /* 进程开始时间 */
     pid_t pid;                          /* 当前进程PID号 */
     pid_t parent;                       /* 父进程PID号 */
     int state;                          /* 当前进程状态 */
@@ -71,8 +70,8 @@ typedef union {
 
 void init_pc();
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
-int pc_peek();
-void pc_create(int asid, void (*func)(), unsigned int init_sp, unsigned int init_gp, char* name);
+void pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
+               unsigned int argc, void *args, pid_t *retpid, int is_user);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
 int pc_kill(pid_t pid); // 杀死pid对应的进程
 struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块

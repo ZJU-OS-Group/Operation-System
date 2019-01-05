@@ -522,6 +522,7 @@ u32 ext3_mkdir(struct inode* dir, struct dentry* dentry, u32 mode) {  //忽略mo
 u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完delete_inode
     //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
     //首先清除块位图
+
     //然后清除索引节点位图
     //然后清除inode表内数据
     //修改sb和gdt
