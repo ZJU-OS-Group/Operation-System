@@ -9,7 +9,7 @@
 #define FAT32_FAT_ENTRY_LEN_SHIFT               2
 #define FAT32_DIR_ENTRY_LEN                     32
 #define FAT32_CLUSTER_NUM                       65527
-#define FAT32_CLUSTER_SIZE                      4096
+#define FAT32_CLUSTER_SIZE                      16384 * 1024  //一个cluster 16K，包含32个sector
 #define LCASE                                   0x18    //文件名和扩展名都小写。
 #define UBASE_LEXT                              0x10    //文件名大写而扩展名小写。
 #define LBASE_UEXT                              0x08    //文件名小写而扩展名大写。
@@ -106,6 +106,7 @@ struct dentry* fat32_inode_lookup(struct inode *, struct dentry *, struct nameid
 u32 fat32_create_inode(struct inode *, struct dentry *, struct nameidata *);
 u32 fat32_readdir(struct file *, struct getdent *);
 u32 fat32_mkdir(struct inode*, struct dentry*, u32);
+int fat32_rmdir(struct inode*, struct dentry*);
 int fat32_rename (struct inode*, struct dentry*, struct inode*, struct dentry*);
 void fat32_convert_filename(struct qstr*, const struct qstr*, u8, u32);
 u32 fat32_readpage(struct vfs_page *);
@@ -113,4 +114,5 @@ u32 fat32_writepage(struct vfs_page *);
 u32 fat32_bitmap(struct inode *, u32);
 u32 generic_compare_filename();
 u32 read_fat(struct inode *, u32);
+u32 write_fat(struct inode *, u32, u32);
 #endif

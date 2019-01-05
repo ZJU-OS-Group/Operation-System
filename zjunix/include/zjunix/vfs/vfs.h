@@ -11,6 +11,8 @@
 #include <zjunix/utils.h>
 
 
+#define         DPT_MAX_ENTRY_COUNT             4
+#define         DPT_ENTRY_LEN                   16
 #define         SECTOR_BYTE_SIZE                512
 #define         SECTOR_LOG_SIZE                 9
 #define         S_CLEAR                         0
@@ -55,7 +57,7 @@
 enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 
 /*********************************以下定义VFS相关的其他数据结构****************************************/
-/********************************* 文件系统类型 ******************************/
+/********************************* 文件系统类型 *******************************/
 // 一个文件系统对应一个file_system_type
 struct file_system_type {
     const char              *name;          /* 文件系统名称 */
@@ -79,7 +81,7 @@ struct file_system_type {
 //    struct lock_class_key   i_alloc_sem_key;
 };
 
-/********************************* 文件系统实例 ******************************/
+/********************************* 文件系统实例 *******************************/
 // 一个文件系统实例对应一个vfsmount，被安装时会在安装点创建一个
 struct vfsmount {
     struct list_head        mnt_hash;           /* 散列表 */
@@ -113,20 +115,20 @@ struct vfsmount {
 //    atomic_t                mnt_writers;        /* 写者引用计数 */
 };
 
-/********************************* 包装字符串 ********************************/
+/********************************* 包装字符串 *********************************/
 struct qstr {
     const u8                            *name;                  // 字符串
     u32                                 len;                    // 长度
     u32                                 hash;                   // 哈希值
 };
 
-/********************************* 文件打开标志 ******************************/
+/********************************* 文件打开标志 *******************************/
 struct open_intent {
     u32	                                flags;
     u32	                                create_mode;
 };
 
-/********************************* 查找操作结果 ******************************/
+/********************************* 查找操作结果 *******************************/
 struct nameidata {
     struct dentry       *dentry;        /* 目录项对象的地址 */
     struct vfsmount     *mnt;           /* 已安装文件系统对象的地址 */
@@ -139,7 +141,7 @@ struct nameidata {
     } intent;
 };
 
-/****************************************vfs页 ************************************************/
+/*********************************** vfs页 **********************************/
 struct vfs_page {
     u8*     page_data;
     u32     page_state;
@@ -177,7 +179,7 @@ struct path {
     struct dentry                       *dentry;                // 对应文件系统挂载项
 };
 
-/********************************* 查找条件结构 ******************************/
+/********************************* 查找条件结构 *******************************/
 struct condition {   //todo: todo: Refactor! 这里的结构用得太泛了
     void    *cond1;    // parent 目录 or pageNum
     void    *cond2;    // name
@@ -195,6 +197,13 @@ struct dirent {
 struct getdent {
     u32                                 count;                  // 目录项数
     struct dirent                       *dirent;                // 目录项数组
+};
+
+/********************************** 主引导记录 *******************************/
+struct master_boot_record {
+    u32                                 m_count;                        // 分区数
+    u32                                 m_base[DPT_MAX_ENTRY_COUNT];    // 每个分区的基地址
+    u8                                  m_data[SECTOR_SIZE];            // 数据
 };
 
 /*********************************以下定义VFS的四个主要对象********************************************/
@@ -271,7 +280,7 @@ struct inode_operations {
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
-    /* 被系统调用mkdir()调用，创建一个新目录，mode指定创建时的初始模式 */
+    /* 被系统调用mkdir()调用，创建父目录inode下的一个新目录dentry，mode指定创建时的初始模式 */
     int (*mkdir) (struct inode*, struct dentry*, u32);
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
     int (*rmdir) (struct inode*, struct dentry*);
@@ -406,5 +415,6 @@ u8 get_bit(const u8 *source, u32 index);
 
 // vfs.c for total virtual file system
 u32 init_vfs();
+u32 vfs_read_MBR();
 
 #endif

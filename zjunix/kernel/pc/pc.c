@@ -173,18 +173,27 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
-struct task_struct* get_curr_pcb() {
-    return current;
-}
-
+// 打印在就绪队列中的所有进程信息
 int print_proc() {
-    int i;
     kernel_puts("PID name\n", 0xfff, 0);
-    for (i = 0; i < 8; i++) {
-        if (pcb[i].ASID >= 0)
-            kernel_printf(" %x  %s\n", pcb[i].ASID, pcb[i].name);
+    for (int i = 0; i < PRIORITY_LEVELS; ++i) {
+        if (ready_bitmap[i]) {
+            int number = ready_queue[i].number;
+            struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
+            struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
+            while(number) { // 循环完为止
+                kernel_printf(" %x  %s\n", pcb->ASID, pcb->name);
+                this = this->next;
+                pcb = container_of(this, struct task_struct, schedule_list);
+                number--;
+            }
+        }
     }
     return 0;
+}
+
+struct task_struct* get_curr_pcb() {
+    return current;
 }
 
 // 在就绪队列中寻找下一个要运行的进程并返回
@@ -261,6 +270,7 @@ void remove_ready(struct task_struct *task) {
         ready_bitmap[priority] = 0;
 }
 
+// 修改进程的优先级
 void change_priority(struct task_struct *task, int delta) {
     task->priority += delta;
 }
