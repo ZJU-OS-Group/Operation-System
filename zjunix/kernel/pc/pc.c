@@ -147,11 +147,14 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
 
 /*************************************************************************************************/
 
+// 进程正常结束，结束当前进程
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
-    if (curr_proc != 0) {
-        pcb[curr_proc].ASID = -1;
-        pc_schedule(status, cause, pt_context);
-    }
+    // 保留当前进程的pid
+    pid_t kill_pid = current->pid;
+    // 调度到下一个进程（将当前进程归到就绪队列中去）
+    pc_schedule(status,cause,pt_context);
+    // 根据之前存的pid将对应的进程kill掉
+    pc_kill(kill_pid);
 }
 
 // 杀死进程，返回值0正常，返回值-1出错
@@ -249,8 +252,10 @@ void pc_exchange(struct task_struct* next, context* pt_context, int flag) {
     /* 保存上下文 */
     copy_context(pt_context, &(current->context));
     /* 将next从ready列表中拿出来 */
+    next->state = S_RUNNING;
     remove_ready(next);
     /* 将current添加进ready列表中 */
+    current->state = S_READY;
     add_ready(current);
     /* 更换当前进程 */
     current = next;
@@ -317,6 +322,7 @@ struct task_struct* find_next_task() {
     struct task_struct* next;
     u32 current_priority = current->priority;
 
+    /* 先从优先级高于current的列表里面寻找，若找到直接返回 */
     next = get_preemptive_task();
     if (next != current)
         return next;
