@@ -1,7 +1,7 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/log.h>
 #include <driver/vga.h>
-#include "fat32.h"
+#include <zjunix/vfs/fat32.h>
 
 // global
 struct master_boot_record   * MBR;

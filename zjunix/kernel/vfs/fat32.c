@@ -1,6 +1,6 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/vfscache.h>
-#include "fat32.h"
+#include <zjunix/vfs/fat32.h>
 
 #include <zjunix/log.h>
 #include <zjunix/slab.h>
