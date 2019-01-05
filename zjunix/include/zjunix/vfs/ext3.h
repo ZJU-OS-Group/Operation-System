@@ -134,7 +134,7 @@ u32 ext3_readdir (struct file *, struct getdent *);
 
 u32 ext3_create(struct inode *, struct dentry *, struct nameidata *);
 
-struct dentry * ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
+struct dentry *ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
 
 u32 ext3_mkdir(struct inode*, struct dentry*, u32);
 
