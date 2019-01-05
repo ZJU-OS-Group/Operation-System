@@ -1,13 +1,14 @@
 #include "pc.h"
 #include "../../arch/mips32/intr.h"
+#include "../../arch/mips32/arch.h"
 
 #include <driver/vga.h>
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
 
-struct list_head wait;                          // 等待状态
-struct list_head exited;                        // 结束状态
-struct list_head tasks;                         // 所有进程
+struct list_head wait;                          // 等待列表
+struct list_head exited;                        // 结束列表
+struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 
@@ -66,8 +67,8 @@ void init_pc() {
     struct task_struct *idle;
     init_pc_list();
 
-//    idle = (struct task_struct*)(kernel_sp - KERNEL_STACK_SIZE);
-    idle[0].ASID = 0;
+    idle = (struct task_struct*)(kernel_sp - KERNEL_STACK_SIZE);
+    idle->ASID = 0;
     idle[0].time_counter = PROC_DEFAULT_TIMESLOTS;
     kernel_strcpy(idle[0].name, "init");
     register_syscall(10, pc_kill_syscall);

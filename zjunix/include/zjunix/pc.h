@@ -6,6 +6,25 @@
 
 #define TASK_NAME_LEN 32
 #define PRIORITY_LEVELS 32
+#define KERNEL_STACK_SIZE  4096
+
+/**************************************** 优先权类 *************************************/
+#define IDLE_PRIORITY_CLASS 4
+#define BELOW_NORMAL_PRIORITY_CLASS 6
+#define NORMAL_PRIORITY_CLASS 8
+#define ABOVE _NORMAL_PRIORITY_CLASS 10
+#define HIGH_PRIORITY_CLASS 13
+#define REALTIME_PRIORITY_CLASS 24
+
+
+/**************************************** 进程状态 *************************************/
+#define S_INIT 0
+#define S_READY 1
+#define S_RUNNING 2
+#define S_STANDBY 3
+#define S_WAIT 4
+#define S_TRANSITION 5
+#define S_TERMINATE 6
 
 typedef struct {
     unsigned int epc;
@@ -44,7 +63,7 @@ struct task_struct{
 
 typedef union {
     struct task_struct task;
-    unsigned char kernel_stack[4096];
+    unsigned char kernel_stack[KERNEL_STACK_SIZE];
 } task_union;  //进程控制块
 
 #define PROC_DEFAULT_TIMESLOTS 6
