@@ -193,20 +193,26 @@ int pc_kill(pid_t pid) {
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
-    // Save context
-    copy_context(pt_context, &(pcb[curr_proc].context));
-    int i;
-    for (i = 0; i < 8; i++) {
-        curr_proc = (curr_proc + 1) & 7;
-        if (pcb[curr_proc].ASID >= 0)
-            break;
+    struct task_struct* next;
+    /* 判断异常类型 */
+    if (cause==0) {
+        // TODO: interruption
     }
-    if (i == 8) {
-        kernel_puts("Error: PCB[0] is invalid!\n", 0xfff, 0);
-        while (1);
+    else if (cause==8) {
+        // TODO: system call
     }
-    // Load context
-    copy_context(&(pcb[curr_proc].context), pt_context);
+
+    /* 找到将要调度的下一个进程 */
+    next = find_next_task();
+    if (next!=current) {
+        /* 保存上下文 */
+        copy_context(pt_context, &(current->context));
+        /* 更换当前进程 */
+        current = next;
+        /* 将新的上下文保存到pt_context中 */
+        copy_context(&(current->context), pt_context);
+    }
+    // 复位count，结束时钟中断
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
