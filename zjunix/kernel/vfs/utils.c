@@ -20,3 +20,7 @@ u8 get_bit(const u8 *source, u32 index){
     u8 mask = 1 << (index % BITS_PER_BYTE);    //获取这一位在字节内的定位
     return (byte & mask);
 }
+
+u32 generic_qstr_compare(struct qstr * a, struct qstr * b) {
+    return kernel_strcmp(a->name,b->name);
+}

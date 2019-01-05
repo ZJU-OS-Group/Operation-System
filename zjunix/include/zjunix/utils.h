@@ -13,6 +13,7 @@ char* kernel_strcpy(char* dest, const char* src);
 void kernel_serial_puts(char* str);
 void kernel_serial_putc(char c);
 unsigned int is_bound(unsigned int val, unsigned int bound);
+int generic_qstr_compare(struct qstr * a, struct qstr * b);
 
 typedef unsigned char* va_list;
 #define _INTSIZEOF(n) ((sizeof(n) + sizeof(unsigned int) - 1) & ~(sizeof(unsigned int) - 1))
