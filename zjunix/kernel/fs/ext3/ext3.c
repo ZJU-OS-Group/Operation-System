@@ -1,7 +1,6 @@
 /**
  * CREATED BY DESMOND
  */
-
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/ext3.h>
 #include <zjunix/utils.h>
@@ -33,20 +32,6 @@ struct super_operations ext3_super_ops = {
         .delete_dentry_inode = ext3_delete_dentry_inode,
         .write_inode = ext3_write_inode,
 };
-// struct inode *(*alloc_inode)(struct super_block *sb);       /* 创建和初始化一个索引节点对象 */
-//void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
-//
-//void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
-//u32 (*write_inode) (struct inode *, u32);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
-//void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
-//void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
-//void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
-//void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
-//u32 (*sync_fs)(struct super_block *sb, u32 wait);           /* 使文件系统中的数据与磁盘上的数据同步 */
-//u32 (*statfs) (struct dentry *, struct kstatfs *);          /* VFS调用该函数获取文件系统状态 */
-//u32 (*remount_fs) (struct super_block *, u32 *, char *);    /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
-//void (*clear_inode) (struct inode *);                       /* VFS调用该函数释放索引节点，并清空包含相关数据的所有页面 */
-//void (*umount_begin) (struct super_block *);
 
 struct file_operations ext3_file_operations = {
         .write   = generic_file_write,
@@ -59,14 +44,15 @@ struct dentry_operations ext3_dentry_operations = {
         .d_compare = generic_qstr_compare
 };
 
-struct inode_operations ext3_inode_operations = {
+struct inode_operations ext3_inode_operations[2] = {{
         .create = ext3_create,
         .lookup = ext3_lookup,
-        .link = ext3_link,
         .mkdir = ext3_mkdir,
-        .rmdir = ext3_rmdir,
-        .rename = ext3_rename
-};
+        .rmdir = ext3_rmdir
+},{
+        .create = ext3_create,
+        .lookup = ext3_lookup
+}};
 
 
 //通过相对文件页号计算相对物理页号， inode是该页所在的inode
@@ -494,12 +480,6 @@ u32 ext3_write_inode(struct inode *target_inode, struct dentry *parent) {  //因
     return 0;
 }
 
-u32 ext3_mkdir(struct inode *dir, struct dentry *dentry, u32 mode) {  //忽略mode
-    struct inode *new_inode = (struct inode *) kmalloc(sizeof(struct inode));
-    if (new_inode == 0) return -ENOMEM;
-
-}
-
 u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
     //首先清除块位图
@@ -688,6 +668,7 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     //下一步：在磁盘上找到这个inode
     struct inode* allocated_inode = ext3_init_inode(dir->i_sb,new_inode->i_ino);
     ext3_fill_inode(allocated_inode);
+    allocated_inode->i_type = EXT3_NORMAL;
     kfree(new_inode);
     u32 inode_size = base_information->super_block.content->inode_size;
     u32 inode_table_base = get_group_info_base(allocated_inode, EXT3_INODE_TABLE_OFFSET);
@@ -701,6 +682,26 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     err = write_block(buffer, inode_sect, 1);
     if (err) return -EIO;
     target_dentry->d_inode = allocated_inode;
+    target_dentry->d_parent = container_of(dir,struct dentry,d_inode);
     nd->dentry = target_dentry;
+    return 0;
+}
+
+
+u32 ext3_mkdir(struct inode *dir, struct dentry *target_dentry, u32 mode) {  //忽略mode
+    struct nameidata* nd = (struct nameidata*) kmalloc(sizeof(struct nameidata));
+    if (nd == 0) return -ENOMEM;
+    u32 err = ext3_create(dir,target_dentry,nd);
+    if (IS_ERR_VALUE(err)) return err;
+    target_dentry->d_inode->i_type = EXT3_DIR;
+    return 0;
+}
+
+u32 ext3_rmdir(struct inode* dir, struct dentry* target_dentry){
+    u32 err = ext3_delete_dentry_inode(target_dentry);
+    list_del(&(target_dentry->d_alias));
+    list_del(&(target_dentry->d_lru));
+    list_del(&(target_dentry->d_subdirs));
+    if (IS_ERR_VALUE(err)) return err;
     return 0;
 }

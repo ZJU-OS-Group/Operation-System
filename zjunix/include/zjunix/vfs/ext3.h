@@ -147,6 +147,6 @@ u32 ext3_rename(struct inode*, struct dentry*, struct inode *, struct dentry*);
 
 u32 ext3_write_inode (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
 
-u32 ext3_delete_entry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
+u32 ext3_delete_dentry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
 
 #endif
