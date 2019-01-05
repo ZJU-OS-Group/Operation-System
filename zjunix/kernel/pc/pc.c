@@ -201,6 +201,11 @@ int pc_kill(pid_t pid) {
     return 0;
 }
 
+// 根据进程优先级判断是否是实时任务
+int is_realtime(struct task_struct* task) {
+    return task->priority > 15;
+}
+
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     struct task_struct* next;
     /* 判断异常类型 */
@@ -211,18 +216,61 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
         // TODO: system call
     }
 
-    /* 找到将要调度的下一个进程 */
-    next = find_next_task();
-    if (next!=current) {
-        /* 保存上下文 */
-        copy_context(pt_context, &(current->context));
-        /* 更换当前进程 */
-        current = next;
-        /* 将新的上下文保存到pt_context中 */
-        copy_context(&(current->context), pt_context);
+    /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
+    current->time_counter -= 3;
+
+    /* 时间配额没有用完，判断需不需要被抢占 */
+    if (current->time_counter > 0) {
+        next = get_preemptive_task();
+        if (next!=current) { // 会被抢占
+            if (is_realtime(current)) // 如果是实时task，重置时间片
+                pc_exchange(next, pt_context, 1);
+            else
+                pc_exchange(next, pt_context, 0);
+        }
+    } else {
+        /* 找到将要调度的下一个进程 */
+        next = find_next_task();
+        if (next!=current) {
+            pc_exchange(next, pt_context, 1);
+        }
     }
+
     // 复位count，结束时钟中断
     asm volatile("mtc0 $zero, $9\n\t");
+}
+
+// 将当前进程换成next
+// pt_context：当前上下文
+// flag：是否需要重置时间片
+void pc_exchange(struct task_struct* next, context* pt_context, int flag) {
+    if (flag) // 重置时间片
+        current->time_counter = PROC_DEFAULT_TIMESLOTS;
+    /* 保存上下文 */
+    copy_context(pt_context, &(current->context));
+    /* 将next从ready列表中拿出来 */
+    remove_ready(next);
+    /* 将current添加进ready列表中 */
+    add_ready(current);
+    /* 更换当前进程 */
+    current = next;
+    /* 将新的上下文保存到pt_context中 */
+    copy_context(&(current->context), pt_context);
+}
+
+// 寻找有没有可以抢占当前进程的进程
+struct task_struct* get_preemptive_task() {
+    struct task_struct* next;
+    u32 current_priority = current->priority;
+    next = current;
+    // 从高到低寻找比current优先级高的
+    for (int i = PRIORITY_LEVELS; i > current_priority; --i) {
+        if (ready_bitmap[i]) {
+            next = container_of(ready_queue[i].queue_head.next, struct task_struct, schedule_list);
+            break;
+        }
+    }
+    return next;
 }
 
 // 打印在就绪队列中的所有进程信息
@@ -267,16 +315,12 @@ struct task_struct* find_in_tasks(pid_t pid) {
 // 在就绪队列中寻找下一个要运行的进程并返回
 struct task_struct* find_next_task() {
     struct task_struct* next;
-    u32 current_priority = current->priority-1; // priority从1～32，但是就绪队列数组从0～31
+    u32 current_priority = current->priority;
 
-    next = current;
-    // 从高到低寻找比current优先级高的
-    for (int i = PRIORITY_LEVELS; i > current_priority; --i) {
-        if (ready_bitmap[i]) {
-            next = container_of(ready_queue[i].queue_head.next, struct task_struct, schedule_list);
-            return next;
-        }
-    }
+    next = get_preemptive_task();
+    if (next != current)
+        return next;
+
     // 如果没有找到，那么找同级的
     if (ready_bitmap[current_priority]) {
         next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
@@ -284,6 +328,7 @@ struct task_struct* find_next_task() {
     return next;
 }
 
+// 释放task的内容
 void task_files_release(struct task_struct* task) {
     vfs_close(task->task_files);
     kfree(&(task->task_files));
@@ -308,7 +353,7 @@ void add_task(struct task_struct *task) {
 
 // 将进程添加进就绪队列
 void add_ready(struct task_struct *task) {
-    u32 priority = task->priority-1;
+    u32 priority = task->priority;
     list_add_tail(&(task->schedule_list), &ready_queue[priority].queue_head);
     ready_queue[priority].number++; // 该优先级的就绪队列长度加一
     if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
@@ -335,7 +380,7 @@ void remove_task(struct task_struct *task) {
 
 // 从就绪队列中删除进程
 void remove_ready(struct task_struct *task) {
-    u32 priority = task->priority-1;
+    u32 priority = task->priority;
     list_del(&(task->schedule_list));
     INIT_LIST_HEAD(&(task->schedule_list));
     ready_queue[priority].number--;

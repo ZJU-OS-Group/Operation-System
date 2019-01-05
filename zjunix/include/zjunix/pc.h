@@ -57,7 +57,7 @@ struct task_struct{
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
     unsigned int priority;              /* 优先级 */
-    FILE * task_files;                  /* 进程打开的文件指针 */
+    struct file* task_files;                  /* 进程打开的文件指针 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
 };
@@ -76,12 +76,15 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
 int pc_kill(pid_t pid); // 杀死pid对应的进程
 struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块
 struct task_struct* get_curr_pcb();
-int print_proc();
-struct task_struct* find_next_task();
+int print_proc();   // 打印出就绪队列中的进程信息
+
 void join(pid_t);
 void wait(pid_t);
-struct task_struct* find_next_task(); // 找到下一个要被运行的task
-void task_files_release(struct task_struct* task); // 释放进程的文件
+struct task_struct* get_preemptive_task();                                  // 找到可以抢占当前task的进程
+struct task_struct* find_next_task();                                       // 找到下一个要被运行的task
+void task_files_release(struct task_struct* task);                          // 释放进程的文件
+int is_realtime(struct task_struct* task);                                  // 根据进程优先级判断是否是实时任务
+void pc_exchange(struct task_struct* next, context* pt_context, int flag);  // 将当前进程换成next
 
 void add_wait(struct task_struct *task);                    // 将进程添加进等待列表
 void add_exit(struct task_struct *task);                    // 将进程添加至结束列表
