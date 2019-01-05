@@ -48,17 +48,19 @@ struct ready_queue_element{
 };
 
 struct task_struct{
-    context context;    //进程上下文信息
-    int ASID;           //进程地址空间ID号
-    char name[TASK_NAME_LEN];   //进程名
-    unsigned long start_time;   //进程开始时间
-    pid_t pid;                  //当前进程PID号
-    pid_t parent;               //父进程PID号
-    int state;                  //当前进程状态
-    unsigned int time_counter;  //时间片
-    unsigned int priority;      //优先级
-    FILE * task_files;          //进程打开的文件指针
-    struct task_struct *prev,*succ; //链表中的前继和后续
+    context context;                    /* 进程上下文信息 */
+    int ASID;                           /* 进程地址空间ID号 */
+    char name[TASK_NAME_LEN];           /* 进程名 */
+    unsigned long start_time;           /* 进程开始时间 */
+    pid_t pid;                          /* 当前进程PID号 */
+    pid_t parent;                       /* 父进程PID号 */
+    int state;                          /* 当前进程状态 */
+    unsigned int time_counter;          /* 时间片 */
+    unsigned int priority;              /* 优先级 */
+    FILE * task_files;                  /* 进程打开的文件指针 */
+    struct task_struct *prev,*succ;     /* 链表中的前继和后续 */
+    struct list_head schedule_list;     /* 用于进程调度 */
+    struct list_head task_node;         /* 用于添加进进程列表 */
 };
 
 typedef union {

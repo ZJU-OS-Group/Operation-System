@@ -147,3 +147,57 @@ int print_proc() {
     }
     return 0;
 }
+
+/**************************************** 一些对队列的功能性操作 ********************************************/
+
+// 将进程添加进等待列表
+void add_wait(struct task_struct *task) {
+    list_add_tail(&(task->schedule_list), &wait);
+}
+
+// 将进程添加至结束列表
+void add_exit(struct task_struct *task) {
+    list_add_tail(&(task->schedule_list), &exited);
+}
+
+// 将进程添加至所有进程列表
+void add_task(struct task_struct *task) {
+    list_add_tail(&(task->task_node), &tasks);
+}
+
+// 将进程添加进就绪队列
+void add_ready(struct task_struct *task) {
+    u32 priority = task->priority;
+    list_add_tail(&(task->schedule_list), &ready_queue[priority].queue_head);
+    ready_queue[priority].number++; // 该优先级的就绪队列长度加一
+    if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
+        ready_bitmap[priority] = 1;
+}
+
+// 从等待列表中删除进程
+void remove_wait(struct task_struct *task) {
+    list_del(&(task->schedule_list));
+    INIT_LIST_HEAD(&(task->schedule_list));
+}
+
+// 从退出列表中删除进程
+void remove_exit(struct task_struct *task) {
+    list_del(&(task->schedule_list));
+    INIT_LIST_HEAD(&(task->schedule_list));
+}
+
+// 从进程列表中删除进程
+void remove_task(struct task_struct *task) {
+    list_del(&(task->task_node));
+    INIT_LIST_HEAD(&(task->task_node));
+}
+
+// 从就绪队列中删除进程
+void remove_ready(struct task_struct *task) {
+    u32 priority = task->priority;
+    list_del(&(task->schedule_list));
+    INIT_LIST_HEAD(&(task->schedule_list));
+    ready_queue[priority].number--;
+    if (ready_queue[priority].number == 0) // 更新就绪位图对应位状态
+        ready_bitmap[priority] = 0;
+}
