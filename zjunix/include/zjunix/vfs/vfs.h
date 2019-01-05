@@ -280,7 +280,7 @@ struct inode_operations {
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
-    /* 被系统调用mkdir()调用，创建一个新目录，mode指定创建时的初始模式 */
+    /* 被系统调用mkdir()调用，创建父目录inode下的一个新目录dentry，mode指定创建时的初始模式 */
     int (*mkdir) (struct inode*, struct dentry*, u32);
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
     int (*rmdir) (struct inode*, struct dentry*);
