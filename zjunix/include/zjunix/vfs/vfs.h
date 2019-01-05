@@ -400,7 +400,7 @@ u32 vfs_mv(const u8 *);
 // utils.c for some util functions
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
-u16 get_u16(u8)
+u16 get_u16(u8);
 u32 get_u32(u8 *ch);
 u8 get_bit(const u8 *source, u32 index);
 
