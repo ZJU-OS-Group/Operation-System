@@ -550,31 +550,59 @@ u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完del
     u32 data_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE / super_block->inode_size);
     u32 data_inner_offset = offset % (SECTOR_BYTE_SIZE / super_block->inode_size);
     //这里继续使用上一步产生的offset，计算在inode表里的位移
-    u32 sect_num = super_block->inode_size / (SECTOR_BYTE_SIZE) + (super_block->inode_size % SECTOR_BYTE_SIZE != 0);
-    //这里计算需要删除多少个扇区
-    err = read_block(target_sect,data_sect_addr,sect_num);
-    kernel_memset(target_sect,0,super_block->inode_size*BITS_PER_BYTE*data_inner_offset);
-
+    err = read_block(target_sect,data_sect_addr,1);
+    if (err) {
+        kfree(super_block);
+        return -EIO;
+    }
+    kernel_memset(target_sect + super_block->inode_size * data_inner_offset, 0, super_block->inode_size);
+    //指针移动到目标地址，并且把指定长度都写0
+    err = write_block(target_sect,data_sect_addr,1);
+    if (err) {
+        kfree(super_block);
+        return -EIO;
+    }
     //修改sb和gdt
+    super_block->free_inode_num--;
     //清除父目录中的该目录项，并把后面的目录项向前移动
-    // 抹掉原来目录项的信息
-    // 如果被删除的目录项后面有目录项，需要前移
-    // 这里对页进行操作之后要把页写脏
     u8 *curAddr,*pageTail;
+    u8 *sourceHead = 0;
+    u8 *sourceTail = 0;
+    u8 *targetHead = 0;
+    u8 *targetTail = 0;
+    struct qstr newQstr;
     struct inode * dir = target_dentry->d_inode;
-    struct vfs_page* acache_page = (struct vfs_page *) dir->i_mapping->a_page;
+    struct vfs_page *target_page;
     //获得该dentry下的a-page
     for (i = 0; i < dir->i_blocks; i++) {  //对该目录下的所有数据块进行扫描
-        struct vfs_page *target_page = (struct vfs_page *) ext3_fetch_page(dir, i);
-        if (target_page == 0) return -ENOMEM;
+        target_page = (struct vfs_page *) ext3_fetch_page(dir, i);
+        if (IS_ERR_VALUE(target_page)) return -ENOMEM;
         curAddr = target_page->page_data;
         pageTail = curAddr + dir->i_block_size;
         while (*curAddr != 0 && curAddr < pageTail) {
             struct ext3_dir_entry *curDentry = (struct ext3_dir_entry *) curAddr;
-            if (curDentry->inode_num == target_dentry->d_inode->i_ino) {
-                //说明找到了这个inode
-
+            newQstr.name = curDentry->file_name;
+            newQstr.len = curDentry->file_name_len;
+            if (generic_qstr_compare(&newQstr,&(target_dentry->d_name)) == 0) {     //说明找到了这个inode
+                targetHead = curAddr;
+                targetTail = curAddr + curDentry->entry_len;
             }
+            else {
+                if (targetHead != 0) { // 如果被删除的目录项后面有目录项，需要前移
+                    if (sourceHead == 0) sourceHead = curAddr;
+                    sourceTail = curAddr + curDentry->entry_len;
+                }
+            }
+            curAddr += curDentry->entry_len;
         }
+        if (sourceHead != 0) break;
     }
+    if (sourceHead == 0) return -ENOENT;
+    if (targetHead != 0) { //如果后面没有的话就不用前移
+        kernel_memcpy(sourceHead, targetHead, (int) (targetTail-targetHead));  //后面的向前拷贝
+        kernel_memset(sourceHead + (int) (targetTail-targetHead), 0, (int) (sourceTail - sourceHead)); //后面清空
+    }
+    else kernel_memset(sourceHead, 0, (int) (sourceTail - sourceHead));  //但是如果后面没有的话还是要删除的
+    target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+    return 0;
 }
