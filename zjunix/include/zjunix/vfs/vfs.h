@@ -19,13 +19,14 @@
 #define         MAX_ERRNO	                    4095
 #define         BITS_PER_BYTE                   8
 #define         IS_ERR_VALUE(x)                 ((x) >= (u32)-MAX_ERRNO)
+#define         MAX_DIRENT_NUM                  128
 
 // 文件打开方式，即open函数的参数flags。vfs_open的第二个参数，打开文件时用
 #define O_RDONLY	                            0x0000                  // read only 只读
 #define O_WRONLY	                            0x0001                  // write only 只写
 #define O_RDWR		                            0x0002                  // read & write 可读可写
 #define O_ACCMODE                               0x0003                  //
-#define O_TRUNC                                 0x0004                  // TODO: Don't know why
+#define O_TRUNC                                 0x0004                  //
 #define O_CREAT		                            0x0100                   // 如果文件不存在，就创建它
 #define O_APPEND	                            0x2000                   // 总是在文件末尾写
 
@@ -141,7 +142,7 @@ struct nameidata {
 struct vfs_page {
     u8*     page_data;
     u32     page_state;
-    u32     page_address;
+    u32     page_address;                                           //物理页号
     struct list_head*           page_hashtable;                     // 哈希表链表
     struct list_head*           p_lru;                              // LRU链表
     struct list_head*           page_list;                          // 同一文件已缓冲页的链表
@@ -176,9 +177,9 @@ struct path {
 };
 
 /********************************* 查找条件结构 ******************************/
-struct condition {
-    void    *cond1; // parent 目录 // pageNum
-    void    *cond2; // name
+struct condition {   //todo: todo: Refactor! 这里的结构用得太泛了
+    void    *cond1;    // parent 目录 // pageNum
+    void    *cond2;    // name
     void    *cond3;
 };
 
@@ -217,9 +218,9 @@ struct super_operations {
     void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
 
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
-    int (*write_inode) (struct inode *, int);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
+    int (*write_inode) (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
     void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
-    void (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
+    int (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
     void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
     void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
     int (*sync_fs)(struct super_block *, int);                  /* 使文件系统中的数据与磁盘上的数据同步 */
@@ -275,7 +276,7 @@ struct inode_operations {
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
     int (*rmdir) (struct inode*, struct dentry*);
     /* 该函数由VFS调用，重命名，前两个是原文件和原目录 */
-    int (*rename) (struct inode*, struct dentry*, struct indoe*, struct dentry*);
+    int (*rename) (struct inode*, struct dentry*, struct inode*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
     /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */

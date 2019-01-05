@@ -58,15 +58,12 @@ struct ext3_super_block {
     u32                 journal_dev;                        //日志文件的设备号
 };
 
-struct ext3_super_block_info {
-
-};
 
 enum {
-    ext3_UNKNOWN = 0,
-    ext3_NORMAL = 1,
-    ext3_DIR = 2,
-    ext3_LINK = 7
+    EXT3_UNKNOWN = 0,
+    EXT3_NORMAL = 1,
+    EXT3_DIR = 2,
+    EXT3_LINK = 7
 };
 
 struct ext3_dir_entry{
@@ -74,7 +71,7 @@ struct ext3_dir_entry{
     u16     entry_len;          //目录项长度
     u8      file_name_len;      //文件名长度
     u8      file_type;          //文件类型
-    char    file_name[EXT3_BOOT_SECTOR_SIZE];  //文件名
+    char    file_name[EXT3_MAX_NAME_LEN];  //文件名
 };
 
 
@@ -128,13 +125,25 @@ u32 ext3_readpage(struct vfs_page * page);
 //通过相对文件页号计算相对物理页号
 u32 ext3_bmap(struct inode* inode, u32 target_page);
 
-u32 ext3_read (struct file *, char* , u32,  long long *);
-/* 由系统调用write()调用它 */
-u32 ext3_write (struct file *, const char* , u32, long long *);
-/* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
+//读入文件目录
 u32 ext3_readdir (struct file *, struct getdent *);
-/* 创建一个新的文件对象,并将它和相应的索引节点对象关联起来 */
-u32 ext3_open (struct inode *, struct file *);
-/* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
-u32 ext3_flush (struct file *);
+
+
+
+u32 ext3_create(struct inode *, struct dentry *, struct nameidata *);
+
+struct dentry * ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
+
+u32 ext3_mkdir(struct inode*, struct dentry*, u32);
+
+u32 ext3_link(struct dentry *, struct inode *, struct dentry *);
+
+u32 ext3_rmdir(struct inode*, struct dentry*);
+
+u32 ext3_rename(struct inode*, struct dentry*, struct inode *, struct dentry*);
+
+u32 ext3_write_inode (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
+
+u32 ext3_delete_entry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
+
 #endif
