@@ -13,9 +13,9 @@ extern struct vfsmount                  * pwd_mnt;
 
 const char* __my_strcat(const u8* dest,const u8* src)
 {
-    char* res = dest;
+    char* res = (char *) dest;
     while(*res) res++;// *res != '\0'
-    while(*res++ = *src++);
+    while((*res++ = *src++));
     return dest;
 }
 
@@ -59,7 +59,27 @@ u32 vfs_cat(const u8 *path) {
 
 // mkdir：新建目录
 u32 vfs_mkdir(const u8 * path) {
-    // 判断是否
+    u32 err=0;
+    struct dentry *dentry;
+    struct nameidata nd;
+    // 找到path对应的nd信息
+    err = path_lookup(path,LOOKUP_PARENT,&nd);
+    if (err)
+        return err;
+
+    // 若是没有则创建dentry
+    dentry = lookup_create(&nd, 1);
+    err = PTR_ERR(dentry);
+    if (!IS_ERR(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->mkdir)
+            return -EPERM;
+        // 调用文件系统对应的mkdir
+        err = dir->i_op->mkdir(dir, dentry, 0);
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    return err;
 }
 
 // rm：删除文件
@@ -90,45 +110,105 @@ u32 vfs_rm(const u8 * path) {
 }
 
 // rm -r：递归删除目录
-u32 vfs_rm_r(const u8 * path) {
-    u32 err;
-    struct file *file;
-    struct getdent getdent;
+//u32 vfs_rm_r(const u8 * path) {
+//    u32 err;
+//    struct file *file;
+//    struct getdent getdent;
+//    struct nameidata nd;
+//
+//    // 打开目录
+//    if (path[0] == 0) {
+//        kernel_printf("No parameter.\n");
+//        return -ENOENT;
+//    }
+//    else
+//        file = vfs_open(path, LOOKUP_DIRECTORY);
+//    if (file->f_dentry->d_inode->i_type!=FTYPE_DIR)
+//        vfs_rm(path);
+//    if (IS_ERR_OR_NULL(file)) {
+//        if (PTR_ERR(file) == -ENOENT)
+//            kernel_printf("Directory not found!\n");
+//        else
+//            kernel_printf("Other error: %d\n", -PTR_ERR(file));
+//        return PTR_ERR(file);
+//    }
+//    err = file->f_op->readdir(file, &getdent);
+//    if (err)
+//        return err;
+//    // 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
+//    for (int i = 0; i < getdent.count; ++i) {
+//        if (getdent.dirent[i].type == FTYPE_DIR) {
+//            const u8* tmp_path = __my_strcat(path, "/");
+//            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+//            vfs_rm_r(new_path);
+//        } else if (getdent.dirent[i].type == FTYPE_NORM) {
+//            const u8* tmp_path = __my_strcat(path, "/");
+//            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
+//            vfs_rm(new_path);
+//        } else if (getdent.dirent[i].type == FTYPE_LINK) {
+//            // TODO: 如何处理链接文件
+//        } else {
+//            return -ENOENT;
+//        }
+//    }
+//    // 删除目录本身的dentry和inode
+//    err = path_lookup(path, 0, &nd);
+//    if (err == -ENOENT) { // 返回No such file or directory的错误信息
+//        kernel_printf("No such directory.\n");
+//        return err;
+//    } else if (IS_ERR_VALUE(err)) { // 如果有其他错误
+//        kernel_printf("Other error: %d\n", err);
+//        return err;
+//    }
+//    nd.dentry->d_inode->i_op->rmdir(nd.dentry->d_inode,nd.dentry);
+//    nd.dentry->d_op->d_delete(nd.dentry);
+//    return 0;
+//}
 
-    // 打开目录
-    if (path[0] == 0) {
-        kernel_printf("No parameter.\n");
-        return -ENOENT;
-    }
-    else
-        file = vfs_open(path, LOOKUP_DIRECTORY);
-    if (IS_ERR_OR_NULL(file)) {
-        if (PTR_ERR(file) == -ENOENT)
-            kernel_printf("Directory not found!\n");
-        else
-            kernel_printf("Other error: %d\n", -PTR_ERR(file));
-        return PTR_ERR(file);
-    }
-    err = file->f_op->readdir(file, &getdent);
+// rm -r：递归删除目录
+u32 vfs_rm_r(const u8 * path) {
+    u32 err = 0;
+    struct dentry * dentry;
+    struct nameidata nd;
+
+    err = path_lookup(path, LOOKUP_PARENT, &nd);
     if (err)
         return err;
-    // TODO: 遍历目录下每一项，若是文件直接调用rm，否则递归调用vfs_rm_r
-    for (int i = 0; i < getdent.count; ++i) {
-        if (getdent.dirent[i].type == FTYPE_DIR) {
-            const u8* tmp_path = __my_strcat(path, "/");
-            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
-            vfs_rm_r(new_path);
-        } else if (getdent.dirent[i].type == FTYPE_NORM) {
-            const u8* tmp_path = __my_strcat(path, "/");
-            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
-            vfs_rm(new_path);
-        } else if (getdent.dirent[i].type == FTYPE_LINK) {
-            // TODO: 如何处理链接文件
-        } else {
-            return -ENOENT;
-        }
+
+    switch (nd.last_type) {
+        case LAST_DOTDOT:
+            err = -ENOTEMPTY;
+            dput(nd.dentry);
+            return err;
+        case LAST_DOT:
+            err = -EINVAL;
+            dput(nd.dentry);
+            return err;
+        case LAST_ROOT:
+            err = -EBUSY;
+            dput(nd.dentry);
+            return err;
+        default:break;
     }
-    return 0;
+    dentry = __lookup_hash(&nd.last, nd.dentry, 0);
+    err = PTR_ERR(dentry);
+    if (!IS_ERR(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->rmdir)
+            return -EPERM;
+        if (dentry->d_mounted) {
+            dput(nd.dentry);
+            return -EBUSY;
+        }
+        err = dir->i_op->rmdir(dir,dentry);
+        if (!err) {
+            dentry->d_inode->i_flags |= S_DEAD;
+            dentry_iput(dentry);
+        }
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    return err;
 }
 
 // ls：列出目录项下的文件信息
@@ -157,8 +237,14 @@ u32 vfs_ls(const u8 * path) {
 
     // 遍历gedent，向屏幕打印结果
     for (int i = 0; i < getdent.count; ++i) {
-        // TODO: 这里之后可以添加上根据文件类型打印不同颜色的功能
-        kernel_puts(getdent.dirent[i].name, VGA_WHITE,VGA_BLACK);
+        if (getdent.dirent[i].type == FTYPE_DIR)
+            kernel_puts(getdent.dirent[i].name, VGA_GREEN,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_NORM)
+            kernel_puts(getdent.dirent[i].name, VGA_WHITE,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_LINK)
+            kernel_puts(getdent.dirent[i].name, VGA_BLUE,VGA_BLACK);
+        else if (getdent.dirent[i].type == FTYPE_UNKOWN)
+            kernel_puts(getdent.dirent[i].name, VGA_RED, VGA_BLACK);
         kernel_printf(" ");
     }
     kernel_printf("\n");
@@ -190,3 +276,8 @@ u32 vfs_cd(const u8 * path) {
 u32 vfs_mv(const u8 * path) {
 
 }
+
+
+//void vfs_pwd() {
+//    kernel_puts()
+//}

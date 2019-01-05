@@ -41,7 +41,7 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 	u32 tempCur = 0;
 	u32 realPageNo;
 	u32 readCount = 0;
-	file_inode = file->f_dentry->d_inode
+	file_inode = file->f_dentry->d_inode;
 	//计算起始页号
 	startPageNo = (*pos) / file_inode->i_block_size;
 	startPageCur = (*pos) % file_inode->i_block_size;
@@ -60,7 +60,7 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 	for(tempPageNo = startPageNo;tempPageNo <= endPageNo;tempPageNo++)
 	{
 		u32 tempPage;
-		realPageNo = file_inode->i_data.a_op->bitmap(file_inode, tempPageNo);
+		realPageNo = file_inode->i_data.a_op->bmap(file_inode, tempPageNo);
 		//在缓存pcache中查找，放入tempPage
 
 		if(tempPage == 0) //不在pcache中
@@ -114,7 +114,7 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 	u32 tempCur = 0;
 	u32 realPageNo;
 	u32 writeCount = 0;
-	file_inode = file->f_dentry->d_inode
+	file_inode = file->f_dentry->d_inode;
 	//计算起始页号
 	startPageNo = (*pos) / file_inode->i_block_size;
 	startPageCur = (*pos) % file_inode->i_block_size;
@@ -124,7 +124,7 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 	for(tempPageNo = startPageNo;tempPageNo <= endPageNo;tempPageNo++)
 	{
 		u32 tempPage;
-		realPageNo = file_inode->i_data.a_op->bitmap(file_inode, tempPageNo);
+		realPageNo = file_inode->i_data.a_op->bmap(file_inode, tempPageNo);
 		//在缓存pcache中查找，放入tempPage
 		if(tempPage == 0) //不在pcache中
 		{
@@ -148,13 +148,13 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 		{
 			writeCount = endPageCur;
 			src = buf + tempCur;
-			dest = tempPage->p_data;		
+			dest = tempPage->page_data;
 		}
 		else
 		{
 			writeCount = file_inode->i_block_size;
 			src = buf + tempCur;
-			dest = tempPage->p_data;
+			dest = tempPage->page_data;
 		}
 		kernel_memcpy(dest, src, writeCount);
 		tempCur += writeCount;

@@ -10,9 +10,23 @@
 #define FAT32_DIR_ENTRY_LEN                     32
 #define FAT32_CLUSTER_NUM                       65527
 #define FAT32_CLUSTER_SIZE                      4096
+#define LCASE                                   0x18    //文件名和扩展名都小写。
+#define UBASE_LEXT                              0x10    //文件名大写而扩展名小写。
+#define LBASE_UEXT                              0x08    //文件名小写而扩展名大写。
+#define UCASE                                   0x00    //文件名和扩展名都大写。
 
 #define FAT32_FILE_NAME_NORMAL_TO_LONG          0
 #define FAT32_FILE_NAME_LONG_TO_NORMAL          1
+
+//file dentry属性attr字段意义
+#define ATTR_NORMAL                             0x00
+#define ATTR_READONLY                           0x01
+#define ATTR_HIDDEN                             0x02
+#define ATTR_SYSTEM                             0x04
+#define ATTR_LONG_FILENAME                      0x0F
+#define ATTR_DIRECTORY                          0x10
+#define ATTR_ARCHIVE                            0x20
+#define ATTR_VOLUMN                             0x08
 
 
 struct fat32_basic_information 
@@ -70,10 +84,10 @@ struct fat32_file_allocation_table
                                                     //0x0FFFFFF8 - 0x0FFFFFFF 	文件最后一个簇
 };
 
-struct __attribute__((__packed__)) fat_dir_entry {
+struct __attribute__((__packed__)) fat32_dir_entry {
     u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];             // 文件名(含拓展名)
     u8 attr;                                            // 属性
-    u8 lcase;                                           // 系统保留
+    u8 lcase;                                           // 系统保留 Case for base and extension
     u8 ctime_cs;                                        // 创建时间的10毫秒位
     u16 ctime;                                          // 创建时间
     u16 cdate;                                          // 创建日期
@@ -89,8 +103,10 @@ u32 init_fat32(u32);
 u32 fat32_delete_inode(struct dentry *);
 u32 fat32_write_inode(struct inode *, struct dentry *);
 struct dentry* fat32_inode_lookup(struct inode *, struct dentry *, struct nameidata *);
-u32 fat32_create(struct inode *, struct dentry *, u32 mode, struct nameidata *);
+u32 fat32_create_inode(struct inode *, struct dentry *, struct nameidata *);
 u32 fat32_readdir(struct file *, struct getdent *);
+u32 fat32_mkdir(struct inode*, struct dentry*, u32);
+int fat32_rename (struct inode*, struct dentry*, struct inode*, struct dentry*);
 void fat32_convert_filename(struct qstr*, const struct qstr*, u8, u32);
 u32 fat32_readpage(struct vfs_page *);
 u32 fat32_writepage(struct vfs_page *);

@@ -15,6 +15,7 @@
 #define         SECTOR_LOG_SIZE                 9
 #define         S_CLEAR                         0
 #define         S_DIRTY                         1
+#define         S_DEAD		                    16	        /* removed, but still open directory */
 #define         P_CLEAR                         0
 #define         MAX_ERRNO	                    4095
 #define         BITS_PER_BYTE                   8
@@ -142,7 +143,7 @@ struct nameidata {
 struct vfs_page {
     u8*     page_data;
     u32     page_state;
-    u32     page_address;                                           //物理页号
+    u32     page_address;                                           //物理页号, 对应文件系统定义的块地址
     struct list_head*           page_hashtable;                     // 哈希表链表
     struct list_head*           p_lru;                              // LRU链表
     struct list_head*           page_list;                          // 同一文件已缓冲页的链表
@@ -178,7 +179,7 @@ struct path {
 
 /********************************* 查找条件结构 ******************************/
 struct condition {   //todo: todo: Refactor! 这里的结构用得太泛了
-    void    *cond1;    // parent 目录 // pageNum
+    void    *cond1;    // parent 目录 or pageNum
     void    *cond2;    // name
     void    *cond3;
 };
@@ -215,12 +216,11 @@ struct super_block {
 // 超级块操作函数
 struct super_operations {
     struct inode *(*alloc_inode)(struct super_block *);         /* 创建和初始化一个索引节点对象 */
-    void (*destroy_inode)(struct inode *);                      /* 释放给定的索引节点 */
-
+    void (*put_inode)(struct inode *);                      /* 释放给定的索引节点 */
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
     int (*write_inode) (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
     void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
-    int (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点 */
+    int (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点（禁用） */
     void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
     void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
     int (*sync_fs)(struct super_block *, int);                  /* 使文件系统中的数据与磁盘上的数据同步 */
@@ -360,7 +360,6 @@ struct file_operations {
     /* 当已打开文件的引用计数减少时,VFS调用该函数，将修改后的内容写回磁盘 */
     u32 (*flush) (struct file *);
 };
-/****************************************vfs页 ************************************************/
 
 /****************************************** 以下是函数声明 ***************************************/
 // open.c for file open system call
@@ -376,7 +375,7 @@ u32 link_path_walk(const u8 *, struct nameidata *);
 u32 do_lookup(struct nameidata *, struct qstr *, struct path *);
 struct dentry * real_lookup(struct dentry *, struct qstr *, struct nameidata *);
 struct dentry * __lookup_hash(struct qstr *, struct dentry *, struct nameidata *);
-struct dentry * d_alloc(struct dentry *, const struct qstr *);
+struct dentry *lookup_create(struct nameidata *, int);
 
 // read_write.c for file read and write system call
 u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos);
@@ -398,8 +397,14 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 
+// utils.c for some util functions
 u32 read_block(u8 *buf, u32 addr, u32 count);
 u32 write_block(u8 *buf, u32 addr, u32 count);
+u16 get_u16(u8)
 u32 get_u32(u8 *ch);
 u8 get_bit(const u8 *source, u32 index);
+
+// vfs.c for total virtual file system
+u32 init_vfs();
+
 #endif

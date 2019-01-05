@@ -22,7 +22,7 @@ typedef struct {
     unsigned int ra;
 } context;
 
-
+// 进程就绪队列
 struct ready_queue_element{
     int number;
     struct list_head queue_head;
