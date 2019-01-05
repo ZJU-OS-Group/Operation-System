@@ -70,8 +70,8 @@ void init_pc() {
 
     idle = (struct task_struct*)(kernel_sp - KERNEL_STACK_SIZE);
     idle->ASID = 0;
-    idle[0].time_counter = PROC_DEFAULT_TIMESLOTS;
-    kernel_strcpy(idle[0].name, "init");
+    idle->time_counter = PROC_DEFAULT_TIMESLOTS;
+    kernel_strcpy(idle->name, "init");
     register_syscall(10, pc_kill_syscall);
     register_interrupt_handler(7, pc_schedule);
 
@@ -79,6 +79,45 @@ void init_pc() {
         "li $v0, 1000000\n\t"   // 1000000->v0
         "mtc0 $v0, $11\n\t"     // $11 compare
         "mtc0 $zero, $9");      // $9 count
+}
+
+
+int pc_peek() {
+    int i = 0;
+    for (i = 0; i < 8; i++)
+        if (pcb[i].ASID < 0)
+            break;
+    if (i == 8)
+        return -1;
+    return i;
+}
+
+void pc_create(int asid, void (*func)(), unsigned int init_sp, unsigned int init_gp, char* name) {
+    pcb[asid].context.epc = (unsigned int)func;
+    pcb[asid].context.sp = init_sp;
+    pcb[asid].context.gp = init_gp;
+    kernel_strcpy(pcb[asid].name, name);
+    pcb[asid].ASID = asid;
+}
+
+/*************************************************************************************************/
+
+void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
+    if (curr_proc != 0) {
+        pcb[curr_proc].ASID = -1;
+        pc_schedule(status, cause, pt_context);
+    }
+}
+
+int pc_kill(int proc) {
+    proc &= 7;
+    if (proc != 0 && pcb[proc].ASID >= 0) {
+        pcb[proc].ASID = -1;
+        return 0;
+    } else if (proc == 0)
+        return 1;
+    else
+        return 2;
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
@@ -99,44 +138,8 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
-int pc_peek() {
-    int i = 0;
-    for (i = 0; i < 8; i++)
-        if (pcb[i].ASID < 0)
-            break;
-    if (i == 8)
-        return -1;
-    return i;
-}
-
-void pc_create(int asid, void (*func)(), unsigned int init_sp, unsigned int init_gp, char* name) {
-    pcb[asid].context.epc = (unsigned int)func;
-    pcb[asid].context.sp = init_sp;
-    pcb[asid].context.gp = init_gp;
-    kernel_strcpy(pcb[asid].name, name);
-    pcb[asid].ASID = asid;
-}
-
-void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
-    if (curr_proc != 0) {
-        pcb[curr_proc].ASID = -1;
-        pc_schedule(status, cause, pt_context);
-    }
-}
-
-int pc_kill(int proc) {
-    proc &= 7;
-    if (proc != 0 && pcb[proc].ASID >= 0) {
-        pcb[proc].ASID = -1;
-        return 0;
-    } else if (proc == 0)
-        return 1;
-    else
-        return 2;
-}
-
 struct task_struct* get_curr_pcb() {
-    return &pcb[curr_proc];
+    return current;
 }
 
 int print_proc() {
