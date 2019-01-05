@@ -5,8 +5,9 @@
 #include "list.h"
 
 #define TASK_NAME_LEN 32
-#define PRIORITY_LEVELS 32
-#define KERNEL_STACK_SIZE  4096
+#define PRIORITY_LEVELS 32          /* 优先级等级数 */
+#define KERNEL_STACK_SIZE  4096     /* 内核栈大小 */
+#define PROC_DEFAULT_TIMESLOTS 6    /* 默认时间配额 */
 
 /**************************************** 优先权类 *************************************/
 #define IDLE_PRIORITY_CLASS 4
@@ -68,7 +69,6 @@ typedef union {
     unsigned char kernel_stack[KERNEL_STACK_SIZE];
 } task_union;  //进程控制块
 
-#define PROC_DEFAULT_TIMESLOTS 6
 
 void init_pc();
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
@@ -78,5 +78,6 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
 int pc_kill(int proc);
 struct task_struct* get_curr_pcb();
 int print_proc();
+struct task_struct* find_next_task();
 
 #endif  // !_ZJUNIX_PC_H
