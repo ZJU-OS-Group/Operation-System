@@ -181,6 +181,7 @@ struct ext3_base_information *ext3_init_base_information(u32 base) {
     u32 ratio = EXT3_BLOCK_SIZE_BASE << ans->super_block.content->block_size >> SECTOR_LOG_SIZE;   //一个block里放多少个sector
     if (ratio <= 2) ans->first_gdt_sect = ans->first_sb_sect + EXT3_SUPER_SECTOR_SIZE;  //如果只能放2个以内的sector，那么gb和sb将紧密排列
     else ans->first_gdt_sect = base + ratio;  //否则直接跳过第一个块
+    ans->group_count = (ans->super_block.content->block_count - ans->super_block.content->first_data_block_no + ans->super_block.content->blocks_per_group - 1) / ans->super_block.content->blocks_per_group;
     return ans;
 }
 
@@ -203,11 +204,11 @@ struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
     return ans;
 }
 
-struct inode *ext3_init_inode(struct super_block *super_block) {
+struct inode *ext3_init_inode(struct super_block *super_block, u32 ino_num) {
     struct inode *ans = (struct inode *) kmalloc(sizeof(struct inode));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->i_op = &ext3_inode_operations;
-    ans->i_ino = EXT3_ROOT_INO;
+    ans->i_ino = ino_num;
     ans->i_fop = &ext3_file_operations;
     ans->i_count = 1;
     ans->i_sb = super_block;
@@ -248,7 +249,7 @@ u32 get_group_info_base(struct inode *inode, u8 block_offset) {
     //获得ext3的块大小
     u32 inodes_per_group = base_information->super_block.content->inodes_per_group;
     //获得ext3的每组内的inode数目
-    if (inode->i_ino > base_information->super_block.content->inode_num) return -EFAULT;
+    if (inode->i_ino > base_information->super_block.content->inode_count) return -EFAULT;
     //如果inode编号超出总数量则抛出异常
     u32 group_num = (u32) ((inode->i_ino - 1) / inodes_per_group);
     //获取根据当前节点的节点号获取节点的组号
@@ -354,7 +355,7 @@ u32 init_ext3(u32 base) {
     if (IS_ERR_OR_NULL(root_dentry)) goto err;
     super_block->s_root = root_dentry;
 
-    struct inode *root_inode = ext3_init_inode(super_block);      //初始化索引节点
+    struct inode *root_inode = ext3_init_inode(super_block,EXT3_ROOT_INO);      //初始化索引节点
     if (IS_ERR_OR_NULL(root_inode)) goto err;
 
     u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
@@ -499,7 +500,7 @@ u32 ext3_mkdir(struct inode *dir, struct dentry *dentry, u32 mode) {  //忽略mo
 
 }
 
-u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {  //todo: 写完delete_inode
+u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
     //首先清除块位图
     //首先获取块位图
@@ -555,7 +556,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {  //todo: 写完dele
     }
     //然后清除inode表内数据
     u32 target_inode_table_base = get_group_info_base(target_inode, EXT3_INODE_TABLE_OFFSET);
-    u32 data_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE / super_block->inode_size);
+    u32 data_sect_addr = target_inode_table_base + offset / (SECTOR_BYTE_SIZE / super_block->inode_size);
     u32 data_inner_offset = offset % (SECTOR_BYTE_SIZE / super_block->inode_size);
     //这里继续使用上一步产生的offset，计算在inode表里的位移
     err = read_block(target_sect, data_sect_addr, 1);
@@ -563,7 +564,17 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {  //todo: 写完dele
         kfree(super_block);
         return -EIO;
     }
-    kernel_memset(target_sect + super_block->inode_size * data_inner_offset, 0, super_block->inode_size);
+    struct ext3_inode* fetched_inode = (struct ext3_inode*) (target_sect + super_block->inode_size * data_inner_offset);
+    fetched_inode->i_size = 0;
+    fetched_inode->i_blocks = 0;
+    fetched_inode->i_gid = 0;
+    fetched_inode->i_uid = 0;
+    fetched_inode->i_atime = 0;
+    fetched_inode->i_ctime = 0;
+    fetched_inode->i_mtime = 0;
+    fetched_inode->i_dtime = 0;
+//    kernel_memset(target_sect + super_block->inode_size * data_inner_offset, 0, super_block->inode_size);
+    //直接把整个空间清空太暴力了，这样的话会把重建的功能搞错
     //指针移动到目标地址，并且把指定长度都写0
     err = write_block(target_sect, data_sect_addr, 1);
     if (err) {
@@ -635,5 +646,61 @@ struct dentry *ext3_lookup(struct inode *target_inode, struct dentry *target_den
             pageHead += curDentry->entry_len;
         }
     }
+    return 0;
+}
+
+//创建ext3文件节点
+//返回ERRVALUE说明出错，返回0说明成功
+u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd){
+    u8 buffer[SECTOR_BYTE_SIZE];
+    struct ext3_base_information* base_information = dir->i_sb->s_fs_info;
+    u32 total_group_num = base_information->group_count;
+    u32 i,j;  //for loop
+    struct ext3_super_block* super_block = base_information->super_block.content;
+    u32 inode_per_group = super_block->inodes_per_group;
+    if (super_block->free_inode_num <= 0) return -ENOMEM;
+    struct inode* new_inode = (struct inode *)kmalloc(sizeof(struct inode));
+    if (new_inode == 0) return -ENOMEM;
+    new_inode->i_block_size = dir->i_block_size;
+    new_inode->i_sb = dir->i_sb;
+    u32 position = -1;
+    for (i = 0; i < total_group_num; i++) {  //遍历所有的组
+        new_inode->i_ino = inode_per_group * i + 1;  //因为0号inode没有映像
+        u32 inode_bitmap_base = get_group_info_base(new_inode,EXT3_INODE_BITMAP_OFFSET);  //拿到INODE_BITMAP
+        u32 sect_addr = inode_bitmap_base;
+        u32 sect_num = EXT3_BLOCK_SIZE_BASE << super_block->block_size >> SECTOR_LOG_SIZE; //把一整块都导入进来
+        for (j = 0; j < sect_num; j++){
+            err = read_block(buffer,sect_addr,1);
+            if (err) return -EIO;
+            position = get_next_zero_bit(buffer,SECTOR_BYTE_SIZE);
+            if (position != -1)   //找到了一个合适的位置
+            {
+                set_bit(buffer,position);  //置位该位图
+                new_inode->i_ino = inode_per_group * i + position + 1;  //0号inode问题
+                err = write_block(buffer,sect_addr,1);
+                if (err) return -EIO;
+            }
+            sect_addr += SECTOR_BYTE_SIZE; //向后移动一个扇区，这样可以省一省buffer
+            if (position != -1) break;
+        }
+        if (position != -1) break;
+    }
+    //下一步：在磁盘上找到这个inode
+    struct inode* allocated_inode = ext3_init_inode(dir->i_sb,new_inode->i_ino);
+    ext3_fill_inode(allocated_inode);
+    kfree(new_inode);
+    u32 inode_size = base_information->super_block.content->inode_size;
+    u32 inode_table_base = get_group_info_base(allocated_inode, EXT3_INODE_TABLE_OFFSET);
+    u32 inner_index = (u32) ((new_inode->i_ino - 1) % base_information->super_block.content->inodes_per_group);
+    u32 offset_sect = inner_index / (SECTOR_BYTE_SIZE / inode_size);
+    u32 inode_sect = inode_table_base + offset_sect;
+    u32 err = read_block(buffer, inode_sect, 1);
+    if (err) return -EIO;
+    u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
+    kernel_memcpy(buffer + inode_sect_offset * inode_size,allocated_inode,inode_size);
+    err = write_block(buffer, inode_sect, 1);
+    if (err) return -EIO;
+    target_dentry->d_inode = allocated_inode;
+    nd->dentry = target_dentry;
     return 0;
 }

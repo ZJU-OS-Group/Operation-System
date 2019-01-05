@@ -79,7 +79,7 @@ struct task_struct* get_curr_pcb();
 int print_proc();   // 打印出就绪队列中的进程信息
 
 void join(pid_t);
-void wait(pid_t);
+void wake(pid_t);
 struct task_struct* get_preemptive_task();                                  // 找到可以抢占当前task的进程
 struct task_struct* find_next_task();                                       // 找到下一个要被运行的task
 void task_files_release(struct task_struct* task);                          // 释放进程的文件
