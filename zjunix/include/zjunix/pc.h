@@ -58,8 +58,7 @@ struct task_struct{
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
     unsigned int priority;              /* 优先级 */
-    FILE * task_files;                  /* 进程打开的文件指针 */
-    struct task_struct *prev,*succ;     /* 链表中的前继和后续 */
+    struct file * task_files;           /* 进程打开的文件指针 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
 };
@@ -75,9 +74,21 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
 int pc_peek();
 void pc_create(int asid, void (*func)(), unsigned int init_sp, unsigned int init_gp, char* name);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
-int pc_kill(int proc);
+int pc_kill(pid_t pid); // 杀死pid对应的进程
+struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块
 struct task_struct* get_curr_pcb();
 int print_proc();
-struct task_struct* find_next_task();
+struct task_struct* find_next_task(); // 找到下一个要被运行的task
+void task_files_release(struct task_struct* task); // 释放进程的文件
+
+void add_wait(struct task_struct *task);                    // 将进程添加进等待列表
+void add_exit(struct task_struct *task);                    // 将进程添加至结束列表
+void add_task(struct task_struct *task);                    // 将进程添加至所有进程列表
+void add_ready(struct task_struct *task);                   // 将进程添加进就绪队列
+void remove_wait(struct task_struct *task);                 // 从等待列表中删除进程
+void remove_exit(struct task_struct *task);                 // 从退出列表中删除进程
+void remove_task(struct task_struct *task);                 // 从进程列表中删除进程
+void remove_ready(struct task_struct *task);                // 从就绪队列中删除task
+void change_priority(struct task_struct *task, int delta);  // 修改进程的优先级
 
 #endif  // !_ZJUNIX_PC_H

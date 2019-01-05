@@ -5,6 +5,8 @@
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
 #include <zjunix/pc.h>
+#include <zjunix/slab.h>
+#include <zjunix/vfs/vfs.h>
 
 struct list_head wait;                          // 等待列表
 struct list_head exited;                        // 结束列表
@@ -109,15 +111,51 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
     }
 }
 
-int pc_kill(int proc) {
-    proc &= 7;
-    if (proc != 0 && pcb[proc].ASID >= 0) {
-        pcb[proc].ASID = -1;
-        return 0;
-    } else if (proc == 0)
-        return 1;
-    else
-        return 2;
+// 杀死进程，返回值0正常，返回值-1出错
+int pc_kill(pid_t pid) {
+    int res;
+    struct task_struct* target;
+    /* 三种不能kill的特殊情况进行特判 */
+    if (pid==IDLE_PID) {
+        kernel_puts("Can't kill the idle process.\n", VGA_RED, VGA_BLACK);
+        return -1;
+    }
+    if (pid==INIT_PID) {
+        kernel_puts("Can't kill the init process.\n", VGA_RED, VGA_BLACK);
+        return -1;
+    }
+    if (pid==current->pid) {
+        kernel_puts("Can't kill self.\n", VGA_RED, VGA_BLACK);
+        return -1;
+    }
+
+    disable_interrupts();
+    // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
+    res = pid_exist(pid);
+    if (!res) {
+        kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+    }
+
+    // 从tasks列表中找到pid对应的进程
+    target = find_in_tasks(pid);
+
+    if (target->state == S_READY) {
+        remove_ready(target); // 从就绪队列中删除
+    } else if(target->state == S_WAIT) {
+        remove_wait(target);
+    } else if(target->state == S_RUNNING) {
+        // TODO: when running, how?
+    }
+    target->state = S_TERMINATE; // 状态标记为终止
+    add_exit(target);
+    // 关闭进程文件，释放进程文件空间
+    if (target->task_files)
+        task_files_release(target);
+
+    // 释放pid
+    pid_free(pid);
+    enable_interrupts();
+    return 0;
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
@@ -161,6 +199,22 @@ struct task_struct* get_curr_pcb() {
     return current;
 }
 
+// 在所有进程列表中找到pid对应的进程，返回控制块
+struct task_struct* find_in_tasks(pid_t pid) {
+    struct list_head* start = &tasks;
+    struct list_head* this;
+    struct task_struct* result;
+
+    this = start->next;
+    while (this != start) { // 循环遍历进程列表
+        result = container_of(this, struct task_struct, task_node); // 获取对应的pcb
+        if (result->pid == pid) { // 判断pid是否一致，一致则返回结果
+            return result;
+        }
+    }
+    return (struct task_struct*)0; // 遍历到最后也没有找到，返回0
+}
+
 // 在就绪队列中寻找下一个要运行的进程并返回
 struct task_struct* find_next_task() {
     struct task_struct* next;
@@ -179,6 +233,11 @@ struct task_struct* find_next_task() {
         next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
     }
     return next;
+}
+
+void task_files_release(struct task_struct* task) {
+    vfs_close(task->task_files);
+    kfree(&(task->task_files));
 }
 
 /**************************************** 一些对队列的功能性操作 ********************************************/
