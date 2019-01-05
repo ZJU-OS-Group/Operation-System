@@ -138,6 +138,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
+// 打印在就绪队列中的所有进程信息
 int print_proc() {
     kernel_puts("PID name\n", 0xfff, 0);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
@@ -145,10 +146,11 @@ int print_proc() {
             int number = ready_queue[i].number;
             struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
             struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
-            while(this != &ready_queue[i].queue_head) { // 循环完为止
+            while(number) { // 循环完为止
                 kernel_printf(" %x  %s\n", pcb->ASID, pcb->name);
                 this = this->next;
                 pcb = container_of(this, struct task_struct, schedule_list);
+                number--;
             }
         }
     }
