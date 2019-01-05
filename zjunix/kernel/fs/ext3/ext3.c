@@ -228,6 +228,33 @@ u32 ext3_init_inode(struct super_block* super_block) {
     return (u32) ans;
 }
 
+u32 get_group_base_sect(struct inode* inode) {
+    u8 target_buffer[SECTOR_BYTE_SIZE];  //存储目标组描述符内容
+    struct ext3_base_information* base_information = (struct ext3_base_information*) inode->i_sb->s_fs_info;
+    //获取当前inode内的文件系统信息
+    u32 ext3_base = base_information->base;
+    //获得ext3的基址地址
+    u32 block_size = inode->i_block_size;
+    //获得ext3的块大小
+    u32 inodes_per_group = base_information->super_block.content->inodes_per_group;
+    //获得ext3的每组内的inode数目
+    if (inode->i_ino > base_information->super_block.content->inode_num) return -EFAULT;
+    //如果inode编号超出总数量则抛出异常
+    u32 group_num = (u32) ((inode->i_ino - 1) / inodes_per_group);
+    //获取根据当前节点的节点号获取节点的组号
+    //下一步目标：找到这一个inode对应的组描述符表
+    u32 sect = base_information->first_gdt_sect + group_num / (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
+    //后面部分的算式求一个扇区有多少个组，用组号除以该数据得到inode所在组的组描述符的扇区位置
+    u32 offset = group_num % (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
+    //计算当前扇区里第几个组是inode所在的组
+    u32 err = read_block(target_buffer,sect,1);  //组标识符的全部信息都保存在target_buffer里
+    if (err) return 0;
+    u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
+    u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_LOG_SIZE);
+    //定位到块位图所在块的起始扇区位置
+    return group_sector_base;
+}
+
 u32 get_inode_table_sect(struct inode* inode) {  //通过inode寻找inode_table的地址
     u8 target_buffer[SECTOR_BYTE_SIZE];  //存储目标组描述符内容
     struct ext3_base_information* base_information = (struct ext3_base_information*) inode->i_sb->s_fs_info;
@@ -493,6 +520,15 @@ u32 ext3_mkdir(struct inode* dir, struct dentry* dentry, u32 mode) {  //忽略mo
 }
 
 u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完delete_inode
+    //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
+    //首先清除块位图
+    //然后清除索引节点位图
+    //然后清除inode表内数据
+    //修改sb和gdt
+    //清除父目录中的该目录项，并把后面的目录项向前移动
+    // 抹掉原来目录项的信息
+    // 如果被删除的目录项后面有目录项，需要前移
+    // 这里对页进行操作之后要把页写脏
     u32 i;
     u8 *curAddr,*pageTail;
     struct inode * dir = target_dentry->d_inode;
@@ -507,7 +543,7 @@ u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完del
             struct ext3_dir_entry *curDentry = (struct ext3_dir_entry *) curAddr;
             if (curDentry->inode_num == target_dentry->d_inode->i_ino) {
                 //说明找到了这个inode
-                
+
             }
         }
     }
