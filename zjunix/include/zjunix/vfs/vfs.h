@@ -412,6 +412,8 @@ u32 write_block(u8 *buf, u32 addr, u32 count);
 u16 get_u16(u8);
 u32 get_u32(u8 *ch);
 u8 get_bit(const u8 *source, u32 index);
+void reset_bit(u8 *source, u32 index);
+void set_bit(u8 *source, u32 index);
 
 // vfs.c for total virtual file system
 u32 init_vfs();

@@ -228,7 +228,7 @@ u32 ext3_init_inode(struct super_block* super_block) {
     return (u32) ans;
 }
 
-u32 get_group_base_sect(struct inode* inode) {
+u32 get_group_info_base(struct inode *inode, u8 block_offset) {
     u8 target_buffer[SECTOR_BYTE_SIZE];  //存储目标组描述符内容
     struct ext3_base_information* base_information = (struct ext3_base_information*) inode->i_sb->s_fs_info;
     //获取当前inode内的文件系统信息
@@ -252,36 +252,8 @@ u32 get_group_base_sect(struct inode* inode) {
     u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
     u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_LOG_SIZE);
     //定位到块位图所在块的起始扇区位置
-    return group_sector_base;
-}
-
-u32 get_inode_table_sect(struct inode* inode) {  //通过inode寻找inode_table的地址
-    u8 target_buffer[SECTOR_BYTE_SIZE];  //存储目标组描述符内容
-    struct ext3_base_information* base_information = (struct ext3_base_information*) inode->i_sb->s_fs_info;
-    //获取当前inode内的文件系统信息
-    u32 ext3_base = base_information->base;
-    //获得ext3的基址地址
-    u32 block_size = inode->i_block_size;
-    //获得ext3的块大小
-    u32 inodes_per_group = base_information->super_block.content->inodes_per_group;
-    //获得ext3的每组内的inode数目
-    if (inode->i_ino > base_information->super_block.content->inode_num) return -EFAULT;
-    //如果inode编号超出总数量则抛出异常
-    u32 group_num = (u32) ((inode->i_ino - 1) / inodes_per_group);
-    //获取根据当前节点的节点号获取节点的组号
-    //下一步目标：找到这一个inode对应的组描述符表
-    u32 sect = base_information->first_gdt_sect + group_num / (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
-    //后面部分的算式求一个扇区有多少个组，用组号除以该数据得到inode所在组的组描述符的扇区位置
-    u32 offset = group_num % (SECTOR_BYTE_SIZE /  EXT3_GROUP_DESC_BYTE);
-    //计算当前扇区里第几个组是inode所在的组
-    u32 err = read_block(target_buffer,sect,1);  //组标识符的全部信息都保存在target_buffer里
-    if (err) return 0;
-    u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
-    u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_LOG_SIZE);
-    //定位到块位图所在块的起始扇区位置
-    u32 group_inode_table_base = group_sector_base + 2 * (inode->i_block_size >> SECTOR_LOG_SIZE);
-    //往后面再移动两个块，直接定位到inode_table上
-    return group_inode_table_base;
+    u32 group_target_base = group_sector_base + block_offset * (inode->i_block_size >> SECTOR_LOG_SIZE);
+    return group_target_base;
 }
 
 u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信息并填充到vfs块内
@@ -289,7 +261,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     u8 target_buffer[SECTOR_BYTE_SIZE];
     struct ext3_base_information *ext3_base_information = inode->i_sb->s_fs_info;
     u32 inode_size = ext3_base_information->super_block.content->inode_size;
-    u32 inode_table_base = get_inode_table_sect(inode);
+    u32 inode_table_base = get_group_info_base(inode, EXT3_INODE_TABLE_OFFSET);
     u32 inner_index = (u32) ((inode->i_ino - 1) % ext3_base_information->super_block.content->inodes_per_group);
     //求该inode在组内的序号
     u32 offset_sect = inner_index /  (SECTOR_BYTE_SIZE / inode_size);
@@ -396,7 +368,7 @@ u32 init_ext3(u32 base){
 
 u32 ext3_check_inode_exists(struct inode *inode) { //返回0说明不存在该inode的位图，返回1则存在且为1
     u8 target_buffer[SECTOR_BYTE_SIZE];
-    u32 target_inode_base = get_inode_table_sect(inode);
+    u32 target_inode_base = get_group_info_base(inode, EXT3_INODE_TABLE_OFFSET);
     //找到inode数据区的基址
     //然后往前推一个block就是inode位图所在的block
     u32 block_size = ((struct ext3_base_information*) inode->i_sb->s_fs_info)->super_block.content->block_size;
@@ -495,7 +467,7 @@ u32 ext3_write_inode (struct inode * target_inode, struct dentry* parent){  //�
     u8 target_buffer[SECTOR_BYTE_SIZE];
     struct ext3_base_information *ext3_base_information = target_inode->i_sb->s_fs_info;
     u32 inode_size = ext3_base_information->super_block.content->inode_size;
-    u32 inode_table_base = get_inode_table_sect(target_inode);
+    u32 inode_table_base = get_group_info_base(target_inode, EXT3_INODE_TABLE_OFFSET);
     u32 inner_index = (u32) ((target_inode->i_ino - 1) % ext3_base_information->super_block.content->inodes_per_group);
     //求该inode在组内的序号
     u32 offset_sect = inner_index /  (SECTOR_BYTE_SIZE / inode_size);
@@ -522,15 +494,72 @@ u32 ext3_mkdir(struct inode* dir, struct dentry* dentry, u32 mode) {  //忽略mo
 u32 ext3_delete_dentry_inode (struct dentry * target_dentry){  //todo: 写完delete_inode
     //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
     //首先清除块位图
-
+    //首先获取块位图
+    u8 target_sect[SECTOR_BYTE_SIZE];
+    struct inode* target_inode = target_dentry->d_inode;
+    struct ext3_super_block* super_block = ((struct ext3_base_information*) (target_dentry->d_sb->s_fs_info))->super_block.content;
+    u32 inodes_per_group = super_block->inodes_per_group;
+    u32 blocks_per_group = super_block->blocks_per_group;
+    u32 i,err; //for loop
+    struct inode* data_inode = (struct inode*) kmalloc(sizeof(struct inode));  //块所对应的inode
+    if (data_inode == 0) return -ENOMEM;
+    data_inode->i_block_size = target_inode->i_block_size;
+    data_inode->i_sb = target_dentry->d_sb;
+    for (i = 0; i < target_inode->i_blocks; i++) {
+        u32 actual_block_num = target_inode->i_mapping->a_op->bmap(target_inode,i);  //获得真实块号
+        u32 index = actual_block_num / (blocks_per_group);  //第几个块
+        u32 offset = actual_block_num % (blocks_per_group);  //第几个块内的第几个位图位
+        data_inode->i_ino = index * inodes_per_group + offset;  //精确求出目标块的i_ino
+        u32 target_group_base = get_group_info_base(data_inode, EXT3_BLOCK_BITMAP_OFFSET); //计算目标块的i_ino所在的块
+        u32 sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //计算目标扇区位置
+        u32 inner_offset = offset % (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //计算目标地址的扇区内偏移
+        //! 注意这里inner_offset计算的时候不要乘任何东西
+        err = read_block(target_sect,sect_addr,1);
+        if (err) {
+            kfree(super_block);
+            kfree(data_inode);
+            return -EIO;
+        }
+        reset_bit(target_sect,inner_offset);
+        err = write_block(target_sect,sect_addr,1);
+        if (err) {
+            kfree(super_block);
+            kfree(data_inode);
+            return -EIO;
+        }
+    }
     //然后清除索引节点位图
+    kfree(data_inode);
+    u32 target_group_base = get_group_info_base(target_inode,EXT3_INODE_BITMAP_OFFSET);
+    u32 offset = (target_inode->i_ino - 1) % (inodes_per_group);  //组内第几个inode
+    u32 bitmap_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE);  //寻找这个inode位图位的扇区地址
+    u32 bitmap_inner_offset = offset % (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //这个inode位图位的扇区内偏移
+    err = read_block(target_sect,bitmap_sect_addr,1);
+    if (err) {
+        kfree(super_block);
+        return -EIO;
+    }
+    reset_bit(target_sect,bitmap_inner_offset);
+    err = write_block(target_sect,bitmap_sect_addr,1);
+    if (err) {
+        kfree(super_block);
+        return -EIO;
+    }
     //然后清除inode表内数据
+    u32 target_inode_table_base = get_group_info_base(target_inode,EXT3_INODE_TABLE_OFFSET);
+    u32 data_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE / super_block->inode_size);
+    u32 data_inner_offset = offset % (SECTOR_BYTE_SIZE / super_block->inode_size);
+    //这里继续使用上一步产生的offset，计算在inode表里的位移
+    u32 sect_num = super_block->inode_size / (SECTOR_BYTE_SIZE) + (super_block->inode_size % SECTOR_BYTE_SIZE != 0);
+    //这里计算需要删除多少个扇区
+    err = read_block(target_sect,data_sect_addr,sect_num);
+    kernel_memset(target_sect,0,super_block->inode_size*BITS_PER_BYTE*data_inner_offset);
+
     //修改sb和gdt
     //清除父目录中的该目录项，并把后面的目录项向前移动
     // 抹掉原来目录项的信息
     // 如果被删除的目录项后面有目录项，需要前移
     // 这里对页进行操作之后要把页写脏
-    u32 i;
     u8 *curAddr,*pageTail;
     struct inode * dir = target_dentry->d_inode;
     struct vfs_page* acache_page = (struct vfs_page *) dir->i_mapping->a_page;

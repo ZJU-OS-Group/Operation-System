@@ -66,6 +66,14 @@ void init_pc_list() {
 
 }
 
+void join(pid_t target_pid){
+
+}
+
+void wake(pid_t target_pid){
+
+}
+
 void init_pc() {
     struct task_struct *idle;
     init_pc_list();
@@ -134,6 +142,7 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
         return 0;
     }
 }
+
 
 /*************************************************************************************************/
 
