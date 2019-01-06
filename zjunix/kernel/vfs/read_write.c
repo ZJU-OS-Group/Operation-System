@@ -174,5 +174,24 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 
 u32 generic_file_flush(struct file * file)
 {
+	struct vfs_page *page;
+	struct inode *inode;
+	struct list_head *a, *begin;
+	struct address_space *mapping;
 
+	inode = file->f_dentry->d_inode;  //文件inode节点
+	mapping = &(inode->i_data);
+	begin = &(mapping->a_cache);
+	a = begin->next;
+
+	// 把文件关联的已缓冲页逐页写回
+	while ( a != begin ){
+		page = container_of(a, struct vfs_page, page_list);
+		if ( page->page_state & P_DIRTY ){
+			mapping->a_op->writepage(page);
+		}
+		a = a->next;
+	}
+
+	return 0;
 }
