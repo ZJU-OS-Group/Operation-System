@@ -57,9 +57,11 @@ struct task_struct{
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
     unsigned int priority;              /* 优先级 */
-    struct file* task_files;                  /* 进程打开的文件指针 */
+    struct file* task_files;            /* 进程打开的文件指针 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
+    struct list_head wait_queue;        /* 正在等待该进程的进程列表 */
+    struct list_head wait_node;         /* 当该进程在等待别的进程时，此node会连入另一进程的wait_queue */
 };
 
 typedef union {
@@ -79,7 +81,7 @@ struct task_struct* get_curr_pcb();
 int print_proc();   // 打印出就绪队列中的进程信息
 
 void join(pid_t);
-void wait(pid_t);
+void wake(pid_t);
 struct task_struct* get_preemptive_task();                                  // 找到可以抢占当前task的进程
 struct task_struct* find_next_task();                                       // 找到下一个要被运行的task
 void task_files_release(struct task_struct* task);                          // 释放进程的文件

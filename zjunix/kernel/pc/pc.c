@@ -10,7 +10,7 @@
 #include <zjunix/vfs/errno.h>
 
 struct list_head wait;                          // 等待列表
-struct list_head exited;                        // 结束列表
+struct list_head exited;                      // 结束列表
 struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
@@ -67,12 +67,47 @@ void init_pc_list() {
 
 }
 
+// current等待pid对应的进程
 void join(pid_t target_pid){
+    struct task_struct* target;
+    struct task_struct* record = current; // 用来存一下current
 
+    // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
+    if (!pid_exist(target_pid)) {
+        kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return ;
+    }
+
+    target = find_in_tasks(target_pid);
+
+    // 向target的等待队列里面添加上current
+    list_add_tail(&(current->wait_node),&(target->wait_queue));
+
+    // todo：系统调用，触发schedule，然后将原来的current从ready加入wait中
+
+    record->state = S_WAIT;
+    remove_ready(record);
+    add_wait(record);
 }
 
+// 唤醒pid对应的进程
 void wake(pid_t target_pid){
+    struct task_struct* target;
 
+    // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
+    if (!pid_exist(target_pid)) {
+        kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return ;
+    }
+
+    target = find_in_tasks(target_pid);
+    if (target->state != S_WAIT) // 不在wait状态的进程不能被唤醒
+        kernel_puts("The process is not in waiting status.\n", VGA_RED, VGA_BLACK);
+    else {
+        target->state = S_READY; // 将状态换成ready
+        remove_wait(target); // 从wait列表中移除
+        add_ready(target); // 添加进ready列表中
+    }
 }
 
 void init_pc() {
@@ -125,6 +160,8 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     new_task->task.state = S_INIT;
     INIT_LIST_HEAD(&(new_task->task.schedule_list));
     INIT_LIST_HEAD(&(new_task->task.task_node));
+    INIT_LIST_HEAD(&(new_task->task.wait_queue));
+    INIT_LIST_HEAD(&(new_task->task.wait_node));
     new_task->task.task_files = 0;
     new_context->epc = (unsigned int) entry;  //初始化pc地址
     new_context->sp = (unsigned int) (new_context + KERNEL_STACK_SIZE); //初始化栈顶指针
@@ -159,7 +196,6 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
 
 // 杀死进程，返回值0正常，返回值-1出错
 int pc_kill(pid_t pid) {
-    int res;
     struct task_struct* target;
     /* 三种不能kill的特殊情况进行特判 */
     if (pid==IDLE_PID) {
@@ -177,9 +213,9 @@ int pc_kill(pid_t pid) {
 
     disable_interrupts();
     // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
-    res = pid_exist(pid);
-    if (!res) {
+    if (!pid_exist(pid)) {
         kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return -1;
     }
 
     // 从tasks列表中找到pid对应的进程
@@ -190,7 +226,7 @@ int pc_kill(pid_t pid) {
     } else if(target->state == S_WAIT) {
         remove_wait(target);
     } else if(target->state == S_RUNNING) {
-        // TODO: when running, how?
+        // 不可能出现还在running的，已经在pid==current->pid这一步过滤掉了
     }
     target->state = S_TERMINATE; // 状态标记为终止
     add_exit(target);
