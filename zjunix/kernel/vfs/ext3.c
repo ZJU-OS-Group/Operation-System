@@ -6,6 +6,7 @@
 #include <zjunix/utils.h>
 #include <driver/vga.h>
 #include <zjunix/slab.h>
+#include <zjunix/debug/debug.h>
 #include "../../usr/myvi.h"
 
 extern struct dentry *root_dentry;              // vfs.c
@@ -142,6 +143,7 @@ u32 ext3_readpage(struct vfs_page *page) {
 }
 
 struct super_block *ext3_init_super(struct ext3_base_information *information) {
+    debug_start("EXT3-INS: Start!");
     struct super_block *ans = (struct super_block *) kmalloc(sizeof(struct super_block));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->s_dirt = S_CLEAR;  //标记当前超级块是否被写脏
@@ -150,6 +152,7 @@ struct super_block *ext3_init_super(struct ext3_base_information *information) {
     ans->s_block_size = EXT3_BLOCK_SIZE_BASE << information->super_block.content->block_size;
     ans->s_fs_info = (void *) information;
     ans->s_type = (&ext3_fs_type);
+    debug_end("EXT3-INS: End!");
     return ans;
 }
 
