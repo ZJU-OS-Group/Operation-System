@@ -13,6 +13,7 @@
 #define  PID_MIN   1
 
 typedef unsigned short pid_t;
+pid_t min_pid(pid_t a, pid_t b);
 
 void init_pid();
 int pid_alloc(pid_t *ret);

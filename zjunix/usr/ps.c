@@ -31,7 +31,7 @@ void test_proc() {
     }
 }
 
-int proc_demo_create() {
+/*int proc_demo_create() {
     int asid = pc_peek();
     if (asid < 0) {
         kernel_puts("Failed to allocate pid.\n", 0xfff, 0);
@@ -39,9 +39,9 @@ int proc_demo_create() {
     }
     unsigned int init_gp;
     asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-    pc_create(asid, test_proc, (unsigned int)kmalloc(4096), init_gp, "test");
+    pc_create("test", (void*)test_proc, 0, 0, 0, 0, NORMAL_PRIORITY_CLASS);
     return 0;
-}
+}*/
 
 void ps() {
     kernel_printf("Press any key to enter shell.\n");
@@ -155,9 +155,14 @@ void parse_cmd() {
         pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
     }
     else if (kernel_strcmp(ps_buffer, "proc") == 0) {
+//        pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
+        pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, ABOVE_NORMAL_PRIORITY_CLASS);
+    } /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
         result = proc_demo_create();
         kernel_printf("proc return with %d\n", result);
     }
+    else if (kernel_strcmp(ps_buffer, "cat") == 0) {
+    } */
     else if (kernel_strcmp(ps_buffer, "cat") == 0) {
         result = vfs_cat(param);
         kernel_printf("ext3 cat return with %d\n", result);
