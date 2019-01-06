@@ -143,7 +143,7 @@ u32 ext3_readpage(struct vfs_page *page) {
 }
 
 struct super_block *ext3_init_super(struct ext3_base_information *information) {
-    debug_start("EXT3-INS: Start!");
+    debug_start("EXT3-Init Super Block");
     struct super_block *ans = (struct super_block *) kmalloc(sizeof(struct super_block));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->s_dirt = S_CLEAR;  //标记当前超级块是否被写脏
@@ -152,11 +152,12 @@ struct super_block *ext3_init_super(struct ext3_base_information *information) {
     ans->s_block_size = EXT3_BLOCK_SIZE_BASE << information->super_block.content->block_size;
     ans->s_fs_info = (void *) information;
     ans->s_type = (&ext3_fs_type);
-    debug_end("EXT3-INS: End!");
+    debug_end("EXT3-Init Super Block");
     return ans;
 }
 
 struct ext3_base_information *ext3_init_base_information(u32 base) {
+    debug_start("EXT3-IBI: Start!");
     struct ext3_base_information *ans = (struct ext3_base_information *) kmalloc(sizeof(struct ext3_base_information));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->base = base;
@@ -170,11 +171,13 @@ struct ext3_base_information *ext3_init_base_information(u32 base) {
     if (ratio <= 2) ans->first_gdt_sect = ans->first_sb_sect + EXT3_SUPER_SECTOR_SIZE;  //如果只能放2个以内的sector，那么gb和sb将紧密排列
     else ans->first_gdt_sect = base + ratio;  //否则直接跳过第一个块
     ans->group_count = (ans->super_block.content->block_count - ans->super_block.content->first_data_block_no + ans->super_block.content->blocks_per_group - 1) / ans->super_block.content->blocks_per_group;
+    debug_end("EXT3-IBI");
     return ans;
 }
 
 
 struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
+    debug_start("EXT3-IDE\n");
     struct dentry *ans = (struct dentry *) kmalloc(sizeof(struct dentry));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->d_name.name = "/";
@@ -189,6 +192,7 @@ struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
     INIT_LIST_HEAD(&(ans->d_alias));
     INIT_LIST_HEAD(&(ans->d_lru));
     INIT_LIST_HEAD(&(ans->d_subdirs));
+    debug_end("EXT3-IDE\n");
     return ans;
 }
 
