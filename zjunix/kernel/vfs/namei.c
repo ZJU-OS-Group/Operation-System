@@ -1,4 +1,5 @@
 #include <zjunix/vfs/vfs.h>
+#include <zjunix/debug/debug.h>
 
 
 /********************************** 外部变量 ************************************/
@@ -12,6 +13,7 @@ extern struct vfsmount  *pwd_mnt;
 // 通过path_work()轮流调用real_lookup()函数，再调用各文件系统自己的inode_op->lookup
 // 得到给定路径名对应的dentry和vfsmount结构
 u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
+    debug_start("[namei.c: open_namei:16]\n");
     u32 err = 0;
     struct dentry *dentry;
     struct dentry *dir;
@@ -22,6 +24,7 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
         if (err)
             return err;
 //        dentry = nd->dentry;
+        debug_end("[namei.c: open_namei:27]\n");
         return 0;
     }
     /* create，查找父目录 */
@@ -33,6 +36,7 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
     /* 判断是否需要新建 */
     if (nd->last_type != LAST_NORM || nd->last.name[nd->last.len]) {
         dput(nd->dentry); // dentry放到cache里面
+        debug_end("[namei.c: open_namei:39]\n");
         return err;
     }
 
@@ -43,6 +47,7 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
     /* 打不开目录 */
     if (IS_ERR(dentry)) {
         dput(nd->dentry);
+        debug_end("[namei.c: open_namei:50]\n");
         return PTR_ERR(dentry);
     }
 
@@ -54,17 +59,21 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
         if (err) {
             dput(nd->dentry);
             return err;
-        } else return 0;
+        } else {
+            debug_end("[namei.c: open_namei:63]\n");
+            return 0;
+        }
     }
 
     /* 若分量已经存在 */
-//    err = -ENOENT;
     dput(nd->dentry);
     nd->dentry = dentry;
+    debug_end("[namei.c: open_namei:71]\n");
     return 0;
 }
 
 u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
+    debug_start("[namei.c: path_lookup:76]\n");
     nd->last_type = LAST_ROOT;
     nd->flags = flags;
     nd->depth = 0;
@@ -78,11 +87,13 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
         nd->mnt = pwd_mnt;
         nd->dentry = pwd_dentry;
     }
+    debug_end("[namei.c: path_lookup:90]\n");
     return link_path_walk(name, nd);
 }
 
 // 基本的路径解析函数，有路径名查找到最终的dentry结构，将信息保存在nd中返回
 u32 link_path_walk(const u8 *name, struct nameidata *nd) {
+    debug_start("[namei.c: link_path_walk:96]\n");
     u32 err = 0;
     u32 lookup_flags = nd->flags;
     struct path next;
@@ -110,20 +121,24 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         this.len = (u32) (name - this.name);
 
         if (!c) { // 解析完毕了，后面没有'/'了
+            debug_info("[namei.c: link_path_walk:124] go to last component\n");
             goto last_component;
         }
 
         while (*++name == '/'); // 跳过所有的'/'，如'/test'变成'test'
 
         if (!*name) { // 传进来的name是以'/'结尾的
+            debug_info("[namei.c: link_path_walk:131] go to last_with_slashes\n");
             goto last_with_slashes;
         }
 
         if (this.name[0]=='.') {
             if (this.len==1) { // './'当前目录
+                debug_info("[namei.c: link_path_walk:137] ./\n");
                 continue;
             }
             if (this.len==2 && this.name[1]=='.') { // '../'父目录
+                debug_info("[namei.c: link_path_walk:141] go to ../\n");
                 follow_dotdot(nd);
             } else { // '.s/test'这样子的目录真的不处理吗？隐藏目录
                 break;
@@ -142,6 +157,7 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         // 检查next.dentry对应的inode是否为空
         if (!next.dentry->d_inode) {
             err = -ENOENT;
+            debug_err("[namei.c: link_path_walk:160] inode is empty\n");
             goto out_dput;
         }
 
@@ -149,6 +165,7 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         // 而这里检查的都不是最后一个分量，所以必须得是目录，不然就返回错误
         if (!next.dentry->d_inode->i_op) {
             err = -ENOTDIR;
+            debug_err("[namei.c: link_path_walk:168] not a dentry\n");
             goto out_dput;
         }
         // TODO：接下来对链接情况进行处理，先不考虑
@@ -195,6 +212,7 @@ last_component:
             err = -ENOTDIR;
             if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) break;
         }
+        debug_end("[namei.c: link_path_walk:215]\n");
         return 0;
 lookup_parent:
         nd->last = this;
@@ -207,16 +225,19 @@ lookup_parent:
             nd->last_type = LAST_DOTDOT;
         else
             return 0;
-        out_dput:
+out_dput:
         dput(next.dentry);
         break;
     }
     dput(nd->dentry);
+    debug_end("[namei.c: link_path_walk:233]\n");
     return err;
 }
 
 // 回退到父目录
 void follow_dotdot(struct nameidata *nd) {
+    debug_start("[namei.c: follow_dotdot:239]\n");
+
     while (1) {
         // 如果已经是根目录了，没有办法回退了
         if (nd->dentry==root_dentry && nd->mnt == root_mnt) break;
@@ -237,10 +258,12 @@ void follow_dotdot(struct nameidata *nd) {
         dget(nd->dentry);
         nd->mnt=nd->mnt->mnt_parent;
     }
+    debug_end("[namei.c: follow_dotdot:261]\n");
 }
 
 // 搜索父目录parent的孩子是否有名为name的entry结构
 u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
+    debug_start("[namei.c: do_lookup:266]\n");
     struct vfsmount *mnt = nd->mnt;
     // 在目录项高速缓存中寻找，查找文件名和父目录项相符的目录缓冲项
     struct condition cond;
@@ -252,7 +275,8 @@ u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
     if (!dentry)
         goto need_lookup;
 
-    done:
+done:
+    debug_end("[namei.c: do_lookup:279] done\n");
     // 找到，修改path的字段，返回无错误
     path->mnt = mnt;
     path->dentry = dentry;
@@ -260,18 +284,21 @@ u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
     return 0;
 
 need_lookup:
+    debug_info("[namei.c: do_lookup:287] need lookup\n");
     // 即将使用底层文件系统在外存中查找，并构建需要的目录项
     dentry = real_lookup(nd->dentry, name, nd);
     if (IS_ERR(dentry))
         goto fail;
     goto done;
 
-    fail:
+fail:
+    debug_err("[namei.c: do_lookup:295] fail\n");
     return PTR_ERR(dentry);
 }
 
 // 对实际文件系统进行查找，调用具体文件系统节点的查找函数执行查找
 struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nameidata *nd) {
+    debug_start("[namei.c: real_lookup:301]\n");
     struct dentry *result;
     struct inode *dir = parent->d_inode;
 
@@ -284,11 +311,13 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
         if (result) dput(dentry);
         else result = dentry;
     }
+    debug_end("[namei.c: real_lookup:314]\n");
     return result;
 }
 
 // 根据父目录和名字查找对应的目录项，去外存找需要新建目录项
 struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nameidata *nd) {
+    debug_start("[namei.c: __lookup_hash:320]\n");
     struct dentry   *dentry;
     struct inode    *inode;
 
@@ -304,8 +333,10 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
         // 新dentry首先需要被创建
         struct dentry *new = d_alloc(base, name);
         dentry = ERR_PTR(-ENOMEM);
-        if (!new)
+        if (!new) {
+            debug_err("[namei.c: __lookup_hash:337] alloc failed\n");
             return dentry;
+        }
 
         // 尝试在外存中查找需要的dentry对应的inode。若找到，相应的inode会被新建并加入高速缓存，dentry与之的联系也会被建立
         dentry = inode->i_op->lookup(inode, new, nd);
@@ -315,11 +346,13 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
             dput(new);
     }
 
+    debug_end("[namei.c: __lookup_hash:349]\n");
     return dentry;
 }
 
 // 寻找一个dentry，如果不存在则新建
 struct dentry *lookup_create(struct nameidata *nd, int is_dir) {
+    debug_start("[namei.c: lookup_create:355]\n");
     struct dentry *dentry;
 
     dentry = ERR_PTR(-EEXIST);
@@ -331,10 +364,13 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir) {
         goto fail;
     if (!is_dir && nd->last.name[nd->last.len] && !dentry->d_inode)
         goto enoent;
+    debug_end("[namei.c: lookup_create:367]\n");
     return dentry;
 enoent:
     dput(dentry);
     dentry = ERR_PTR(-ENOENT);
+    debug_info("[namei.c: lookup_create:372] go to enoent\n");
 fail:
+    debug_end("[namei.c: lookup_create:374] fail end\n");
     return dentry;
 }

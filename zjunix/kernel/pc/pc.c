@@ -9,6 +9,7 @@
 #include <zjunix/slab.h>
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/errno.h>
+#include <zjunix/debug/debug.h>
 
 const unsigned int PRIORITY[PRIORITY_CLASS_NUM][PRIORITY_LEVEL_NUM] = {
         {31,26,25,24,23,22,16},
@@ -71,6 +72,7 @@ static void copy_context(context* src, context* dest) {
 
 // 初始化进程管理的相关全局链表和数组
 void init_pc_list() {
+    debug_start("[pc.c: init_pc_list:75]\n");
     INIT_LIST_HEAD(&wait);
     INIT_LIST_HEAD(&exited);
     INIT_LIST_HEAD(&tasks);
@@ -81,6 +83,7 @@ void init_pc_list() {
         ready_queue[i].number = 0;
         ready_bitmap[i] = 0; // 初始化就绪位图
     }
+    debug_end("[pc.c: init_pc_list:86]\n");
 
 }
 
@@ -128,6 +131,7 @@ void wake(pid_t target_pid){
 }
 
 void init_pc() {
+    debug_start("[pc.c: init_pc:134]\n");
     struct task_struct *idle;
     init_pc_list();
 
@@ -142,6 +146,7 @@ void init_pc() {
         "li $v0, 1000000\n\t"   // 1000000->v0
         "mtc0 $v0, $11\n\t"     // $11 compare
         "mtc0 $zero, $9");      // $9 count
+    debug_end("[pc.c: init_pc:149]\n");
 }
 
 void init_context(context * reg_context){
@@ -150,6 +155,7 @@ void init_context(context * reg_context){
 
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
                unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class) {
+    debug_start("[pc.c: pc_create:158]\n");
     //这里暂时不考虑is_user的情况
     if (is_user){
 
@@ -191,10 +197,12 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     add_task(&(new_task->task));
     new_task->task.state = S_READY;     //标记当前进程状态为READY
     add_ready(&(new_task->task));
+    debug_end("[pc.c: pc_create:200]\n");
     return 1;
     err_handler:
     {
         if (pid_num != -1) pid_free(pid_num);
+        debug_err("[pc.c: pc_create:205]\n");
         return 0;
     }
 }
@@ -233,6 +241,7 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
 
 // 杀死进程，返回值0正常，返回值-1出错
 int pc_kill(pid_t pid) {
+    debug_start("[pc.c: pc_kill:244]\n");
     struct task_struct* target;
     /* 三种不能kill的特殊情况进行特判 */
     if (pid==IDLE_PID) {
@@ -274,6 +283,7 @@ int pc_kill(pid_t pid) {
     // 释放pid
     pid_free(pid);
     enable_interrupts();
+    debug_end("[pc.c: pc_kill:286]\n");
     return 0;
 }
 
@@ -283,6 +293,7 @@ int is_realtime(struct task_struct* task) {
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
+    debug_start("[pc.c: pc_schedule:296]\n");
     struct task_struct* next;
     /* 判断异常类型 */
     if (cause==0) {
@@ -314,6 +325,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
             pc_exchange(next, pt_context, 1);
         }
     }
+    debug_end("[pc.c: pc_schedule:328]\n");
 
     // 复位count，结束时钟中断
     asm volatile("mtc0 $zero, $9\n\t");
@@ -395,6 +407,7 @@ struct task_struct* find_in_tasks(pid_t pid) {
 
 // 在就绪队列中寻找下一个要运行的进程并返回
 struct task_struct* find_next_task() {
+    debug_start("[pc.c: find_next_task:410]\n");
     struct task_struct* next;
     u32 current_priority = PRIORITY[current->priority_class][current->priority_level];
 
@@ -407,6 +420,7 @@ struct task_struct* find_next_task() {
     if (ready_bitmap[current_priority]) {
         next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
     }
+    debug_end("[pc.c: find_next_task:423] equal priority\n");
     return next;
 }
 
