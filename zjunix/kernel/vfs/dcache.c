@@ -1,6 +1,5 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/utils.h>
-#include <stddef.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/vfs/hash.h>
 
@@ -176,7 +175,7 @@ void dcache_put_LRU(struct cache * this) {
 void dentry_iput(struct dentry * dentry) {
     struct inode *inode = dentry->d_inode;
     if (inode) {
-        dentry->d_inode = NULL;
+        dentry->d_inode = 0;
         list_del_init(&dentry->d_alias);
         if (dentry->d_op && dentry->d_op->d_iput)
             dentry->d_op->d_iput(dentry, inode);

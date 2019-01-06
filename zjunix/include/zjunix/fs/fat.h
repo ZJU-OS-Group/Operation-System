@@ -140,7 +140,7 @@ unsigned long fs_cat(unsigned char * path);
 
 void get_filename(unsigned char *entry, unsigned char *buf);
 
-u32 read_block(u8 *buf, u32 addr, u32 count);
+//u32 read_block(u8 *buf, u32 addr, u32 count);
 
 u32 write_block(u8 *buf, u32 addr, u32 count);
 

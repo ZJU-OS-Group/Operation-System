@@ -6,6 +6,7 @@
 #define OPERATION_SYSTEM_VFSCACHE_H
 #include <zjunix/vfs/err.h>
 #include <zjunix/type.h>
+#include <zjunix/vfs/vfs.h>
 
 
 #define DCACHE_CAPACITY         64
@@ -18,7 +19,7 @@
 #define         P_CLEAR                         0
 #define         P_DIRTY                         1
 
-#include <zjunix/vfs/vfs.h>
+struct inode;
 struct condition;
 struct qstr;
 struct dentry;

@@ -1,5 +1,6 @@
 #include "fscache.h"
 #include <zjunix/fs/fat.h>
+#include <zjunix/vfs/vfs.h>
 
 extern struct fs_info fat_info;
 

@@ -2,7 +2,6 @@
 #include <driver/ps2.h>
 #include <driver/vga.h>
 #include <zjunix/vfs/vfs.h>
-#include <tclDecls.h>
 
 extern int cursor_freq;
 int pre_cursor_freq;

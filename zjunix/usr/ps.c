@@ -4,10 +4,8 @@
 #include <driver/vga.h>
 #include <zjunix/bootmm.h>
 #include <zjunix/buddy.h>
-#include <zjunix/fs/fat.h>
 #include <zjunix/slab.h>
 #include <zjunix/time.h>
-#include <zjunix/utils.h>
 #include <zjunix/vfs/vfs.h>
 #include "ls.h"
 #include "exec.h"
@@ -152,11 +150,11 @@ void parse_cmd() {
     else if (kernel_strcmp(ps_buffer, "time") == 0) {
         unsigned int init_gp;
         asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-        pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
+        pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, ABOVE_NORMAL_PRIORITY_CLASS);
     }
     else if (kernel_strcmp(ps_buffer, "proc") == 0) {
 //        pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
-        pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, ABOVE_NORMAL_PRIORITY_CLASS);
+
     } /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
         result = proc_demo_create();
         kernel_printf("proc return with %d\n", result);

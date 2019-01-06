@@ -67,50 +67,50 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
     if (target_page < EXT3_FIRST_MAP_INDEX + entry_num) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
-        u32 err = read_block(index_block, pageTable[EXT3_FIRST_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 err = vfs_read_block(index_block, pageTable[EXT3_FIRST_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
         if (err) return -EIO;
         //index_block块里的都是地址
         u32 index = (target_page - EXT3_FIRST_MAP_INDEX) << EXT3_BLOCK_ADDR_SHIFT;
-        u32 actual_addr = get_u32(index_block + index);
+        u32 actual_addr = vfs_get_u32(index_block + index);
         kfree(index_block);
         return actual_addr;
     }
     if (target_page < EXT3_FIRST_MAP_INDEX + (entry_num + 1) * entry_num) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
-        u32 err = read_block(index_block, pageTable[EXT3_SECOND_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 err = vfs_read_block(index_block, pageTable[EXT3_SECOND_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
         //读取这个二级索引块里的所有地址
         if (err) return -EIO;
         //下面需要寻找一级索引块地址
         u32 pre_index = (target_page - EXT3_FIRST_MAP_INDEX - entry_num);
         u32 index = (pre_index / entry_num) << EXT3_BLOCK_ADDR_SHIFT;
         //寻找到一级索引块地址以后读取对应的块
-        u32 index1_addr = get_u32(index_block + index);
-        err = read_block(index_block, index1_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 index1_addr = vfs_get_u32(index_block + index);
+        err = vfs_read_block(index_block, index1_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
         index = (pre_index % entry_num) << EXT3_BLOCK_ADDR_SHIFT;
-        u32 actual_addr = get_u32(index_block + index);
+        u32 actual_addr = vfs_get_u32(index_block + index);
         kfree(index_block);
         return actual_addr;
     }
     if (target_page < EXT3_FIRST_MAP_INDEX + entry_num * (entry_num * (entry_num + 1) + 1)) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
-        u32 err = read_block(index_block, pageTable[EXT3_THIRD_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 err = vfs_read_block(index_block, pageTable[EXT3_THIRD_MAP_INDEX], inode->i_block_size >> SECTOR_LOG_SIZE);
         //读取这个三级索引块里的所有地址
         if (err) return -EIO;
         //下面需要寻找二级索引块地址
         u32 pre_index = (target_page - EXT3_FIRST_MAP_INDEX - entry_num * (entry_num + 1));
         u32 index = (pre_index / (entry_num * entry_num)) << EXT3_BLOCK_ADDR_SHIFT;
         //寻找到二级索引块地址以后读取对应的块
-        u32 index2_addr = get_u32(index_block + index);
-        err = read_block(index_block, index2_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 index2_addr = vfs_get_u32(index_block + index);
+        err = vfs_read_block(index_block, index2_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
         if (err) return -EIO;
         index = (pre_index % (entry_num * entry_num) / entry_num) << EXT3_BLOCK_ADDR_SHIFT;   //Attention: 助教原版的代码这里有bug
-        u32 index1_addr = get_u32(index_block + index);
-        err = read_block(index_block, index1_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
+        u32 index1_addr = vfs_get_u32(index_block + index);
+        err = vfs_read_block(index_block, index1_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
         if (err) return -EIO;
         index = (pre_index % entry_num) << EXT3_BLOCK_ADDR_SHIFT;
-        u32 actual_addr = get_u32(index_block + index);
+        u32 actual_addr = vfs_get_u32(index_block + index);
         kfree(index_block);
         return actual_addr;
     }
@@ -122,7 +122,7 @@ u32 ext3_writepage(struct vfs_page *page) {
     u32 sector_num = target_inode->i_block_size >> SECTOR_LOG_SIZE; //由于一块大小和一页大小相等，所以需要写出的扇区是这么大
     u32 base_addr = ((struct ext3_base_information *) target_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
     u32 target_addr = base_addr + page->page_address * (target_inode->i_block_size >> SECTOR_LOG_SIZE); //加上页地址
-    u32 err = write_block(page->page_data, target_addr, sector_num);      //向目标地址写目标数量个扇区
+    u32 err = vfs_write_block(page->page_data, target_addr, sector_num);      //向目标地址写目标数量个扇区
     if (err) return -EIO;
     return 0;
 }
@@ -135,7 +135,7 @@ u32 ext3_readpage(struct vfs_page *page) {
     page->page_data = (u8 *) kmalloc(sizeof(u8) * source_inode->i_block_size);
     if (page->page_data == 0) return -ENOMEM;
     kernel_memset(page->page_data, 0, sizeof(u8) * source_inode->i_block_size);
-    u32 err = read_block(page->page_data, source_addr, sector_num);
+    u32 err = vfs_read_block(page->page_data, source_addr, sector_num);
     if (err) return -EIO;
     return 0;
 }
@@ -159,7 +159,7 @@ struct ext3_base_information *ext3_init_base_information(u32 base) {
     ans->first_sb_sect = base + EXT3_BOOT_SECTOR_SIZE;  //跨过引导区数据
     ans->super_block.fill = (u8 *) kmalloc(sizeof(u8) * EXT3_SUPER_SECTOR_SIZE * SECTOR_BYTE_SIZE);  //初始化super_block区域
     if (ans->super_block.fill == 0) return ERR_PTR(-ENOMEM);
-    u32 err = read_block(ans->super_block.fill, ans->first_sb_sect, EXT3_SUPER_SECTOR_SIZE);  //从指定位置开始读取super_block
+    u32 err = vfs_read_block(ans->super_block.fill, ans->first_sb_sect, EXT3_SUPER_SECTOR_SIZE);  //从指定位置开始读取super_block
     if (err) return ERR_PTR(-EIO);
     //SECTOR是物理的， BASE_BLOCK_SIZE是逻辑的
     u32 ratio = EXT3_BLOCK_SIZE_BASE << ans->super_block.content->block_size >> SECTOR_LOG_SIZE;   //一个block里放多少个sector
@@ -242,9 +242,9 @@ u32 get_group_info_base(struct inode *inode, u8 block_offset) {
     //后面部分的算式求一个扇区有多少个组，用组号除以该数据得到inode所在组的组描述符的扇区位置
     u32 offset = group_num % (SECTOR_BYTE_SIZE / EXT3_GROUP_DESC_BYTE);
     //计算当前扇区里第几个组是inode所在的组
-    u32 err = read_block(target_buffer, sect, 1);  //组标识符的全部信息都保存在target_buffer里
+    u32 err = vfs_read_block(target_buffer, sect, 1);  //组标识符的全部信息都保存在target_buffer里
     if (err) return 0;
-    u32 group_block_num = get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
+    u32 group_block_num = vfs_get_u32(target_buffer + offset * EXT3_GROUP_DESC_BYTE); //获取组标识符，读取块位图所在块编号
     u32 group_sector_base = base_information->base + group_block_num * (inode->i_block_size >> SECTOR_LOG_SIZE);
     //定位到块位图所在块的起始扇区位置
     u32 group_target_base = group_sector_base + block_offset * (inode->i_block_size >> SECTOR_LOG_SIZE);
@@ -262,7 +262,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     u32 offset_sect = inner_index / (SECTOR_BYTE_SIZE / inode_size);
     //求组内扇区偏移量：计算方式：下标*大小/扇区大小，之所以用两个除法是为了能够避免每个SECTOR里不能刚好容纳若干inode的情况
     u32 inode_sect = inode_table_base + offset_sect;
-    u32 err = read_block(target_buffer, inode_sect, 1);
+    u32 err = vfs_read_block(target_buffer, inode_sect, 1);
     if (err) return -EIO;
     u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
     // 求inode在扇区内的偏移量
@@ -374,7 +374,7 @@ u32 ext3_check_inode_exists(struct inode *inode) { //返回0说明不存在该in
     //后面的部分计算的是一个sector里面多少个bit
     u32 sect_addr = target_sect + group_inner_index / (BITS_PER_BYTE * SECTOR_BYTE_SIZE);
     u32 sect_index = group_inner_index % (BITS_PER_BYTE * SECTOR_BYTE_SIZE);  //该sector内的定位
-    u32 err = read_block(target_buffer, sect_addr, 1); //读一块就行，因为一个扇区肯定能包含这个bit
+    u32 err = vfs_read_block(target_buffer, sect_addr, 1); //读一块就行，因为一个扇区肯定能包含这个bit
     if (err) return 0;
     u8 ans = get_bit(target_buffer, sect_index);
     return ans;
@@ -466,14 +466,14 @@ u32 ext3_write_inode(struct inode *target_inode, struct dentry *parent) {  //因
     u32 offset_sect = inner_index / (SECTOR_BYTE_SIZE / inode_size);
     //求组内扇区偏移量：计算方式：下标*大小/扇区大小，之所以用两个除法是为了能够避免每个SECTOR里不能刚好容纳若干inode的情况
     u32 inode_sect = inode_table_base + offset_sect;
-    u32 err = read_block(target_buffer, inode_sect, 1);
+    u32 err = vfs_read_block(target_buffer, inode_sect, 1);
     if (err) return -EIO;
     u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
     // 求inode在扇区内的偏移量
     struct ext3_inode *new_inode = (struct ext3_inode *) (target_buffer + inode_sect_offset * inode_size);
     new_inode->i_size = target_inode->i_size;
     //修改以后写回
-    err = write_block(target_buffer, inode_sect, 1);
+    err = vfs_write_block(target_buffer, inode_sect, 1);
     if (err) return -EIO;
     return 0;
 }
@@ -501,14 +501,14 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         u32 sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //计算目标扇区位置
         u32 inner_offset = offset % (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //计算目标地址的扇区内偏移
         //! 注意这里inner_offset计算的时候不要乘任何东西
-        err = read_block(target_sect, sect_addr, 1);
+        err = vfs_read_block(target_sect, sect_addr, 1);
         if (err) {
             kfree(super_block);
             kfree(data_inode);
             return -EIO;
         }
         reset_bit(target_sect, inner_offset);
-        err = write_block(target_sect, sect_addr, 1);
+        err = vfs_write_block(target_sect, sect_addr, 1);
         if (err) {
             kfree(super_block);
             kfree(data_inode);
@@ -521,13 +521,13 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     u32 offset = (target_inode->i_ino - 1) % (inodes_per_group);  //组内第几个inode
     u32 bitmap_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE);  //寻找这个inode位图位的扇区地址
     u32 bitmap_inner_offset = offset % (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //这个inode位图位的扇区内偏移
-    err = read_block(target_sect, bitmap_sect_addr, 1);
+    err = vfs_read_block(target_sect, bitmap_sect_addr, 1);
     if (err) {
         kfree(super_block);
         return -EIO;
     }
     reset_bit(target_sect, bitmap_inner_offset);
-    err = write_block(target_sect, bitmap_sect_addr, 1);
+    err = vfs_write_block(target_sect, bitmap_sect_addr, 1);
     if (err) {
         kfree(super_block);
         return -EIO;
@@ -537,7 +537,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     u32 data_sect_addr = target_inode_table_base + offset / (SECTOR_BYTE_SIZE / super_block->inode_size);
     u32 data_inner_offset = offset % (SECTOR_BYTE_SIZE / super_block->inode_size);
     //这里继续使用上一步产生的offset，计算在inode表里的位移
-    err = read_block(target_sect, data_sect_addr, 1);
+    err = vfs_read_block(target_sect, data_sect_addr, 1);
     if (err) {
         kfree(super_block);
         return -EIO;
@@ -554,7 +554,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
 //    kernel_memset(target_sect + super_block->inode_size * data_inner_offset, 0, super_block->inode_size);
     //直接把整个空间清空太暴力了，这样的话会把重建的功能搞错
     //指针移动到目标地址，并且把指定长度都写0
-    err = write_block(target_sect, data_sect_addr, 1);
+    err = vfs_write_block(target_sect, data_sect_addr, 1);
     if (err) {
         kfree(super_block);
         return -EIO;
@@ -648,14 +648,14 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
         u32 sect_addr = inode_bitmap_base;
         u32 sect_num = EXT3_BLOCK_SIZE_BASE << super_block->block_size >> SECTOR_LOG_SIZE; //把一整块都导入进来
         for (j = 0; j < sect_num; j++){
-            err = read_block(buffer,sect_addr,1);
+            err = vfs_read_block(buffer,sect_addr,1);
             if (err) return -EIO;
             position = get_next_zero_bit(buffer,SECTOR_BYTE_SIZE);
             if (position != -1)   //找到了一个合适的位置
             {
                 set_bit(buffer,position);  //置位该位图
                 new_inode->i_ino = inode_per_group * i + position + 1;  //0号inode问题
-                err = write_block(buffer,sect_addr,1);
+                err = vfs_write_block(buffer,sect_addr,1);
                 if (err) return -EIO;
             }
             sect_addr += SECTOR_BYTE_SIZE; //向后移动一个扇区，这样可以省一省buffer
@@ -674,11 +674,11 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     u32 inner_index = (u32) ((new_inode->i_ino - 1) % base_information->super_block.content->inodes_per_group);
     u32 offset_sect = inner_index / (SECTOR_BYTE_SIZE / inode_size);
     u32 inode_sect = inode_table_base + offset_sect;
-    u32 err = read_block(buffer, inode_sect, 1);
+    u32 err = vfs_read_block(buffer, inode_sect, 1);
     if (err) return -EIO;
     u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
     kernel_memcpy(buffer + inode_sect_offset * inode_size,allocated_inode,inode_size);
-    err = write_block(buffer, inode_sect, 1);
+    err = vfs_write_block(buffer, inode_sect, 1);
     if (err) return -EIO;
     target_dentry->d_inode = allocated_inode;
     target_dentry->d_parent = container_of(dir,struct dentry,d_inode);

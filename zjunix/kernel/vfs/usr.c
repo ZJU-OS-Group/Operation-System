@@ -2,7 +2,6 @@
 #include <zjunix/vfs/err.h>
 #include <zjunix/vfs/errno.h>
 #include <driver/vga.h>
-#include <errno.h>
 
 /****************************** 外部变量 *******************************/
 extern struct dentry                    * pwd_dentry;   /* 当前工作目录 */
