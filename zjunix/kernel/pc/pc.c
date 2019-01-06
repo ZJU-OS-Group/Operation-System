@@ -183,6 +183,22 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
 
 
 /*************************************************************************************************/
+// 每次调度的时候清空退出列表
+void clear_exit() {
+    struct task_struct* next;
+
+    int count=0;
+    while (exited.next!=&exited) { // 循环直到exit只剩下一个dummy head node
+        next = container_of(exited.next, struct task_struct, schedule_list);
+        if (next->state!=S_TERMINATE) {
+            kernel_puts("There's a task whose state is not terminate.\n", VGA_RED, VGA_BLACK);
+            continue;
+        }
+        remove_exit(next);
+        remove_task(next);
+        kernel_printf("clear exited: count = %d\n", ++count);
+    }
+}
 
 // 进程正常结束，结束当前进程
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
@@ -254,6 +270,9 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     else if (cause==8) {
         // TODO: system call
     }
+
+    // 清理结束链表
+    clear_exit();
 
     /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
     current->time_counter -= 3;

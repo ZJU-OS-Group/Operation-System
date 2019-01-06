@@ -9,7 +9,7 @@ void* kernel_memcpy(void* dest, void* src, int len);
 void* kernel_memset(void* dest, int b, int len);
 unsigned int* kernel_memset_word(unsigned int* dest, unsigned int w, int len);
 int kernel_strcmp(const char* dest, const char* src);
-int pow(int x, int z);
+int kernel_pow(int x, int z);
 void kernel_cache(unsigned int block_index);
 char* kernel_strcpy(char* dest, const char* src);
 void kernel_serial_puts(char* str);

@@ -52,13 +52,13 @@ char* kernel_strcpy(char* dest, const char* src) {
     return dest;
 }
 
-int pow(int x, int z) {
+int kernel_pow(int x, int z) {
     if(z == 0) return 1;
     if(z == 1) return x;
     int ret = 1;
     if (z < 0)
         return -1;
-    int half = pow(x, z >> 1);
+    int half = kernel_pow(x, z >> 1);
     ret = half * half;
     if(z % 2 == 1)
     {
