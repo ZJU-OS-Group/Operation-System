@@ -49,7 +49,7 @@ u32 init_vfs() {
 
     return 0;
 
-vfs_init_err:
+    vfs_init_err:
     kernel_printf("vfs_init_err: %d\n", (int)(-err));  // 发生错误，则打印错误代码
     return err;
 }
@@ -66,13 +66,13 @@ u32 vfs_read_MBR() {
         return -ENOMEM;
 
     kernel_memset(MBR->m_data, 0, sizeof(MBR->m_data));
-    if ( err = read_block(MBR->m_data, 0, 1) )              // MBR在外存的0号扇区
+    if ( err = vfs_read_block(MBR->m_data, 0, 1) )              // MBR在外存的0号扇区
         goto vfs_read_MBR_err;
 
     // 完善MBR相关信息
     MBR->m_count = 0;
     DPT_cur = MBR->m_data + 446 + 8;
-    while ((part_base = get_u32(DPT_cur)) && MBR->m_count != DPT_MAX_ENTRY_COUNT ) {
+    while ((part_base = vfs_get_u32(DPT_cur)) && MBR->m_count != DPT_MAX_ENTRY_COUNT ) {
         MBR->m_base[MBR->m_count++] = part_base;
         DPT_cur += DPT_ENTRY_LEN;
     }

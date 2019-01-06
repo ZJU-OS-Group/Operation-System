@@ -9,7 +9,7 @@ unsigned short pidPool[PID_POOL_SIZE+2]; //存放弃用的pid
 char stackTop;
 pid_t minInPool;
 
-inline pid_t min(pid_t a, pid_t b) {
+inline pid_t min_pid(pid_t a, pid_t b) {
     if (a > b) return b; return a;
 }
 //以下操作都是成功:返回1，不成功：返回0
@@ -45,9 +45,9 @@ int pid_free(pid_t pid){
     if (ans) {
         pidmap[pid >> 3] &= ~(1 << (pid & 7));
         pidPool[stackTop++] = pid;
-        minInPool = min(pid,minInPool);  //更新池内最小pid
+        minInPool = min_pid(pid,minInPool);  //更新池内最小pid
         if (stackTop > PID_POOL_SIZE) {
-            nextPid = min(minInPool,nextPid);
+            nextPid = min_pid(minInPool,nextPid);
             stackTop = 0;
             minInPool = PID_MAX_LIMIT;
         }  //如果被弃用的PID过多的话，将栈清空，并且让next_pid回到最小值处开始后移

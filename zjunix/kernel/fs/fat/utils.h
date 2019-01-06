@@ -11,6 +11,9 @@ void set_u16(u8 *ch, u16 num);
 void set_u32(u8 *ch, u32 num);
 u32 fs_wa(u32 num);
 
+u32 read_block(u8 *, u32 , u32 );
+u32 write_block(u8 *, u32 , u32 );
+
 // Get file entry info
 u32 get_start_cluster(const FILE *file);
 u32 get_fat_entry_value(u32 clus, u32 *ClusEntryVal);

@@ -216,7 +216,7 @@ lookup_parent:
 }
 
 // 回退到父目录
-inline void follow_dotdot(struct nameidata *nd) {
+void follow_dotdot(struct nameidata *nd) {
     while (1) {
         // 如果已经是根目录了，没有办法回退了
         if (nd->dentry==root_dentry && nd->mnt == root_mnt) break;

@@ -1,6 +1,7 @@
 #include "fat.h"
 #include <driver/vga.h>
 #include <zjunix/log.h>
+#include <zjunix/vfs/vfs.h>
 #include "utils.h"
 
 #ifdef FS_DEBUG

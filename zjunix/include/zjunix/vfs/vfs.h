@@ -56,6 +56,10 @@
 // LOOKUP_PARENT 中最后分量的类型
 enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 
+struct vfsmount;
+struct super_block;
+struct inode;
+
 /*********************************以下定义VFS相关的其他数据结构****************************************/
 /********************************* 文件系统类型 *******************************/
 // 一个文件系统对应一个file_system_type
@@ -166,7 +170,7 @@ struct address_space {
 // 缓存页相关操作
 struct address_space_operations {
     /* 将一页写回外存 */
-    int (*writepage) (struct vfs_page*);
+    u32 (*writepage) (struct vfs_page*);
     /* 从外存读入一页 */
     u32 (*readpage)(struct vfs_page *);
     /* 映射，根据由相对文件页号得到相对物理页号 */
@@ -227,13 +231,13 @@ struct super_operations {
     struct inode *(*alloc_inode)(struct super_block *);         /* 创建和初始化一个索引节点对象 */
     void (*put_inode)(struct inode *);                      /* 释放给定的索引节点 */
     void (*dirty_inode) (struct inode *);                       /* VFS在索引节点被修改时会调用这个函数 */
-    int (*write_inode) (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
+    u32 (*write_inode) (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
     void (*drop_inode) (struct inode *);                        /* 最后一个指向索引节点的引用被删除后，VFS会调用这个函数 */
     int (*delete_inode) (struct inode *);                      /* 从磁盘上删除指定的索引节点（禁用） */
     void (*put_super) (struct super_block *);                   /* 卸载文件系统时由VFS调用，用来释放超级块 */
     void (*write_super) (struct super_block *);                 /* 用给定的超级块更新磁盘上的超级块 */
     int (*sync_fs)(struct super_block *, int);                  /* 使文件系统中的数据与磁盘上的数据同步 */
-    int (*statfs) (struct dentry *, struct kstatfs *);          /* VFS调用该函数获取文件系统状态 */
+//    int (*statfs) (struct dentry *, struct kstatfs *);          /* VFS调用该函数获取文件系统状态 */
     int (*remount_fs) (struct super_block *, int *, char *);    /* 指定新的安装选项重新安装文件系统时，VFS会调用该函数 */
     void (*clear_inode) (struct inode *);                       /* VFS调用该函数释放索引节点，并清空包含相关数据的所有页面 */
     void (*umount_begin) (struct super_block *);                /* VFS调用该函数中断安装操作 */
@@ -275,17 +279,17 @@ struct inode {
 // 索引节点操作函数
 struct inode_operations {
     /* 为dentry对象创造一个新的索引节点 */
-    int (*create) (struct inode *,struct dentry *, struct nameidata *);
+    u32 (*create) (struct inode *,struct dentry *, struct nameidata *);
     /* 在特定文件夹中寻找索引节点，该索引节点要对应于dentry中给出的文件名 */
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
     /* 被系统调用mkdir()调用，创建父目录inode下的一个新目录dentry，mode指定创建时的初始模式 */
-    int (*mkdir) (struct inode*, struct dentry*, u32);
+    u32 (*mkdir) (struct inode*, struct dentry*, u32);
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
-    int (*rmdir) (struct inode*, struct dentry*);
+    u32 (*rmdir) (struct inode*, struct dentry*);
     /* 该函数由VFS调用，重命名，前两个是原文件和原目录 */
-    int (*rename) (struct inode*, struct dentry*, struct inode*, struct dentry*);
+    u32 (*rename) (struct inode*, struct dentry*, struct inode*, struct dentry*);
     /* 从一个符号链接查找它指向的索引节点 */
     void * (*follow_link) (struct dentry *, struct nameidata *);
     /* 在 follow_link调用之后，该函数由VFS调用进行清除工作 */
@@ -379,7 +383,7 @@ int vfs_close(struct file *); // 关闭并释放文件
 // namei.c for open_namei related functions
 u32 open_namei(const u8 *, u32, struct nameidata *);
 u32 path_lookup(const u8 *, u32, struct nameidata *);
-inline void follow_dotdot(struct nameidata *);
+void follow_dotdot(struct nameidata *);
 u32 link_path_walk(const u8 *, struct nameidata *);
 u32 do_lookup(struct nameidata *, struct qstr *, struct path *);
 struct dentry * real_lookup(struct dentry *, struct qstr *, struct nameidata *);
@@ -405,12 +409,13 @@ u32 vfs_rm_r(const u8 *);
 u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
+u32 vfs_create(const u8 *);
 
 // utils.c for some util functions
-u32 read_block(u8 *buf, u32 addr, u32 count);
-u32 write_block(u8 *buf, u32 addr, u32 count);
-u16 get_u16(u8);
-u32 get_u32(u8 *ch);
+u32 vfs_read_block(u8 *buf, u32 addr, u32 count);
+u32 vfs_write_block(u8 *buf, u32 addr, u32 count);
+u16 vfs_get_u16(u8 *ch);
+u32 vfs_get_u32(u8 *ch);
 u8 get_bit(const u8 *source, u32 index);
 void reset_bit(u8 *source, u32 index);
 void set_bit(u8 *source, u32 index);
@@ -419,4 +424,5 @@ void set_bit(u8 *source, u32 index);
 u32 init_vfs();
 u32 vfs_read_MBR();
 u32 get_next_zero_bit(const u8*, u32);
+
 #endif

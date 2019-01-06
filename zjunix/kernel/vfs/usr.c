@@ -2,7 +2,6 @@
 #include <zjunix/vfs/err.h>
 #include <zjunix/vfs/errno.h>
 #include <driver/vga.h>
-#include <errno.h>
 
 /****************************** 外部变量 *******************************/
 extern struct dentry                    * pwd_dentry;   /* 当前工作目录 */
@@ -275,6 +274,31 @@ u32 vfs_cd(const u8 * path) {
 // mv：移动文件（同目录下移动则为重命名）
 u32 vfs_mv(const u8 * path) {
 
+}
+
+// 新建一个文件
+u32 vfs_create(const u8 * path) {
+    u32 err = 0;
+    struct dentry *dentry;
+    struct nameidata nd;
+
+    // 找到path对应的nd信息
+    err = path_lookup(path,LOOKUP_PARENT,&nd);
+    if (err)
+        return err;
+    // 若是没有则创建dentry
+    dentry = lookup_create(&nd, 1);
+    err = PTR_ERR(dentry);
+    if (!IS_ERR(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->mkdir)
+            return -ENOSYS;
+        // 调用文件系统对应的create
+        err = dir->i_op->create(dir, dentry, &nd);
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    return err;
 }
 
 
