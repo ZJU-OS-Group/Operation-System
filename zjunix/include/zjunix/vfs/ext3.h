@@ -17,8 +17,8 @@
 enum{EXT3_BLOCK_BITMAP_OFFSET,EXT3_INODE_BITMAP_OFFSET,EXT3_INODE_TABLE_OFFSET};
 
 struct ext3_super_block {
-    u32                 inode_num;                          // inode数
-    u32                 block_num;                          // 块数
+    u32                 inode_count;                          // inode计数器
+    u32                 block_count;                          // 块计数器
     u32                 res_block_num;                      // 保留块数
     u32                 free_block_num;                     // 空闲块数
     u32                 free_inode_num;                     // 空闲inode数
@@ -118,6 +118,7 @@ struct ext3_base_information {
         u8                        *fill;
         struct ext3_super_block   *content;
     } super_block;                                                   // 超级块数据
+    u32                 group_count;                    //总块组数
 };
 
 u32 ext3_writepage(struct vfs_page * page) ;
@@ -134,7 +135,7 @@ u32 ext3_readdir (struct file *, struct getdent *);
 
 u32 ext3_create(struct inode *, struct dentry *, struct nameidata *);
 
-struct dentry * ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
+struct dentry *ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
 
 u32 ext3_mkdir(struct inode*, struct dentry*, u32);
 
@@ -146,6 +147,6 @@ u32 ext3_rename(struct inode*, struct dentry*, struct inode *, struct dentry*);
 
 u32 ext3_write_inode (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
 
-u32 ext3_delete_entry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
+u32 ext3_delete_dentry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
 
 #endif

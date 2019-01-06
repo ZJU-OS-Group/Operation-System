@@ -203,7 +203,7 @@ struct getdent {
 struct master_boot_record {
     u32                                 m_count;                        // 分区数
     u32                                 m_base[DPT_MAX_ENTRY_COUNT];    // 每个分区的基地址
-    u8                                  m_data[SECTOR_SIZE];            // 数据
+    u8                                  m_data[SECTOR_BYTE_SIZE];            // 数据
 };
 
 /*********************************以下定义VFS的四个主要对象********************************************/
@@ -418,5 +418,5 @@ void set_bit(u8 *source, u32 index);
 // vfs.c for total virtual file system
 u32 init_vfs();
 u32 vfs_read_MBR();
-
+u32 get_next_zero_bit(const u8*, u32);
 #endif
