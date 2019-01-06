@@ -28,7 +28,7 @@ struct cache {
     u8                          cache_size;         /* cache当前大小 */
     u8                          cache_capacity;     /* cache最大可容纳的大小 */
     u32                         cache_tablesize;    /* cache hash表的大小，计算string hash时用 */
-    struct list_head            *c_lru;             /* cache对应的lru链表，采用lru策略进行cache替换 */
+    struct list_head            c_lru;             /* cache对应的lru链表，采用lru策略进行cache替换 */
     struct list_head            *c_hashtable;       /* hash表 */
     struct cache_operations     *c_op;              /* cache操作函数 */
 };

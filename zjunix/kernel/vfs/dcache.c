@@ -64,7 +64,7 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
         list_del(&tested->d_hash);
         list_add(&tested->d_hash, &(this->c_hashtable[hash]));
         list_del(&(tested->d_lru));
-        list_add(&(tested->d_lru), this->c_lru);
+        list_add(&(tested->d_lru), &(this->c_lru));
         debug_end("[dcache.c: dcache_look_up:68]: has found\n");
         return (void*)tested; // 返回对应的dentry指针，转换为void*是为了适配统一的接口
     }
@@ -141,7 +141,7 @@ void dcache_add(struct cache *this, void * object) {
     list_add(&(addend->d_hash), &(this->c_hashtable[hash]));
 
     // 同时也在LRU链表的头部插入，表示最新访问
-    list_add(&(addend->d_lru), this->c_lru);
+    list_add(&(addend->d_lru), &(this->c_lru));
 
     // 当前cache的size加一
     this->cache_size += 1;
@@ -156,7 +156,7 @@ void dcache_put_LRU(struct cache * this) {
     struct dentry           *put_dentry; // 存储要被从cache中替换出去的dentry
 
     // 搜寻LRU的链表尾
-    start = this->c_lru;
+    start = &(this->c_lru);
     put = start->prev;
     put_dentry = container_of(put, struct dentry, d_lru); // 找到put对应的dentry的指针
 

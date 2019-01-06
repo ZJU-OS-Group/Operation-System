@@ -37,7 +37,7 @@ u32 init_cache()
     dcache->cache_size = 0;
     dcache->cache_capacity = DCACHE_CAPACITY;
     dcache->cache_tablesize = DCACHE_HASHTABLE_SIZE;
-    INIT_LIST_HEAD(dcache->c_lru);
+    INIT_LIST_HEAD(&(dcache->c_lru));
     dcache->c_hashtable = (struct list_head*) kmalloc ( DCACHE_HASHTABLE_SIZE * sizeof(struct list_head) );
     for ( i = 0; i < DCACHE_HASHTABLE_SIZE; i++ )
         INIT_LIST_HEAD(dcache->c_hashtable + i);
@@ -52,7 +52,7 @@ u32 init_cache()
     pcache->cache_size = 0;
     pcache->cache_capacity = PCACHE_CAPACITY;
     pcache->cache_tablesize = PCACHE_HASHTABLE_SIZE;
-    INIT_LIST_HEAD(pcache->c_lru);
+    INIT_LIST_HEAD(&(pcache->c_lru));
     pcache->c_hashtable = (struct list_head*) kmalloc ( PCACHE_HASHTABLE_SIZE * sizeof(struct list_head) );
     for ( i = 0; i < PCACHE_HASHTABLE_SIZE; i++ )
         INIT_LIST_HEAD(pcache->c_hashtable + i);

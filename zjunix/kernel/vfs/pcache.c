@@ -9,7 +9,7 @@ void pcache_write_back(void* obj)
 void pcache_LRU(struct cache *this) {
         struct  list_head* replaced_page;
         struct vfs_page*  _replaced_page;
-        replaced_page = this->c_lru->prev;
+        replaced_page = this->c_lru.prev;
         _replaced_page = container_of(replaced_page, struct vfs_page, p_lru);
         if(_replaced_page->page_state & P_DIRTY)
         {
@@ -34,7 +34,7 @@ void pcache_add(struct cache* this, void* obj) {
         //哈希链表头部插入
         list_add(tempPage->page_hashtable, &(this->c_hashtable[hash_value]));
         //LRU头部插入
-        list_add(this->c_lru, tempPage->p_lru);
+        list_add(&(this->c_lru), tempPage->p_lru);
         this->cache_size++;
 }
 
@@ -63,7 +63,7 @@ void* pcache_look_up(struct cache* this, struct condition* conditions) {
                 list_del(result->page_hashtable);
                 list_del(result->p_lru);
                 list_add(result->page_hashtable, start_list);
-                list_add(result->p_lru, this->c_lru);
+                list_add(result->p_lru, &(this->c_lru));
                 return (void*)result;
         }
 
