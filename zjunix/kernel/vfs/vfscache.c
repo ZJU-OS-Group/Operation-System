@@ -5,6 +5,8 @@
 #include <zjunix/list.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/slab.h>
+#include <zjunix/debug/debug.h>
+
 // 公用缓存
 struct cache * dcache;
 struct cache * pcache;
@@ -25,6 +27,7 @@ struct cache_operations page_cache_operations = {
 
 u32 init_cache()
 {
+    debug_warning("1/6 20:15 test cache");
     u32 err, i;
     err = -ENOMEM;
     //初始化dcache
@@ -38,6 +41,7 @@ u32 init_cache()
     dcache->cache_capacity = DCACHE_CAPACITY;
     dcache->cache_tablesize = DCACHE_HASHTABLE_SIZE;
     INIT_LIST_HEAD(dcache->c_lru);
+    while(1);
     dcache->c_hashtable = (struct list_head*) kmalloc ( DCACHE_HASHTABLE_SIZE * sizeof(struct list_head) );
     for ( i = 0; i < DCACHE_HASHTABLE_SIZE; i++ )
         INIT_LIST_HEAD(dcache->c_hashtable + i);

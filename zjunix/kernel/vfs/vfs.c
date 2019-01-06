@@ -23,7 +23,6 @@ u32 init_vfs() {
         goto vfs_init_err;
     }
     log(LOG_OK, "vfs_read_MBR()");
-
     /* 初始化缓存区域 */
     err = init_cache();
     if ( IS_ERR_VALUE(err) ){
