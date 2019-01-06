@@ -40,7 +40,7 @@ void pcache_add(struct cache* this, void* obj) {
 
 void* pcache_look_up(struct cache* this, struct condition* conditions) {
         u8 found = 0;
-        u32 page_address = conditions->cond1;
+        u32 page_address = *((u32*)(conditions->cond1));
         u32 hash_value;
         struct vfs_page* result;
         struct list_head* temp_list_node;

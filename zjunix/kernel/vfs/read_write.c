@@ -86,7 +86,8 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 			pcache->c_op->add(pcache, tempPage);
 			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
 		}
-		u32 dest, src;
+		u8* dest;
+		u8* src;
 		if(tempPageNo == startPageNo)
 		{
 			dest = buf;
@@ -171,7 +172,8 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
 		}
 
-		u32 dest, src;
+		u8* dest;
+		u8* src;
 		if(tempPageNo == startPageNo)
 		{
 			src = buf;

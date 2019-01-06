@@ -8,7 +8,7 @@
 #include <zjunix/utils.h>
 extern struct dentry                    * root_dentry;              // vfs.c
 extern struct dentry                    * pwd_dentry;
-extern struct vfsmount                  * root_mount;
+extern struct vfsmount                  * root_mnt;
 extern struct vfsmount                  * pwd_mnt;
 
 extern struct cache                     * dcache;                   // vfscache.c
@@ -92,14 +92,14 @@ u32 init_fat32(u32 base)
     fat32_BI->fat32_DBR->fat_size      = vfs_get_u32 (fat32_BI->fat32_DBR->data + 0x24);
     fat32_BI->fat32_DBR->fat32_version = vfs_get_u16 (fat32_BI->fat32_DBR->data + 0x2A);
     fat32_BI->fat32_DBR->root_clu      = vfs_get_u32 (fat32_BI->fat32_DBR->data + 0x2C);
-    fat32_BI->fat32_DBR->system_format_ASCII[0] = (char) (fat32_BI->fat32_DBR->data + 0x52);
-    fat32_BI->fat32_DBR->system_format_ASCII[1] = (char) (fat32_BI->fat32_DBR->data + 0x53);
-    fat32_BI->fat32_DBR->system_format_ASCII[2] = (char) (fat32_BI->fat32_DBR->data + 0x54);
-    fat32_BI->fat32_DBR->system_format_ASCII[3] = (char) (fat32_BI->fat32_DBR->data + 0x55);
-    fat32_BI->fat32_DBR->system_format_ASCII[4] = (char) (fat32_BI->fat32_DBR->data + 0x56);
-    fat32_BI->fat32_DBR->system_format_ASCII[5] = (char) (fat32_BI->fat32_DBR->data + 0x57);
-    fat32_BI->fat32_DBR->system_format_ASCII[6] = (char) (fat32_BI->fat32_DBR->data + 0x58);
-    fat32_BI->fat32_DBR->system_format_ASCII[7] = (char) (fat32_BI->fat32_DBR->data + 0x59);
+    fat32_BI->fat32_DBR->system_format_ASCII[0] = *(fat32_BI->fat32_DBR->data + 0x52);
+    fat32_BI->fat32_DBR->system_format_ASCII[1] = *(fat32_BI->fat32_DBR->data + 0x53);
+    fat32_BI->fat32_DBR->system_format_ASCII[2] = *(fat32_BI->fat32_DBR->data + 0x54);
+    fat32_BI->fat32_DBR->system_format_ASCII[3] = *(fat32_BI->fat32_DBR->data + 0x55);
+    fat32_BI->fat32_DBR->system_format_ASCII[4] = *(fat32_BI->fat32_DBR->data + 0x56);
+    fat32_BI->fat32_DBR->system_format_ASCII[5] = *(fat32_BI->fat32_DBR->data + 0x57);
+    fat32_BI->fat32_DBR->system_format_ASCII[6] = *(fat32_BI->fat32_DBR->data + 0x58);
+    fat32_BI->fat32_DBR->system_format_ASCII[7] = *(fat32_BI->fat32_DBR->data + 0x59);
 
     // 构建 fat32_file_system_information 结构
     fat32_BI->fat32_FSINFO = (struct fat32_file_system_information *) kmalloc \
@@ -274,27 +274,27 @@ u32 init_fat32(u32 base)
     kernel_printf("load fat32 root dir page ok!");
 
     // 构建本文件系统关联的 vfsmount挂载
-    root_mount = (struct vfsmount*)kmalloc(sizeof(struct vfsmount));
-    if(root_mount == 0)
+    root_mnt = (struct vfsmount*)kmalloc(sizeof(struct vfsmount));
+    if(root_mnt == 0)
     {
         err = -ENOMEM;
         return err;
     }
-    root_mount->mnt_root = root_dentry;
-    root_mount->mnt_parent = root_mount;
-    root_mount->mnt_sb = fat32_sb;
-    root_mount->mnt_mountpoint = root_dentry;
-    root_mount->mnt_flags = 1;
-    INIT_LIST_HEAD(&root_mount->mnt_child);
-    INIT_LIST_HEAD(&root_mount->mnt_expire);
-    INIT_LIST_HEAD(&root_mount->mnt_hash);
-    INIT_LIST_HEAD(&root_mount->mnt_share);
-    INIT_LIST_HEAD(&root_mount->mnt_slave);
-    INIT_LIST_HEAD(&root_mount->mnt_slave_list);
-    INIT_LIST_HEAD(&root_mount->mnt_mounts);
-    INIT_LIST_HEAD(&root_mount->mnt_list);
+    root_mnt->mnt_root = root_dentry;
+    root_mnt->mnt_parent = root_mnt;
+    root_mnt->mnt_sb = fat32_sb;
+    root_mnt->mnt_mountpoint = root_dentry;
+    root_mnt->mnt_flags = 1;
+    INIT_LIST_HEAD(&root_mnt->mnt_child);
+    INIT_LIST_HEAD(&root_mnt->mnt_expire);
+    INIT_LIST_HEAD(&root_mnt->mnt_hash);
+    INIT_LIST_HEAD(&root_mnt->mnt_share);
+    INIT_LIST_HEAD(&root_mnt->mnt_slave);
+    INIT_LIST_HEAD(&root_mnt->mnt_slave_list);
+    INIT_LIST_HEAD(&root_mnt->mnt_mounts);
+    INIT_LIST_HEAD(&root_mnt->mnt_list);
 
-    pwd_mnt = root_mount;
+    pwd_mnt = root_mnt;
     return 0;
 }
 
@@ -333,9 +333,9 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
             tempPage->page_state   = P_CLEAR;
             tempPage->page_address = tempPageNo;
             tempPage->p_address_space = &(temp_inode->i_data);
-            INIT_LIST_HEAD(&(tempPage->page_hashtable));
-            INIT_LIST_HEAD(&(tempPage->p_lru));
-            INIT_LIST_HEAD(&(tempPage->page_list));
+            INIT_LIST_HEAD(tempPage->page_hashtable);
+            INIT_LIST_HEAD(tempPage->p_lru);
+            INIT_LIST_HEAD(tempPage->page_list);
 
             err = temp_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -345,21 +345,21 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
 
             tempPage->page_state= P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
+            list_add(tempPage->page_list, &(temp_inode->i_data.a_cache));
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
 
         for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
 
-            temp_dir_entry = (struct fat_dir_entry *)(tempPage->page_data + i);
+            temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + i);
 
             // 先判断是不是短文件名，如果不是的话跳过（08 卷标、0F长文件名）
             if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME)
                 continue;
 
             // 再判断是不是已删除的文件，是的话跳过
-            if (temp_dir_entry>name[0] == 0xE5)
+            if (temp_dir_entry->name[0] == 0xE5)
                 continue;
 
             // 再判断是不是没有目录项了
@@ -376,7 +376,8 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
             fat32_convert_filename(&normalname_str, &entryname_str, temp_dir_entry->lcase, FAT32_FILE_NAME_LONG_TO_NORMAL);
 
             // 如果与待找的名字相同，则建立相应的inode
-            if ( generic_compare_filename(&normalname_str, &(temp_dentry->d_name) ) == 0 ){
+
+            if (generic_qstr_compare(&normalname_str, &(temp_dentry->d_name)) == 0 ){
                 // 获得起始簇号（相对物理地址）
                 addr    = (temp_dir_entry->starthi << 16) + temp_dir_entry->startlo;
 
@@ -431,7 +432,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
 
     // 完善nameidata的信息
     _nameidata->dentry = temp_dentry;
-    _nameidata->mnt = root_mount;
+    _nameidata->mnt = root_mnt;
     _nameidata->flags = found;
     // 如果没找到相应的inode
     if (!found)
@@ -479,9 +480,9 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
             tempPage->page_state    = P_CLEAR;
             tempPage->page_address = tempPageNo;
             tempPage->p_address_space = &(temp_inode->i_data);
-            INIT_LIST_HEAD(&(tempPage->page_hashtable));
-            INIT_LIST_HEAD(&(tempPage->p_lru));
-            INIT_LIST_HEAD(&(tempPage->page_list));
+            INIT_LIST_HEAD(tempPage->page_hashtable);
+            INIT_LIST_HEAD(tempPage->p_lru);
+            INIT_LIST_HEAD(tempPage->page_list);
 
             err = temp_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -491,12 +492,12 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
 
             tempPage->page_state = P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
+            list_add(tempPage->page_list, &(temp_inode->i_data.a_cache));
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
         for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
-            temp_dir_entry = (struct fat_dir_entry *)(tempPage->page_data + i);
+            temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + i);
 
             // 先判断是不是短文件名，如果不是的话跳过（08 卷标、0F长文件名）
             if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME)
@@ -591,9 +592,9 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
             tempPage->page_state = P_CLEAR;
             tempPage->page_address  = tempPageNo;
             tempPage->p_address_space = &(parent_inode->i_data);
-            INIT_LIST_HEAD(&(tempPage->page_hashtable));
-            INIT_LIST_HEAD(&(tempPage->p_lru));
-            INIT_LIST_HEAD(&(tempPage->page_list));
+            INIT_LIST_HEAD(tempPage->page_hashtable);
+            INIT_LIST_HEAD(tempPage->p_lru);
+            INIT_LIST_HEAD(tempPage->page_list);
 
             err = parent_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -603,7 +604,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
 
             tempPage->page_state = P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(&(tempPage->page_list), &(parent_inode->i_data.a_cache));
+            list_add(tempPage->page_list, &(parent_inode->i_data.a_cache));
         }
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
         for ( i = 0; i < parent_inode->i_block_size; i += FAT32_DIR_ENTRY_LEN ){
@@ -705,7 +706,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     temp_inode->i_ino    = addr;                     //inode号等于文件起始簇号
     temp_inode->i_op     = &(fat32_inode_operations[0]);
     temp_inode->i_fop    = &(fat32_file_operations);
-    temp_inode->i_sb     = root_mount->mnt_sb;
+    temp_inode->i_sb     = root_mnt->mnt_sb;
     temp_inode->i_blocks = 1;
     temp_inode->i_size = 0;
     temp_inode->i_state = S_CLEAR;
@@ -728,7 +729,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     temp_address_space->a_op = &(fat32_address_space_operations);
     INIT_LIST_HEAD(&(temp_address_space->a_cache));
 
-    temp_address_space->a_page = (struct u32*)kmalloc(sizeof(u32) * temp_inode->i_blocks);
+    temp_address_space->a_page = (u32*)kmalloc(sizeof(u32) * temp_inode->i_blocks);
     temp_address_space->a_page[0] = addr;
 
 
@@ -764,12 +765,12 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     return 0;
 }
 
-int fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct inode* new_inode, struct dentry* new_dentry)
+u32 fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct inode* new_inode, struct dentry* new_dentry)
 {
 
     return 0;
 }
-int fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
+u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 {
     u32 err;
     struct dentry* parent_dentry;
