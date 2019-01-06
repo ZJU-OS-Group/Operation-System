@@ -60,12 +60,13 @@ u32 init_fat32(u32 base)
     struct super_block* fat32_sb;
     struct vfs_page* tempPage;
     struct inode* root_inode;
-
+    debug_start("fat32.c init_fat32 start\n");
     // 构建 fat32_basic_information 结构
     fat32_BI = (struct fat32_basic_information *) kmalloc ( sizeof(struct fat32_basic_information) );
     if (fat32_BI == 0)
     {
         err = -ENOMEM;
+        debug_err("fat32.c:69 fat32_BI allocate memory error!\n");
         return err;
     }
 
@@ -74,6 +75,7 @@ u32 init_fat32(u32 base)
     if (fat32_BI->fat32_DBR == 0)
     {
         err = -ENOMEM;
+        debug_err("fat32.c:78 fat32_DBR allocate memory error!\n");
         return err;
     }
     fat32_BI->fat32_DBR->base = base;
@@ -81,6 +83,7 @@ u32 init_fat32(u32 base)
     err = vfs_read_block(fat32_BI->fat32_DBR->data, fat32_BI->fat32_DBR->base, 1);        // DBR在基地址所在的一个扇区
     if (err)
     {
+        debug_err("fat32.c:86 read the block data of fat32_DBR error!\n");
         err = -EIO;
         return err;
     }
@@ -100,8 +103,9 @@ u32 init_fat32(u32 base)
     fat32_BI->fat32_DBR->system_format_ASCII[5] = *(fat32_BI->fat32_DBR->data + 0x57);
     fat32_BI->fat32_DBR->system_format_ASCII[6] = *(fat32_BI->fat32_DBR->data + 0x58);
     fat32_BI->fat32_DBR->system_format_ASCII[7] = *(fat32_BI->fat32_DBR->data + 0x59);
-
+    kernel_printf("If fat32 DBR read in correctly? %s\n", fat32_BI->fat32_DBR->system_format_ASCII);
     // 构建 fat32_file_system_information 结构
+    debug_start("start read in fat32_file_system_information\n");
     fat32_BI->fat32_FSINFO = (struct fat32_file_system_information *) kmalloc \
         ( sizeof(struct fat32_file_system_information) );
     if (fat32_BI->fat32_FSINFO == 0)
@@ -117,8 +121,9 @@ u32 init_fat32(u32 base)
         err = -EIO;
         return err;
     }
-    kernel_printf("load fat32 basic information ok!");
+    kernel_printf("fat32.c:123 load fat32 basic information ok!\n");
         // 构建 fat32_file_allocation_table 结构
+    debug_start("start read in fat32_FAT\n");
     fat32_BI->fat32_FAT1 = (struct fat32_file_allocation_table *) kmalloc ( sizeof(struct fat32_file_allocation_table) );
     if (fat32_BI->fat32_FAT1 == 0)
         return -ENOMEM;
@@ -129,7 +134,7 @@ u32 init_fat32(u32 base)
     for(i = 0;i < FAT32_CLUSTER_NUM;i++)
         fat32_BI->fat32_FAT1->clu_situ[i] = 0x00000000;
 
-    kernel_printf("load fat32 file allocation table ok!");
+    kernel_printf("fat32.c:135 load fat32 file allocation table ok!\n");
      // 构建 file_system_type 结构
     fat32_fs_type = (struct file_system_type *) kmalloc ( sizeof(struct file_system_type) );
     if (fat32_fs_type == 0)
@@ -140,6 +145,7 @@ u32 init_fat32(u32 base)
     fat32_fs_type->name = "fat32";
 
     // 构建根目录关联的 dentry 结构
+    debug_start("start constructing root dentry\n");
     root_dentry = (struct dentry *) kmalloc ( sizeof(struct dentry) );
     if (fat32_fs_type == 0)
     {
@@ -156,13 +162,13 @@ u32 init_fat32(u32 base)
     pwd_dentry = root_dentry;
 
     //构建super_block 结构
+    debug_start("start constructing superblock for fat32\n");
     fat32_sb = (struct super_block*)kmalloc(sizeof(struct super_block));
     if (fat32_fs_type == 0)
     {
         err = -ENOMEM;
         return err;
     }
-
     fat32_sb->s_type = fat32_fs_type;
     fat32_sb->s_op = &(fat32_super_operations);
     fat32_sb->s_dirt = S_CLEAR;
@@ -174,7 +180,7 @@ u32 init_fat32(u32 base)
     INIT_LIST_HEAD(&(fat32_sb->s_list));
 
     // 构建根目录关联的 inode 结构
-
+    debug_start("start constructing inode for root dir\n");
     root_inode = (struct inode *) kmalloc ( sizeof(struct inode) );
     if (root_inode == 0)
     {
@@ -244,7 +250,7 @@ u32 init_fat32(u32 base)
         root_inode->i_data.a_page[i] = cluNo;
         cluNo = read_fat(root_inode, cluNo);
     }
-    kernel_printf("load fat32 root inode ok!");
+    kernel_printf("fat32.c:249 load fat32 root inode ok!");
     //读取根目录文件夹数据
     for(i = 0;i < root_inode->i_blocks;i++)
     {
@@ -271,9 +277,10 @@ u32 init_fat32(u32 base)
         pcache_add(pcache, tempPage);
         list_add(tempPage->page_list, &(tempPage->p_address_space->a_cache));
     }
-    kernel_printf("load fat32 root dir page ok!");
+    kernel_printf("fat32.c:276 load fat32 root dir page ok!");
 
     // 构建本文件系统关联的 vfsmount挂载
+    debug_start("start constructing fat32 mount\n");
     root_mnt = (struct vfsmount*)kmalloc(sizeof(struct vfsmount));
     if(root_mnt == 0)
     {
@@ -295,6 +302,7 @@ u32 init_fat32(u32 base)
     INIT_LIST_HEAD(&root_mnt->mnt_list);
 
     pwd_mnt = root_mnt;
+    debug_end("fat32.c:305 init_fat32 ok!\n");
     return 0;
 }
 
@@ -523,7 +531,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
 
             // 如果与待找的名字相同，则标记此目录项为删除
             if ( generic_qstr_compare( &normalname_str, &(temp_dentry->d_name)) == 0 ){
-                kernel_printf("get %s in delete inode\n", normalname_str.name);
+                kernel_printf("fat32.c:528 get %s in delete inode\n", normalname_str.name);
                 temp_dir_entry->name[0] = 0xE5;
                 found = 1;
                 break;                          // 跳出的是对每一个目录项的循环
@@ -551,6 +559,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
            return 0;
             */
     }
+    debug_end("fat32.c:556 fat32_delete_inode ok!\n");
     return 0;
 }
 // 用通过传递参数指定的索引节点对象的内容更新一个文件系统的索引节点
@@ -568,7 +577,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
     struct dentry* temp_dentry;
     struct condition conditions;
     struct fat32_dir_entry* parent_dir_entry;
-
+    debug_start("fat32.c:574 fat32_write_inode debug start\n");
     parent_inode = parent->d_inode;
     temp_dentry = container_of(temp_inode->i_dentry.next, struct dentry, d_alias);
     for ( i = 0; i < parent_inode->i_blocks; i++){
@@ -582,7 +591,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
         // 如果页高速缓存中没有，则需要在外存中寻找（一定能够找到，因为不是创建文件）
         if ( tempPage == 0 )
         {
-            kernel_printf("dcache not found!\n");
+            kernel_printf("fat32.c:587 dcache not found!\n");
             tempPage = (struct vfs_page *) kmalloc ( sizeof(struct vfs_page) );
             if (!tempPage)
             {
@@ -661,6 +670,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
         err = -ENOENT;
         return err;
     }
+    debug_end("fat32.c:667 fat32_write_inode ok!\n");
     return 0;
 }
 // 在传递参数指定的索引节点对象下创建一个新的文件系统的索引节点
@@ -675,6 +685,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     struct dentry* parent_dentry;
     struct vfs_page* tempPage;
     struct address_space* temp_address_space;
+    debug_start("fat32.c:682 debug fat32_create_inode start\n");
     parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
     temp_inode = (struct inode*) kmalloc(sizeof(struct inode));
     temp_dentry->d_sb = parent_dentry->d_sb;
@@ -761,6 +772,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     //将temp_dentry与新建inode关联
     temp_dentry->d_inode = temp_inode;
     list_add(&(temp_dentry->d_alias), &(temp_inode->i_dentry));
+    debug_end("fat32.c:768 fat32_create_inode ok!\n");
     return 0;
 }
 
@@ -804,8 +816,11 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
     if(err)
     {
+        debug_err("fat32:813 create inode in mkdir error!\n");
         err = -EEXIST;
+        return err;
     }
+    debug_end("fat32.c:815 fat32_mkdir ok!\n");
     return err;
 }
 u32 read_fat(struct inode * temp_inode, u32 index)
@@ -814,12 +829,13 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     u8 buffer[SECTOR_BYTE_SIZE];
     u32 sec_addr;
     u32 sec_index;
-
+    debug_start("fat32.c:826 read_fat start\n");
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
     vfs_read_block(buffer, sec_addr, 1);
+    debug_end("fat32.c:832 read_fat end\n");
     return vfs_get_u32(buffer + (sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))));
 }
 
@@ -841,6 +857,7 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
     err = vfs_write_block(buffer, sec_addr, 1);
     if(err)
     {
+        debug_err("fat32.c:854 write FAT in write_fat error!");
         err = -EIO;
         return err;
     }
@@ -969,7 +986,10 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
 // 根据相对页号得到物理页号
 u32 fat32_bitmap(struct inode* _inode, u32 pageNo)
 {
-    if(pageNo < 0) return -EIO;
+    if(pageNo < 0) {
+        debug_err("fat32.c:984 page number is less than 0!\n");
+        return -EIO;
+    }
     return _inode->i_data.a_page[pageNo];
 }
 
@@ -1027,7 +1047,7 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
     struct vfs_page* tempPage;
     struct condition conditions;
     struct fat32_dir_entry* temp_dir_entry;
-
+    debug_start("fat32.c:1044 fat32_readdir start\n");
 
     file_inode = file->f_dentry->d_inode;
     getdent->count = 0;
@@ -1046,7 +1066,11 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
         if(tempPage == 0)
         {
             tempPage = (struct vfs_page*)kmalloc(sizeof(struct vfs_page));
-            if(!tempPage) return -ENOMEM;
+            if(!tempPage)
+            {
+                debug_err("fat32.c:1065 get page of file information node error!\n");
+                return -ENOMEM;
+            }
 
             tempPage->page_state =  P_CLEAR;
             tempPage->page_address = realPageNo;
