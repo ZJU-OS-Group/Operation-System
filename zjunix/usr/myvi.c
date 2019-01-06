@@ -1,13 +1,15 @@
 #include "myvi.h"
 #include <driver/ps2.h>
 #include <driver/vga.h>
-#include <zjunix/fs/fat.h>
+#include <zjunix/vfs/vfs.h>
+#include <tclDecls.h>
 
 extern int cursor_freq;
 int pre_cursor_freq;
+struct file* file;
 
-FILE file;
 int is_new_file;
+extern struct dentry* pwd_dentry;
 
 char buffer[BUFFER_SIZE];
 char instruction[COLUMN_LEN] = "";
@@ -53,9 +55,17 @@ char *mystrcpy(char *dest, const char *src) {
 void load_file(char *file_path) {
     int file_size;
     int cnt = 0;
-    unsigned char newch;
-    unsigned int ret = fs_open(&file, file_path);
-
+    char newchar;
+    int ret = 1;
+    file = vfs_open(file_path, O_RDONLY);
+    if (IS_ERR_OR_NULL(file)){
+        if ( PTR_ERR(file) == -ENOENT )
+            kernel_printf("File not found!\n");
+        err = PTR_ERR(file);
+    }
+    else{
+        ret = 0;
+    }
     if (ret != 0) {
         is_new_file = 1;
         buffer[size++] = '\n';
@@ -64,13 +74,17 @@ void load_file(char *file_path) {
         is_new_file = 0;
     }
 
-    file_size = get_entry_filesize(file.entry.data);
+    file_size = file->f_dentry->d_inode->i_size;
     int i = 0;
+    u32 base = 0;
     for (i = 0; i < file_size; i++) {
-        fs_read(&file, &newch, 1);
-        if (newch != 13) {
-            buffer[size++] = (char)newch;
+        if ( vfs_read(file, &newchar, 1, &base) != 1 ){
+            err = 1;
+            return;
         }
+
+        buffer[size++] = newchar;
+
         if (size == BUFFER_SIZE - 1) {
             err = 2;
             return;
@@ -80,18 +94,29 @@ void load_file(char *file_path) {
     if (size == 0 || buffer[size - 1] != '\n') {
         buffer[size++] = '\n';
     }
-    fs_close(&file);
+    err = vfs_close(file);
 }
 
 void save_file() {
+    u32 base = 0;
+    kernel_clear_screen(31);
     if (is_new_file) {
-        fs_create(filename);
+        vfs_create(filename);
     }
 
-    fs_open(&file, filename);
-    fs_lseek(&file, 0);
-    fs_write(&file, buffer, size);
-    int ret = fs_close(&file);
+    file = vfs_open(filename, O_RDWR);
+    if (IS_ERR_OR_NULL(file)){
+        err = PTR_ERR(file);
+        return;
+    }
+    err = vfs_write(file, buffer, size, &base);
+    if(err != size){
+         kernel_printf("vfs_write_err: %d\n", err);
+         kernel_printf("size: %d\n", size);
+//         kernel_getchar();
+        return;
+    }
+    err = vfs_close(file);
 }
 
 void insert_key(char key, int site) {
@@ -341,8 +366,6 @@ int myvi(char *para) {
     pre_cursor_freq = cursor_freq;
     cursor_freq = 0;
     kernel_set_cursor();
-
-    mystrcpy(file.path, filename);
 
     load_file(filename);
 

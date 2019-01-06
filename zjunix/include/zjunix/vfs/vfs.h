@@ -405,6 +405,7 @@ u32 vfs_rm_r(const u8 *);
 u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
+u32 vfs_create(cont u8 *);
 
 // utils.c for some util functions
 u32 read_block(u8 *buf, u32 addr, u32 count);
@@ -419,4 +420,5 @@ void set_bit(u8 *source, u32 index);
 u32 init_vfs();
 u32 vfs_read_MBR();
 u32 get_next_zero_bit(const u8*, u32);
+
 #endif
