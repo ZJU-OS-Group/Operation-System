@@ -3,6 +3,7 @@
 #include <driver/vga.h>
 #include <zjunix/vfs/fat32.h>
 #include <zjunix/vfs/ext3.h>
+#include <zjunix/debug/debug.h>
 
 // global
 struct master_boot_record   * MBR;
@@ -56,6 +57,7 @@ u32 init_vfs() {
 
 // 读取MBR（主引导分区）
 u32 vfs_read_MBR() {
+    debug_start("[vfs.c: vfs_read_MBR:60]\n");
     u8  *DPT_cur;
     u32 err;
     u32 part_base;
@@ -80,5 +82,6 @@ u32 vfs_read_MBR() {
 
     vfs_read_MBR_err:
     kfree(MBR);
+    debug_end("[vfs.c: vfs_read_MBR:85]\n");
     return -EIO;
 }

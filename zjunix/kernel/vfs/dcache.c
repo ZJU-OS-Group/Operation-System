@@ -2,6 +2,7 @@
 #include <zjunix/utils.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/vfs/hash.h>
+#include <zjunix/debug/debug.h>
 
 /********************************** 外部变量 ************************************/
 extern struct cache     *dcache;
@@ -27,6 +28,7 @@ u32 __stringHash(struct qstr * qstr, u32 size) {
 }
 
 void* dcache_look_up(struct cache *this, struct condition *cond) {
+    debug_start("dcache.c: dcache_look_up\n");
     u32 found;
     u32 hash;
     struct qstr         *name; // qstr 包装字符串
@@ -55,6 +57,7 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
         }
     }
 
+
     // 找到的话返回指向对应dentry的指针,同时更新哈希链表、LRU链表状态
     if (found) {
         // 以下操作可以使更新lru链表，将最近的往前插
@@ -62,11 +65,14 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
         list_add(&tested->d_hash, &(this->c_hashtable[hash]));
         list_del(&(tested->d_lru));
         list_add(&(tested->d_lru), this->c_lru);
+        debug_end("[dcache.c: dcache_look_up:68]: has found\n");
         return (void*)tested; // 返回对应的dentry指针，转换为void*是为了适配统一的接口
     }
     else{
+        debug_end("[dcache.c: dcache_look_up:72]: not found\n");
         return 0;
     }
+
 }
 
 void dget(struct dentry *dentry) {
@@ -75,6 +81,7 @@ void dget(struct dentry *dentry) {
 
 // 根据相应信息新建一个dentry项，填充相关信息，并放进dentry高速缓存
 struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
+    debug_start("[dcache.c: d_alloc:83]\n");
     u8* dname;
     u32 i;
     struct dentry* dentry;
@@ -113,10 +120,12 @@ struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
     }
 
     dcache->c_op->add(dcache, (void*)dentry);
+    debug_end("[dcache.c: d_alloc:123]\n");
     return dentry;
 }
 
 void dcache_add(struct cache *this, void * object) {
+    debug_start("[dcache.c: dcache_add:128]\n");
     u32 hash;
     struct dentry* addend;
 
@@ -136,10 +145,12 @@ void dcache_add(struct cache *this, void * object) {
 
     // 当前cache的size加一
     this->cache_size += 1;
+    debug_end("[dcache.c: dcache_add:148]\n");
 }
 
 // 从LRU中移除一项
 void dcache_put_LRU(struct cache * this) {
+    debug_start("[dcache.c: dcache_put_LRU:153]\n");
     struct list_head        *put;
     struct list_head        *start;
     struct dentry           *put_dentry; // 存储要被从cache中替换出去的dentry
@@ -170,9 +181,12 @@ void dcache_put_LRU(struct cache * this) {
 
     // 内存清理
     release_dentry(put_dentry);
+    debug_end("[dcache.c: dcache_put_LRU:184]\n");
+
 }
 
 void dentry_iput(struct dentry * dentry) {
+    debug_start("[dcache.c: dentry_iput:189]\n");
     struct inode *inode = dentry->d_inode;
     if (inode) {
         dentry->d_inode = 0;
@@ -185,4 +199,5 @@ void dentry_iput(struct dentry * dentry) {
             }
         }
     }
+    debug_end("[dcache.c: dentry_iput:202]\n");
 }

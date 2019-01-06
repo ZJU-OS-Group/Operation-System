@@ -1,8 +1,11 @@
 #include <zjunix/vfs/vfs.h>
 #include <driver/vga.h>
+#include <zjunix/debug/debug.h>
 
 // 根据路径名，返回文件操作符file
 struct file *vfs_open(const u8 *filename, u32 flags) {
+    debug_start("[open.c: vfs_open:7]\n");
+
     u32 err;
     struct nameidata nd;
 
@@ -16,8 +19,10 @@ struct file *vfs_open(const u8 *filename, u32 flags) {
 
     err = open_namei(filename,flags,&nd);
     if (!err) {
+        debug_end("[open.c: vfs_open:22]\n");
         return dentry_open(nd.dentry, nd.mnt, flags);
     }
+    debug_err("[open.c: vfs_open:25]\n");
     return ERR_PTR(err);
 }
 
@@ -29,6 +34,7 @@ struct file *get_empty_file_pointer() {
 
 // 根据查询到的nameidata结构填写file结构，从而完成open的操作
 struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags) {
+    debug_start("[open.c: dentry_open:37]\n");
     struct file *f;
     struct inode *inode;
     u32 err;
@@ -51,15 +57,17 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     f->f_vfsmnt = mnt;
     f->f_pos = 0;
     f->f_op = inode->i_fop; // 附上节点的操作函数
+    debug_end("[open.c: dentry_open:60]\n");
     return f;
-
 
     cleanup_dentry:
     dput(dentry);
+    debug_err("[open.c: dentry_open:65]\n");
     return ERR_PTR(err);
 }
 
 int vfs_close(struct file *file) {
+    debug_start("[open.c: vfs_close:70]\n");
     int retval;
 
     /* Report and clear outstanding errors */
@@ -69,6 +77,7 @@ int vfs_close(struct file *file) {
 
     if (!file->f_count) { // 如果文件引用计数为0，表示没有被打开过，就没必要关闭了
         kernel_puts("VFS: Close: file count is 0\n",VGA_RED,VGA_BLACK);
+        debug_end("[open.c: vfs_close:80]\n");
         return retval;
     }
 
@@ -80,6 +89,6 @@ int vfs_close(struct file *file) {
         if (!retval)
             retval = err;
     }
-
+    debug_end("[open.c: vfs_close:92]\n");
     return retval;
 }
