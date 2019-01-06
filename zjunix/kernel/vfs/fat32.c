@@ -34,7 +34,7 @@ struct inode_operations fat32_inode_operations[2] = {
 };
 
 struct dentry_operations fat32_dentry_operations = {
-    .d_compare    = generic_compare_filename,
+    .d_compare    = generic_qstr_compare,
 };
 
 struct file_operations fat32_file_operations = {
@@ -522,7 +522,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
             fat32_convert_filename(&normalname_str, &entryname_str, temp_dir_entry->lcase, FAT32_FILE_NAME_LONG_TO_NORMAL);
 
             // 如果与待找的名字相同，则标记此目录项为删除
-            if ( generic_compare_filename( &normalname_str, &(temp_dentry->d_name)) == 0 ){
+            if ( generic_qstr_compare( &normalname_str, &(temp_dentry->d_name)) == 0 ){
                 kernel_printf("get %s in delete inode\n", normalname_str.name);
                 temp_dir_entry->name[0] = 0xE5;
                 found = 1;
@@ -565,7 +565,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
     struct qstr normalname_str;
     struct  vfs_page* tempPage;
     struct inode* parent_inode;
-    struct fat32_dir_entry* temp_dentry;
+    struct dentry* temp_dentry;
     struct condition conditions;
     struct fat32_dir_entry* parent_dir_entry;
 
@@ -634,7 +634,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
             fat32_convert_filename(&normalname_str, &entryname_str, parent_dir_entry->lcase, FAT32_FILE_NAME_LONG_TO_NORMAL);
 
             // 如果与待找的名字相同，则修改相应的文件元信息
-            if ( generic_compare_filename(&normalname_str, &(temp_dentry->name) ) == 0 ){
+            if ( generic_qstr_compare(&normalname_str, &(temp_dentry->d_name) ) == 0 ){
                 parent_dir_entry->size         = temp_inode->i_size;
                 found = 1;
                 break;                          // 跳出的是对每一个目录项的循环
@@ -674,7 +674,6 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     struct inode* temp_inode;
     struct dentry* parent_dentry;
     struct vfs_page* tempPage;
-    struct condition conditions;
     struct address_space* temp_address_space;
     parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
     temp_inode = (struct inode*) kmalloc(sizeof(struct inode));
@@ -773,9 +772,9 @@ u32 fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct ino
 u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 {
     u32 err;
-    struct dentry* parent_dentry;
+   // struct dentry* parent_dentry;
 
-    parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
+  //  parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
     err = fat32_delete_inode(temp_dentry);
     if(err)
     {
@@ -821,7 +820,7 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     //只取这些位
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
     vfs_read_block(buffer, sec_addr, 1);
-    return vfs_get_u32(buffer[sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))]);
+    return vfs_get_u32(buffer + (sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))));
 }
 
 u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
