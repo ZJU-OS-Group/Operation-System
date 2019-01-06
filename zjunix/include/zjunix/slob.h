@@ -7,6 +7,7 @@
 #include <zjunix/list.h>
 #include <zjunix/buddy.h>
 #include <zjunix/utils.h>
+#include <zjunix/type.h>
 
 #define SIZE_INT 4
 #define SLOB_AVAILABLE 0x0
@@ -15,8 +16,8 @@
 #define SLOB_BREAK1 256
 #define SLOB_BREAK2 1024
 #define SLOB_BREAK3 1<<PAGE_SHIFT
-#define SLOB_UNIT_SIZE sizeof(slob_unit)
-#define SLOB_UINTS(x)  x/SLOB_UNIT_SIZE
+#define SLOB_UNIT_SIZE sizeof(struct slob_unit)
+#define SLOB_UNITS(x)  x/SLOB_UNIT_SIZE
 
 
 struct slob_unit{
@@ -52,4 +53,5 @@ struct slob_block
 void init_slob();
 void* slob_alloc(int size, int align);
 void *slob_page_alloc(struct slob_page *tempPage, int size, int align);
+void set_slob_page(struct slob_page*);
 #endif //OPERATION_SYSTEM_SLOB_H

@@ -2,7 +2,7 @@
 #define _ZJUNIX_VFS_FAT32_H
 
 #include <zjunix/vfs/vfs.h>
-
+#include <zjunix/debug/debug.h>
 #define MAX_FAT32_SHORT_FILE_NAME_BASE_LEN      8//文件名不超过8个字节
 #define MAX_FAT32_SHORT_FILE_NAME_EXT_LEN       3//扩展名不超过3个字节
 #define MAX_FAT32_SHORT_FILE_NAME_LEN           11//( MAX_FAT32_SHORT_FILE_NAME_BASE_LEN  + MAX_FAT32_SHORT_FILE_NAME_EXT_LEN )
