@@ -5,6 +5,7 @@
 #include <zjunix/vfs/ext3.h>
 #include <zjunix/utils.h>
 #include <driver/vga.h>
+#include <zjunix/slab.h>
 #include "../../usr/myvi.h"
 
 extern struct dentry *root_dentry;              // vfs.c
@@ -189,6 +190,7 @@ struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
 }
 
 struct inode *ext3_init_inode(struct super_block *super_block, u32 ino_num) {
+
     struct inode *ans = (struct inode *) kmalloc(sizeof(struct inode));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->i_op = &(ext3_inode_operations[1]);

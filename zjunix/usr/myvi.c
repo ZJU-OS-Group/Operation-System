@@ -5,7 +5,7 @@
 
 extern int cursor_freq;
 int pre_cursor_freq;
-struct file* file;
+struct file* target_file;
 
 int is_new_file;
 extern struct dentry* pwd_dentry;
@@ -56,11 +56,11 @@ void load_file(char *file_path) {
     int cnt = 0;
     char newchar;
     int ret = 1;
-    file = vfs_open(file_path, O_RDONLY);
-    if (IS_ERR_OR_NULL(file)){
-        if ( PTR_ERR(file) == -ENOENT )
+    target_file = vfs_open(file_path, O_RDONLY);
+    if (IS_ERR_OR_NULL(target_file)){
+        if ( PTR_ERR(target_file) == -ENOENT )
             kernel_printf("File not found!\n");
-        err = PTR_ERR(file);
+        err = PTR_ERR(target_file);
     }
     else{
         ret = 0;
@@ -73,11 +73,11 @@ void load_file(char *file_path) {
         is_new_file = 0;
     }
 
-    file_size = file->f_dentry->d_inode->i_size;
+    file_size = target_file->f_dentry->d_inode->i_size;
     int i = 0;
     u32 base = 0;
     for (i = 0; i < file_size; i++) {
-        if ( vfs_read(file, &newchar, 1, &base) != 1 ){
+        if ( vfs_read(target_file, &newchar, 1, &base) != 1 ){
             err = 1;
             return;
         }
@@ -93,7 +93,7 @@ void load_file(char *file_path) {
     if (size == 0 || buffer[size - 1] != '\n') {
         buffer[size++] = '\n';
     }
-    err = vfs_close(file);
+    err = vfs_close(target_file);
 }
 
 void save_file() {
@@ -103,19 +103,19 @@ void save_file() {
         vfs_create(filename);
     }
 
-    file = vfs_open(filename, O_RDWR);
-    if (IS_ERR_OR_NULL(file)){
-        err = PTR_ERR(file);
+    target_file = vfs_open(filename, O_RDWR);
+    if (IS_ERR_OR_NULL(target_file)){
+        err = PTR_ERR(target_file);
         return;
     }
-    err = vfs_write(file, buffer, size, &base);
+    err = vfs_write(target_file, buffer, size, &base);
     if(err != size){
          kernel_printf("vfs_write_err: %d\n", err);
          kernel_printf("size: %d\n", size);
 //         kernel_getchar();
         return;
     }
-    err = vfs_close(file);
+    err = vfs_close(target_file);
 }
 
 void insert_key(char key, int site) {
