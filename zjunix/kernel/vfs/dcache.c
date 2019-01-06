@@ -28,7 +28,7 @@ u32 __stringHash(struct qstr * qstr, u32 size) {
 }
 
 void* dcache_look_up(struct cache *this, struct condition *cond) {
-    debug_start("dcache.c: dcache_look_up\n");
+    debug_start("[dcache.c: dcache_look_up:31]\n");
     u32 found;
     u32 hash;
     struct qstr         *name; // qstr 包装字符串
