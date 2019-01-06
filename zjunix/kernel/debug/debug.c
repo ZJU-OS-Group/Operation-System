@@ -21,3 +21,7 @@ void debug_warning(const char* information){
 void debug_normal(const char* information){
     if (DEBUG_EN) kernel_puts(information,VGA_NORMAL,VGA_BLACK);
 }
+
+void debug_info(const char* information){
+    if (DEBUG_EN) kernel_puts(information,VGA_INFO,VGA_BLACK);
+}
