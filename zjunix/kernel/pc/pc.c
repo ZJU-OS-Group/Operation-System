@@ -5,6 +5,7 @@
 #include <zjunix/syscall.h>
 #include <zjunix/utils.h>
 #include <zjunix/pc.h>
+#include <zjunix/pid.h>
 #include <zjunix/slab.h>
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/errno.h>
@@ -25,11 +26,11 @@ unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，�
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 struct task_struct *current = 0;                // 当前进程
 
-inline int min(int a, int b) {
+int min(int a, int b) {
     if (a > b) return b; return a;
 }
 
-inline unsigned int max(int a, int b) {
+unsigned int max(unsigned int a,unsigned int b) {
     if (a < b) return b; return a;
 }
 // 复制上下文

@@ -112,4 +112,7 @@ void remove_task(struct task_struct *task);                 // 从进程列表�
 void remove_ready(struct task_struct *task);                // 从就绪队列中删除task
 void change_priority(struct task_struct *task, int delta);  // 修改进程的优先级
 
+inline int min(int a, int b);
+inline unsigned max(unsigned int a,unsigned int b);
+
 #endif  // !_ZJUNIX_PC_H
