@@ -1,7 +1,7 @@
 #include <zjunix/vfs/vfs.h>
 #include <driver/vga.h>
 
-//
+// 根据路径名，返回文件操作符file
 struct file *vfs_open(const u8 *filename, u32 flags) {
     u32 err;
     struct nameidata nd;

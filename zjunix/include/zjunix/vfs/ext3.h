@@ -131,7 +131,7 @@ u32 ext3_bmap(struct inode* inode, u32 target_page);
 //读入文件目录
 u32 ext3_readdir (struct file *, struct getdent *);
 
-
+u32 init_ext3(u32 base);
 
 u32 ext3_create(struct inode *, struct dentry *, struct nameidata *);
 
@@ -148,5 +148,7 @@ u32 ext3_rename(struct inode*, struct dentry*, struct inode *, struct dentry*);
 u32 ext3_write_inode (struct inode *, struct dentry*);                   /* 将索引节点写入磁盘，wait表示写操作是否需要同步 */
 
 u32 ext3_delete_dentry_inode (struct dentry *);                      /* 从磁盘上删除指定的索引节点 */
+
+struct vfs_page *ext3_fetch_page(struct inode *, u32);
 
 #endif
