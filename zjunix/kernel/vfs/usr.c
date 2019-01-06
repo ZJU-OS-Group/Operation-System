@@ -180,6 +180,7 @@ u32 vfs_rm(const u8 * path) {
 
 // rm -r：递归删除目录
 u32 vfs_rm_r(const u8 * path) {
+    debug_start("[usr.c: vfs_rm_r:183]\n");
     u32 err = 0;
     struct dentry * dentry;
     struct nameidata nd;
@@ -192,14 +193,17 @@ u32 vfs_rm_r(const u8 * path) {
         case LAST_DOTDOT:
             err = -ENOTEMPTY;
             dput(nd.dentry);
+            debug_info("[usr.c: vfs_rm_r:196] dotdot\n");
             return err;
         case LAST_DOT:
             err = -EINVAL;
             dput(nd.dentry);
+            debug_info("[usr.c: vfs_rm_r:201] dot\n");
             return err;
         case LAST_ROOT:
             err = -EBUSY;
             dput(nd.dentry);
+            debug_info("[usr.c: vfs_rm_r:206] root\n");
             return err;
         default:break;
     }
@@ -221,11 +225,13 @@ u32 vfs_rm_r(const u8 * path) {
         dput(dentry);
     }
     dput(nd.dentry);
+    debug_end("[usr.c: vfs_rm_r:228]\n");
     return err;
 }
 
 // ls：列出目录项下的文件信息
 u32 vfs_ls(const u8 * path) {
+    debug_start("[usr.c: vfs_ls:234]\n");
     u32 err;
     struct file *file;
     struct getdent getdent;
@@ -240,6 +246,7 @@ u32 vfs_ls(const u8 * path) {
             kernel_printf("Directory not found!\n");
         else
             kernel_printf("Other error: %d\n", -PTR_ERR(file));
+        debug_err("[usr.c: vfs_ls:249] vfs open err\n");
         return PTR_ERR(file);
     }
 
@@ -261,11 +268,13 @@ u32 vfs_ls(const u8 * path) {
         kernel_printf(" ");
     }
     kernel_printf("\n");
+    debug_end("[usr.c: vfs_ls:271]\n");
     return 0;
 }
 
 // cd：切换当前工作目录
 u32 vfs_cd(const u8 * path) {
+    debug_start("[usr.c: vfs_cd:277]\n");
     u32 err;
     struct nameidata nd;
 
@@ -282,6 +291,7 @@ u32 vfs_cd(const u8 * path) {
     /* 一切顺利，更改dentry和mnt */
     pwd_dentry = nd.dentry;
     pwd_mnt = nd.mnt;
+    debug_end("[usr.c: vfs_cd:294]\n");
     return 0;
 }
 
@@ -292,6 +302,7 @@ u32 vfs_mv(const u8 * path) {
 
 // 新建一个文件
 u32 vfs_create(const u8 * path) {
+    debug_start("[usr.c: vfs_create:305]\n");
     u32 err = 0;
     struct dentry *dentry;
     struct nameidata nd;
@@ -305,6 +316,7 @@ u32 vfs_create(const u8 * path) {
     err = PTR_ERR(dentry);
     if (!IS_ERR(dentry)) {
         struct inode * dir = nd.dentry->d_inode;
+        debug_info("[usr.c: vfs_create:319] dentry error\n");
         if (!dir->i_op || !dir->i_op->mkdir)
             return -ENOSYS;
         // 调用文件系统对应的create
@@ -312,6 +324,7 @@ u32 vfs_create(const u8 * path) {
         dput(dentry);
     }
     dput(nd.dentry);
+    debug_end("[usr.c: vfs_create:327]\n");
     return err;
 }
 
