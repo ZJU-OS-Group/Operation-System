@@ -13,6 +13,7 @@
 #include <exc.h>
 #include <page.h>
 #include <arch.h>
+#include <zjunix/vfs/vfs.h>
 
 void machine_info() {
     int row;
@@ -62,9 +63,10 @@ void init_kernel() {
     log(LOG_OK, "Slab.");
     log(LOG_END, "Memory Modules.");
     // File system
-    log(LOG_START, "File System.");
-    init_fs();
-    log(LOG_END, "File System.");
+    log(LOG_START, "Virtual File System.");
+//    init_fs();
+    init_vfs();
+    log(LOG_END, "Virtual File System.");
     // System call
     log(LOG_START, "System Calls.");
     init_syscall();

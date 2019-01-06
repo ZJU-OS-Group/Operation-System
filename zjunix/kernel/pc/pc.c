@@ -23,7 +23,7 @@ struct list_head exited;                        // 结束列表
 struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
-struct task_struct *current = 0;// 当前进程
+struct task_struct *current = 0;                // 当前进程
 
 inline int min(int a, int b) {
     if (a > b) return b; return a;
@@ -83,12 +83,47 @@ void init_pc_list() {
 
 }
 
+// current等待pid对应的进程
 void join(pid_t target_pid){
+    struct task_struct* target;
+    struct task_struct* record = current; // 用来存一下current
 
+    // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
+    if (!pid_exist(target_pid)) {
+        kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return ;
+    }
+
+    target = find_in_tasks(target_pid);
+
+    // 向target的等待队列里面添加上current
+    list_add_tail(&(current->wait_node),&(target->wait_queue));
+
+    // todo：系统调用，触发schedule，然后将原来的current从ready加入wait中
+
+    record->state = S_WAIT;
+    remove_ready(record);
+    add_wait(record);
 }
 
+// 唤醒pid对应的进程
 void wake(pid_t target_pid){
+    struct task_struct* target;
 
+    // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
+    if (!pid_exist(target_pid)) {
+        kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return ;
+    }
+
+    target = find_in_tasks(target_pid);
+    if (target->state != S_WAIT) // 不在wait状态的进程不能被唤醒
+        kernel_puts("The process is not in waiting status.\n", VGA_RED, VGA_BLACK);
+    else {
+        target->state = S_READY; // 将状态换成ready
+        remove_wait(target); // 从wait列表中移除
+        add_ready(target); // 添加进ready列表中
+    }
 }
 
 void init_pc() {
@@ -142,6 +177,8 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     new_task->task.state = S_INIT;
     INIT_LIST_HEAD(&(new_task->task.schedule_list));
     INIT_LIST_HEAD(&(new_task->task.task_node));
+    INIT_LIST_HEAD(&(new_task->task.wait_queue));
+    INIT_LIST_HEAD(&(new_task->task.wait_node));
     new_task->task.task_files = 0;
     new_context->epc = (unsigned int) entry;  //初始化pc地址
     new_context->sp = (unsigned int) (new_context + KERNEL_STACK_SIZE); //初始化栈顶指针
@@ -163,21 +200,38 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
 
 
 /*************************************************************************************************/
+// 每次调度的时候清空退出列表
+void clear_exit() {
+    struct task_struct* next;
 
-void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
-    if (current->ASID != 0) {
-       current->state = S_TERMINATE;
-        pc_schedule(status,cause,pt_context);
+    int count=0;
+    while (exited.next!=&exited) { // 循环直到exit只剩下一个dummy head node
+        next = container_of(exited.next, struct task_struct, schedule_list);
+        if (next->state!=S_TERMINATE) {
+            kernel_puts("There's a task whose state is not terminate.\n", VGA_RED, VGA_BLACK);
+            continue;
+        }
+        remove_exit(next);
+        remove_task(next);
+        kernel_printf("clear exited: count = %d\n", ++count);
     }
-    /*if (curr_proc != 0) {
-        pcb[curr_proc].ASID = -1;
+}
+
+// 进程正常结束，结束当前进程
+void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
+    // 保留当前进程的pid
+    pid_t kill_pid = current->pid;
+    // 调度到下一个进程（将当前进程归到就绪队列中去）
+    if (current->ASID != 0) {
         pc_schedule(status, cause, pt_context);
-    }*/
+    }
+    // 根据之前存的pid将对应的进程kill掉
+    pc_kill(kill_pid);
+
 }
 
 // 杀死进程，返回值0正常，返回值-1出错
 int pc_kill(pid_t pid) {
-    int res;
     struct task_struct* target;
     /* 三种不能kill的特殊情况进行特判 */
     if (pid==IDLE_PID) {
@@ -195,9 +249,9 @@ int pc_kill(pid_t pid) {
 
     disable_interrupts();
     // 判断pid是否存在，如果不存在返回没有找到对应进程的错误提示
-    res = pid_exist(pid);
-    if (!res) {
+    if (!pid_exist(pid)) {
         kernel_puts("Process not found.\n", VGA_RED, VGA_BLACK);
+        return -1;
     }
 
     // 从tasks列表中找到pid对应的进程
@@ -208,7 +262,7 @@ int pc_kill(pid_t pid) {
     } else if(target->state == S_WAIT) {
         remove_wait(target);
     } else if(target->state == S_RUNNING) {
-        // TODO: when running, how?
+        // 不可能出现还在running的，已经在pid==current->pid这一步过滤掉了
     }
     target->state = S_TERMINATE; // 状态标记为终止
     add_exit(target);
@@ -236,6 +290,9 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
     else if (cause==8) {
         // TODO: system call
     }
+
+    // 清理结束链表
+    clear_exit();
 
     /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
     current->time_counter -= 3;
@@ -270,8 +327,10 @@ void pc_exchange(struct task_struct* next, context* pt_context, int flag) {
     /* 保存上下文 */
     copy_context(pt_context, &(current->context));
     /* 将next从ready列表中拿出来 */
+    next->state = S_RUNNING;
     remove_ready(next);
     /* 将current添加进ready列表中 */
+    current->state = S_READY;
     add_ready(current);
     /* 更换当前进程 */
     current = next;
@@ -338,6 +397,7 @@ struct task_struct* find_next_task() {
     struct task_struct* next;
     u32 current_priority = PRIORITY[current->priority_class][current->priority_level];
 
+    /* 先从优先级高于current的列表里面寻找，若找到直接返回 */
     next = get_preemptive_task();
     if (next != current)
         return next;

@@ -2,6 +2,7 @@
 #include <zjunix/log.h>
 #include <driver/vga.h>
 #include <zjunix/vfs/fat32.h>
+#include <zjunix/vfs/ext3.h>
 
 // global
 struct master_boot_record   * MBR;
@@ -45,14 +46,6 @@ u32 init_vfs() {
         goto vfs_init_err;
     }
     log(LOG_OK, "init_ext3()");
-
-    /* 挂载EXT3 */
-    err = mount_ext3();
-    if ( IS_ERR_VALUE(err) ){
-        log(LOG_FAIL, "mount_ext3()");
-        goto vfs_init_err;
-    }
-    log(LOG_OK, "mount_ext3()");
 
     return 0;
 

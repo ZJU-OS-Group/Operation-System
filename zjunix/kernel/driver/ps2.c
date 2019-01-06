@@ -2,6 +2,7 @@
 #include <driver/vga.h>
 #include <intr.h>
 
+
 #pragma GCC push_options
 #pragma GCC optimize("O0")
 

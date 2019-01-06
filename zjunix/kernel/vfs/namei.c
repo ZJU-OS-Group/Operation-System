@@ -164,9 +164,9 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
             break;
         continue; // 正常结束一个循环
 
-        last_with_slashes: // name以'/'结尾
+last_with_slashes: // name以'/'结尾
         lookup_flags |= LOOKUP_FOLLOW | LOOKUP_DIRECTORY;
-        last_component:
+last_component:
         // 除了最后一个分量以外都已解析，处理最后一项，除了去掉非目录检查以外，其他都一样
         nd->flags &= ~LOOKUP_CONTINUE; // 标志这是最后一项了，去掉里面的continue flag
         if (lookup_flags&LOOKUP_PARENT)
@@ -184,8 +184,10 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         // 书上说这里要hash，不清楚是拿来干嘛的
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
         if (err)                                    // (this.name)相关的目录项对象（next.dentry）
-            break;// 检查next.dentry是否指向某个文件系统的安装点
-        // 如果是的话，更新乘这个文件系统的上级的dentry和mount
+            break;
+
+        // 检查next.dentry是否指向某个文件系统的安装点
+        // 如果是的话，更新成这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
         if (!next.dentry->d_inode) break;
@@ -194,7 +196,7 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
             if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) break;
         }
         return 0;
-        lookup_parent:
+lookup_parent:
         nd->last = this;
         nd->last_type = LAST_NORM; // 正常文件
         if (this.name[0]!='.')
@@ -257,7 +259,7 @@ u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
     dget(dentry);
     return 0;
 
-    need_lookup:
+need_lookup:
     // 即将使用底层文件系统在外存中查找，并构建需要的目录项
     dentry = real_lookup(nd->dentry, name, nd);
     if (IS_ERR(dentry))
@@ -273,6 +275,7 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
     struct dentry *result;
     struct inode *dir = parent->d_inode;
 
+    // 新建一个目录项
     struct dentry *dentry = d_alloc(parent, name);
     result = ERR_PTR(-ENOMEM);
     if (dentry) {
@@ -284,7 +287,7 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
     return result;
 }
 
-// 根据父目录和名字查找对应的目录项
+// 根据父目录和名字查找对应的目录项，去外存找需要新建目录项
 struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nameidata *nd) {
     struct dentry   *dentry;
     struct inode    *inode;

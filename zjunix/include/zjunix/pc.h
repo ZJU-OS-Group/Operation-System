@@ -69,11 +69,13 @@ struct task_struct{
     pid_t parent;                       /* 父进程PID号 */
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
+    struct file* task_files;            /* 进程打开的文件指针 */
     unsigned int priority_class;           /* 优先级类序号 */
     unsigned int priority_level;              /* 优先级内部级别 */
-    struct file* task_files;                  /* 进程打开的文件指针 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
+    struct list_head wait_queue;        /* 正在等待该进程的进程列表 */
+    struct list_head wait_node;         /* 当该进程在等待别的进程时，此node会连入另一进程的wait_queue */
 };
 
 typedef union {
