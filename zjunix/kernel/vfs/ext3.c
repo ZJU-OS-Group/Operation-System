@@ -5,7 +5,7 @@
 #include <zjunix/vfs/ext3.h>
 #include <zjunix/utils.h>
 #include <driver/vga.h>
-#include "../../../usr/myvi.h"
+#include "../../usr/myvi.h"
 
 extern struct dentry *root_dentry;              // vfs.c
 extern struct dentry *pwd_dentry;       //当前工作目录
@@ -665,6 +665,7 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     }
     //下一步：在磁盘上找到这个inode
     struct inode* allocated_inode = ext3_init_inode(dir->i_sb,new_inode->i_ino);
+    if (IS_ERR_OR_NULL(allocated_inode)) return *((u32*) allocated_inode);  //如果错误的话这里一定会返回错误码
     ext3_fill_inode(allocated_inode);
     allocated_inode->i_type = EXT3_NORMAL;
     kfree(new_inode);
@@ -703,4 +704,12 @@ u32 ext3_rmdir(struct inode* dir, struct dentry* target_dentry){
     list_del(&(target_dentry->d_subdirs));
     if (IS_ERR_VALUE(err)) return err;
     return 0;
+}
+
+struct inode* fetch_journal_inode(struct super_block *super_block){
+    struct ext3_base_information* base_information = super_block->s_fs_info;
+    struct inode* allocated_inode = ext3_init_inode(super_block,base_information->super_block.content->journal_inum);
+    if (IS_ERR_OR_NULL(allocated_inode)) return allocated_inode;
+    ext3_fill_inode(allocated_inode);
+    return allocated_inode;
 }
