@@ -4,19 +4,32 @@
 #include <zjunix/fs/fat.h>
 #include "list.h"
 
-#define TASK_NAME_LEN 32
-#define PRIORITY_LEVELS 32          /* 优先级等级数 */
-#define KERNEL_STACK_SIZE  4096     /* 内核栈大小 */
-#define PROC_DEFAULT_TIMESLOTS 6    /* 默认时间配额 */
+#define TASK_NAME_LEN           32
+#define PRIORITY_LEVELS         32          /* 优先级等级数 */
+#define KERNEL_STACK_SIZE       4096     /* 内核栈大小 */
+#define PROC_DEFAULT_TIMESLOTS  6    /* 默认时间配额 */
+#define PRIORITY_CLASS_NUM      6
+#define PRIORITY_LEVEL_NUM      7
 
 /**************************************** 优先权类 *************************************/
-#define IDLE_PRIORITY_CLASS 4
-#define BELOW_NORMAL_PRIORITY_CLASS 6
-#define NORMAL_PRIORITY_CLASS 8
-#define ABOVE _NORMAL_PRIORITY_CLASS 10
-#define HIGH_PRIORITY_CLASS 13
-#define REALTIME_PRIORITY_CLASS 24
+enum PRIORITY_CLASS{
+    IDLE_PRIORITY_CLASS,
+    BELOW_NORMAL_PRIORITY_CLASS,
+    NORMAL_PRIORITY_CLASS,
+    ABOVE_NORMAL_PRIORITY_CLASS,
+    HIGH_PRIORITY_CLASS,
+    REALTIME_PRIORITY_CLASS
+};
 
+enum PRIORITY_LEVEL{
+    IDLE,
+    LOWEST,
+    BELOW_NORMAL,
+    NORMAL,
+    ABOVE_NORMAL,
+    HIGHEST,
+    TIME_CRITICAL
+};
 
 /**************************************** 进程状态 *************************************/
 #define S_INIT 0
@@ -56,8 +69,9 @@ struct task_struct{
     pid_t parent;                       /* 父进程PID号 */
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
-    unsigned int priority;              /* 优先级 */
     struct file* task_files;            /* 进程打开的文件指针 */
+    unsigned int priority_class;           /* 优先级类序号 */
+    unsigned int priority_level;              /* 优先级内部级别 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
     struct list_head wait_queue;        /* 正在等待该进程的进程列表 */
@@ -73,7 +87,7 @@ typedef union {
 void init_pc();
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
-               unsigned int argc, void *args, pid_t *retpid, int is_user);
+               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
 int pc_kill(pid_t pid); // 杀死pid对应的进程
 struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块
