@@ -73,6 +73,7 @@ void init_kernel() {
     log(LOG_END, "System Calls.");
     // Process control
     log(LOG_START, "Process Control Module.");
+    init_pid();
     init_pc();
     create_startup_process();
     log(LOG_END, "Process Control Module.");
