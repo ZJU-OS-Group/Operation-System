@@ -1,5 +1,6 @@
 #include <zjunix/vfs/vfs.h>
 
+extern struct cache * pcache;
 u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos) {
 	u32 ret;
 
@@ -30,17 +31,16 @@ u32 vfs_write(struct file *file, char *buf, u32 count, u32 *pos) {
 //返回读了多少字节
 u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 {
-
-	struct inode* file_inode;
-	u32 startPageNo;
-	u32 startPageCur;
-    u32 endPageNo;
-	u32 endPageCur;
-	u32 tempPageNo;
-	u32 tempPageNoCur;
-	u32 tempCur = 0;
+	u32 err;
+	u32 startPageNo, startPageCur;
+    u32 endPageNo, endPageCur;
+	u32 tempPageNo, tempPageNoCur, tempCur = 0;
 	u32 realPageNo;
 	u32 readCount = 0;
+	struct inode* file_inode;
+	struct vfs_page* tempPage;
+	struct condition conditions;
+
 	file_inode = file->f_dentry->d_inode;
 	//计算起始页号
 	startPageNo = (*pos) / file_inode->i_block_size;
@@ -59,19 +59,38 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 	//读取每一页
 	for(tempPageNo = startPageNo;tempPageNo <= endPageNo;tempPageNo++)
 	{
-		u32 tempPage;
 		realPageNo = file_inode->i_data.a_op->bmap(file_inode, tempPageNo);
 		//在缓存pcache中查找，放入tempPage
+		conditions.cond1 = &realPageNo;
+		conditions.cond2 = file_inode;
 
+		tempPage = pcache->c_op->look_up(pcache, &conditions);
 		if(tempPage == 0) //不在pcache中
 		{
-			tempPage = (struct* )
+			//新调页
+			tempPage = (struct vfs_page*) kmalloc(sizeof(struct vfs_page));
+			tempPage->page_state = P_CLEAR;
+			tempPage->page_address = realPageNo;
+			tempPage->p_address_space = &(file_inode->i_data);
+			INIT_LIST_HEAD(tempPage->page_hashtable);
+			INIT_LIST_HEAD(tempPage->page_list);
+			INIT_LIST_HEAD(tempPage->p_lru);
+
+			err = file_inode->i_data.a_op->readpage(tempPage);
+			if(err)
+			{
+				err = -EIO;
+				return err;
+			}
+
+			pcache->c_op->add(pcache, tempPage);
+			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
 		}
 		u32 dest, src;
 		if(tempPageNo == startPageNo)
 		{
 			dest = buf;
-			src = tempPage->p_data + startPageCur;
+			src = tempPage->page_data + startPageCur;
 			if(startPageNo == endPageNo)
 			{
 				readCount = endPageCur - startPageCur;	
@@ -85,13 +104,13 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 		{
 			readCount = endPageCur;
 			dest = buf + tempCur;
-			src = tempPage->p_data;		
+			src = tempPage->page_data;
 		}
 		else
 		{
 			readCount = file_inode->i_block_size;
 			dest = buf + tempCur;
-			src = tempPage->p_data;
+			src = tempPage->page_data;
 		}
 		kernel_memcpy(dest, src, readCount);
 		tempCur += readCount;
@@ -103,17 +122,18 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 }
 u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 {
-	struct inode* file_inode;
-	u32 init_pos = (*pos);
-	u32 startPageNo;
-	u32 startPageCur;
-    u32 endPageNo;
-	u32 endPageCur;
-	u32 tempPageNo;
-	u32 tempPageNoCur;
-	u32 tempCur = 0;
+	u32 init_pos;
+	u32 err;
+	u32 startPageNo, startPageCur;
+	u32 endPageNo, endPageCur;
+	u32 tempPageNo, tempPageNoCur, tempCur = 0;
 	u32 realPageNo;
+	struct inode* file_inode;
+	struct vfs_page* tempPage;
+	struct condition conditions;
 	u32 writeCount = 0;
+
+	init_pos = (*pos);
 	file_inode = file->f_dentry->d_inode;
 	//计算起始页号
 	startPageNo = (*pos) / file_inode->i_block_size;
@@ -123,18 +143,39 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 
 	for(tempPageNo = startPageNo;tempPageNo <= endPageNo;tempPageNo++)
 	{
-		u32 tempPage;
 		realPageNo = file_inode->i_data.a_op->bmap(file_inode, tempPageNo);
 		//在缓存pcache中查找，放入tempPage
+		conditions.cond1 = &realPageNo;
+		conditions.cond2 = file_inode;
+
+		tempPage = pcache->c_op->look_up(pcache, &conditions);
 		if(tempPage == 0) //不在pcache中
 		{
-			
+			//新调页
+			tempPage = (struct vfs_page*) kmalloc(sizeof(struct vfs_page));
+			tempPage->page_state = P_CLEAR;
+			tempPage->page_address = realPageNo;
+			tempPage->p_address_space = &(file_inode->i_data);
+			INIT_LIST_HEAD(tempPage->page_hashtable);
+			INIT_LIST_HEAD(tempPage->page_list);
+			INIT_LIST_HEAD(tempPage->p_lru);
+
+			err = file_inode->i_data.a_op->readpage(tempPage);
+			if(err)
+			{
+				err = -EIO;
+				return err;
+			}
+
+			pcache->c_op->add(pcache, tempPage);
+			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
 		}
+
 		u32 dest, src;
 		if(tempPageNo == startPageNo)
 		{
 			src = buf;
-			dest = tempPage->p_data + startPageCur;
+			dest = tempPage->page_data + startPageCur;
 			if(startPageNo == endPageNo)
 			{
 				writeCount = endPageCur - startPageCur;	
@@ -162,10 +203,10 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 	}
 
 	//改变文件大小
-	if(init_pos + count > file_inode->i_fsize)
+	if(init_pos + count != file_inode->i_size)
 	{
-		file_inode->i_fsize = init_pos + count;
-		file_inode->i_sb->s_op->write_inode(file_inode, file->dentry->d_parent);
+		file_inode->i_size = init_pos + count;
+		file_inode->i_sb->s_op->write_inode(file_inode, file->f_dentry->d_parent);
 	}
 
 	file->f_pos = (*pos);

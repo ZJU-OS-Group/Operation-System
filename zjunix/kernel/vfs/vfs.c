@@ -47,14 +47,6 @@ u32 init_vfs() {
     }
     log(LOG_OK, "init_ext3()");
 
-    /* 挂载EXT3 */
-    err = mount_ext3();
-    if ( IS_ERR_VALUE(err) ){
-        log(LOG_FAIL, "mount_ext3()");
-        goto vfs_init_err;
-    }
-    log(LOG_OK, "mount_ext3()");
-
     return 0;
 
 vfs_init_err:
