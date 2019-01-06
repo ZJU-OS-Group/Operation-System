@@ -9,13 +9,29 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/errno.h>
 
+const unsigned int PRIORITY[PRIORITY_CLASS_NUM][PRIORITY_LEVEL_NUM] = {
+        {31,26,25,24,23,22,16},
+        {15,15,14,13,12,11,1},
+        {15,12,11,10,9,8,1},
+        {15,10,9,8,7,6,1},
+        {15,8,7,6,5,4,1},
+        {15,6,5,4,3,2,1}
+};
+
 struct list_head wait;                          // 等待列表
 struct list_head exited;                        // 结束列表
 struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
-struct task_struct *current = 0;                // 当前进程
+struct task_struct *current = 0;// 当前进程
 
+inline int min(int a, int b) {
+    if (a > b) return b; return a;
+}
+
+inline unsigned int max(int a, int b) {
+    if (a < b) return b; return a;
+}
 // 复制上下文
 static void copy_context(context* src, context* dest) {
     dest->epc = src->epc;
@@ -97,7 +113,7 @@ void init_context(context * reg_context){
 }
 
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
-               unsigned int argc, void *args, pid_t *retpid, int is_user) {
+               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class) {
     //这里暂时不考虑is_user的情况
     if (is_user){
 
@@ -118,7 +134,8 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     kernel_strcpy(new_task->task.name,task_name);
     new_task->task.parent = current->pid;  //todo: 这里保存的是父进程的pid号
     new_task->task.time_counter = PROC_DEFAULT_TIMESLOTS; //分配一整个默认时间配额
-    new_task->task.priority = NORMAL_PRIORITY_CLASS; //暂时设置成正常的priority
+    new_task->task.priority_class = priority_class; //暂时设置成正常的priority
+    new_task->task.priority_level = NORMAL;
     context* new_context = &(new_task->task.context);
     init_context(new_context); //初始化新进程的上下文信息
     new_task->task.ASID = new_task->task.pid = pid_num;
@@ -135,7 +152,7 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     if (retpid != 0) *retpid = pid_num;  //提供返回pid
     add_task(&(new_task->task));
     new_task->task.state = S_READY;     //标记当前进程状态为READY
-    add_ready(&(new_task->task));  //todo: 这里没有做抢占
+    add_ready(&(new_task->task));
     return 1;
     err_handler:
     {
@@ -148,10 +165,14 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
 /*************************************************************************************************/
 
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context) {
-    if (curr_proc != 0) {
+    if (current->ASID != 0) {
+       current->state = S_TERMINATE;
+        pc_schedule(status,cause,pt_context);
+    }
+    /*if (curr_proc != 0) {
         pcb[curr_proc].ASID = -1;
         pc_schedule(status, cause, pt_context);
-    }
+    }*/
 }
 
 // 杀死进程，返回值0正常，返回值-1出错
@@ -203,7 +224,7 @@ int pc_kill(pid_t pid) {
 
 // 根据进程优先级判断是否是实时任务
 int is_realtime(struct task_struct* task) {
-    return task->priority > 15;
+    return PRIORITY[task->priority_class][task->priority_level] > 15;
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
@@ -218,7 +239,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
 
     /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
     current->time_counter -= 3;
-
+    change_priority(current,1);
     /* 时间配额没有用完，判断需不需要被抢占 */
     if (current->time_counter > 0) {
         next = get_preemptive_task();
@@ -261,7 +282,7 @@ void pc_exchange(struct task_struct* next, context* pt_context, int flag) {
 // 寻找有没有可以抢占当前进程的进程
 struct task_struct* get_preemptive_task() {
     struct task_struct* next;
-    u32 current_priority = current->priority;
+    u32 current_priority = PRIORITY[current->priority_class][current->priority_level];
     next = current;
     // 从高到低寻找比current优先级高的
     for (int i = PRIORITY_LEVELS; i > current_priority; --i) {
@@ -315,7 +336,7 @@ struct task_struct* find_in_tasks(pid_t pid) {
 // 在就绪队列中寻找下一个要运行的进程并返回
 struct task_struct* find_next_task() {
     struct task_struct* next;
-    u32 current_priority = current->priority;
+    u32 current_priority = PRIORITY[current->priority_class][current->priority_level];
 
     next = get_preemptive_task();
     if (next != current)
@@ -353,7 +374,7 @@ void add_task(struct task_struct *task) {
 
 // 将进程添加进就绪队列
 void add_ready(struct task_struct *task) {
-    u32 priority = task->priority;
+    u32 priority = PRIORITY[current->priority_class][current->priority_level];
     list_add_tail(&(task->schedule_list), &ready_queue[priority].queue_head);
     ready_queue[priority].number++; // 该优先级的就绪队列长度加一
     if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
@@ -380,7 +401,7 @@ void remove_task(struct task_struct *task) {
 
 // 从就绪队列中删除进程
 void remove_ready(struct task_struct *task) {
-    u32 priority = task->priority;
+    u32 priority = PRIORITY[current->priority_class][current->priority_level];
     list_del(&(task->schedule_list));
     INIT_LIST_HEAD(&(task->schedule_list));
     ready_queue[priority].number--;
@@ -390,5 +411,6 @@ void remove_ready(struct task_struct *task) {
 
 // 修改进程的优先级
 void change_priority(struct task_struct *task, int delta) {
-    task->priority += delta;
+//    task->priority += delta;
+    task->priority_level = max(min(HIGHEST,task->priority_level + delta),LOWEST);
 }

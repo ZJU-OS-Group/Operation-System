@@ -6,7 +6,6 @@
 #include <zjunix/utils.h>
 #include <driver/vga.h>
 #include "../../../usr/myvi.h"
-#include "mkdir/mkdir.h"
 
 extern struct dentry *root_dentry;              // vfs.c
 extern struct dentry *pwd_dentry;       //当前工作目录
@@ -121,7 +120,7 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
 u32 ext3_writepage(struct vfs_page *page) {
     struct inode *target_inode = page->p_address_space->a_host;  //获得对应的inode
     u32 sector_num = target_inode->i_block_size >> SECTOR_LOG_SIZE; //由于一块大小和一页大小相等，所以需要写出的扇区是这么大
-    u32 base_addr = ((struct ext3_information *) target_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
+    u32 base_addr = ((struct ext3_base_information *) target_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
     u32 target_addr = base_addr + page->page_address * (target_inode->i_block_size >> SECTOR_LOG_SIZE); //加上页地址
     u32 err = write_block(page->page_data, target_addr, sector_num);      //向目标地址写目标数量个扇区
     if (err) return -EIO;
@@ -131,7 +130,7 @@ u32 ext3_writepage(struct vfs_page *page) {
 u32 ext3_readpage(struct vfs_page *page) {
     struct inode *source_inode = page->p_address_space->a_host;
     u32 sector_num = source_inode->i_block_size >> SECTOR_LOG_SIZE;
-    u32 base_addr = ((struct ext3_information *) source_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
+    u32 base_addr = ((struct ext3_base_information *) source_inode->i_sb->s_fs_info)->base;  //计算文件系统基地址
     u32 source_addr = base_addr + page->page_address * (source_inode->i_block_size >> SECTOR_LOG_SIZE); //加上页地址
     page->page_data = (u8 *) kmalloc(sizeof(u8) * source_inode->i_block_size);
     if (page->page_data == 0) return -ENOMEM;
@@ -172,7 +171,7 @@ struct ext3_base_information *ext3_init_base_information(u32 base) {
 
 
 struct dentry *ext3_init_dir_entry(struct super_block *super_block) {
-    struct dentry *ans = (struct dentry *) kmalloc(sizeof(struct dir_entry));
+    struct dentry *ans = (struct dentry *) kmalloc(sizeof(struct dentry));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->d_name.name = "/";
     ans->d_mounted = 0;
