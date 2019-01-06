@@ -813,7 +813,7 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
-    sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1)
+    sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
     read_block(buffer, sec_addr, 1);
     return get_u32(buffer[sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))]);
 }

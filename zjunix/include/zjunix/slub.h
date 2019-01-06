@@ -45,7 +45,7 @@ struct kmem_cache {
     unsigned char name[16];
 };
 
-// extern struct kmem_cache kmalloc_caches[PAGE_SHIFT];
+
 extern void init_slub();
 extern void *kmalloc(unsigned int size);
 extern void kfree(void *obj);
