@@ -1,4 +1,5 @@
 #include "fscache.h"
+#include "../fat/utils.h"
 #include <zjunix/fs/fat.h>
 #include <zjunix/vfs/vfs.h>
 

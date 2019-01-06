@@ -10,7 +10,6 @@
  * 96, 192, 8, 16, 32, 64, 128, 256, 512, 1024, (2 undefined)
  * in current stage, set (2 undefined) to be (4, 2048)
  */
-/*
 struct kmem_cache kmalloc_caches[PAGE_SHIFT];
 
 static unsigned int size_kmem_cache[PAGE_SHIFT] = {96, 192, 8, 16, 32, 64, 128, 256, 512, 1024, 1536, 2048};
@@ -216,4 +215,3 @@ void kfree(void *obj) {
 
     return slab_free(page->virtual, obj);
 }
-*/

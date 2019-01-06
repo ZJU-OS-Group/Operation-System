@@ -7,11 +7,21 @@ extern int cursor_row;
 extern int cursor_col;
 extern int cursor_freq;
 
-#define VGA_RED   0x00f
-#define VGA_GREEN 0x0f0
-#define VGA_BLUE  0xf00
-#define VGA_BLACK 0x000
-#define VGA_WHITE 0xfff
+#define VGA_RED     0x00f
+#define VGA_GREEN   0x0f0
+#define VGA_BLUE    0xf00
+#define VGA_BLACK   0x000
+#define VGA_WHITE   0xfff
+#define VGA_CYAN    0x0ff
+#define VGA_YELLOW  0xff0
+#define VGA_MAGENTA  0xf0f
+
+#define VGA_START   0x0ff
+#define VGA_END     0x0f0
+#define VGA_INFO    0xf00
+#define VGA_ERR     0x00f
+#define VGA_NORMAL  0xfff
+#define VGA_WARNING 0xff0
 
 struct screen_color {
     int front;
