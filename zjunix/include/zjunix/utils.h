@@ -1,5 +1,7 @@
 #ifndef _ZJUNIX_UITILS_H
 #define _ZJUNIX_UITILS_H
+// 出于C的编译需要
+struct qstr;
 
 #define container_of(ptr, type, member) ((type*)((char*)ptr - (char*)&(((type*)0)->member)))
 
