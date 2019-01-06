@@ -9,7 +9,7 @@
 #define FAT32_FAT_ENTRY_LEN_SHIFT               2
 #define FAT32_DIR_ENTRY_LEN                     32
 #define FAT32_CLUSTER_NUM                       65527
-#define FAT32_CLUSTER_SIZE                      16384 * 1024  //一个cluster 16K，包含32个sector
+#define FAT32_CLUSTER_SIZE                      4 * 1024  //一个cluster 4096，包含8个sector
 #define LCASE                                   0x18    //文件名和扩展名都小写。
 #define UBASE_LEXT                              0x10    //文件名大写而扩展名小写。
 #define LBASE_UEXT                              0x08    //文件名小写而扩展名大写。

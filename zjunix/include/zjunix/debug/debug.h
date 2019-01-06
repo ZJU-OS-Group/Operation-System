@@ -16,4 +16,6 @@ void debug_warning(const char*);
 
 void debug_normal(const char*);
 
+void debug_info(const char*);
+
 #endif //OPERATION_SYSTEM_DEBUG_H
