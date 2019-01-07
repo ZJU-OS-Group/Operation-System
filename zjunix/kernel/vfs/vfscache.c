@@ -27,7 +27,6 @@ struct cache_operations page_cache_operations = {
 
 u32 init_cache()
 {
-    debug_warning("1/6 20:15 test cache");
     u32 err, i;
     err = -ENOMEM;
     //初始化dcache

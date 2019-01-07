@@ -72,7 +72,7 @@ struct fat32_file_system_information
 struct fat32_file_allocation_table
 {
     u32 base;    
-    u32 clu_situ[FAT32_CLUSTER_NUM];
+//    u32 clu_situ[FAT32_CLUSTER_NUM];
     u32 data_sec;                                       // （FAT表无关）数据区起始位置的绝对扇区(方便)
     u32 root_sec;                                       // （FAT表无关）根目录内容所在绝对扇区（方便）
       //表项数值	对应含义
