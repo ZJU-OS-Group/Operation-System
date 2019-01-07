@@ -88,6 +88,7 @@ u32 init_fat32(u32 base)
         return err;
     }
     fat32_BI->fat32_DBR->system_sign_and_version = vfs_get_u32(fat32_BI->fat32_DBR->data + 0x03);
+    kernel_printf("system sign:%s", fat32_BI->fat32_DBR->system_sign_and_version);
     fat32_BI->fat32_DBR->sec_per_clu   = *(fat32_BI->fat32_DBR->data + 0x0D);
     fat32_BI->fat32_DBR->reserved      = vfs_get_u16 (fat32_BI->fat32_DBR->data + 0x0E);
     fat32_BI->fat32_DBR->fat_num       = *(fat32_BI->fat32_DBR->data + 0x10);
@@ -95,6 +96,7 @@ u32 init_fat32(u32 base)
     fat32_BI->fat32_DBR->fat_size      = vfs_get_u32 (fat32_BI->fat32_DBR->data + 0x24);
     fat32_BI->fat32_DBR->fat32_version = vfs_get_u16 (fat32_BI->fat32_DBR->data + 0x2A);
     fat32_BI->fat32_DBR->root_clu      = vfs_get_u32 (fat32_BI->fat32_DBR->data + 0x2C);
+    kernel_printf("root_clu: %d", fat32_BI->fat32_DBR->root_clu);
     fat32_BI->fat32_DBR->system_format_ASCII[0] = *(fat32_BI->fat32_DBR->data + 0x52);
     fat32_BI->fat32_DBR->system_format_ASCII[1] = *(fat32_BI->fat32_DBR->data + 0x53);
     fat32_BI->fat32_DBR->system_format_ASCII[2] = *(fat32_BI->fat32_DBR->data + 0x54);
@@ -120,7 +122,7 @@ u32 init_fat32(u32 base)
     {
         err = -EIO;
         return err;
-    }
+                                               }
     kernel_printf("fat32.c:123 load fat32 basic information ok!\n");
         // 构建 fat32_file_allocation_table 结构
     debug_start("start read in fat32_FAT\n");
