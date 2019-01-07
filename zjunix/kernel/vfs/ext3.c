@@ -229,6 +229,7 @@ struct inode *ext3_init_inode(struct super_block *super_block, u32 ino_num) {
     ans->i_data.a_pagesize = super_block->s_block_size;
     ans->i_data.a_op = (&ext3_address_space_operations);
     INIT_LIST_HEAD(&(ans->i_data.a_cache));
+    debug_end("EXT3-Init inode\n");
     return ans;
 }
 
@@ -295,6 +296,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
 }
 
 u32 fetch_root_data(struct inode *root_inode) {
+    debug_start("EXT3-fetch root data\n");
     u32 i; //Loop
     //获取根目录数据
     for (i = 0; i < root_inode->i_blocks; ++i) {
@@ -319,12 +321,13 @@ u32 fetch_root_data(struct inode *root_inode) {
         pcache->c_op->add(pcache, (void *) current_page);
         //把current_page加入到pcache
         list_add(current_page->page_list, &(current_page->p_address_space->a_cache));
-        //todo: * may be needed
     }
+    debug_end("EXT3-fetch root data\n");
     return 0;
 };
 
 struct vfsmount *ext3_init_mount(struct dentry *root_entry, struct super_block *super_block) {
+    debug_start("EXT3-init mount\n");
     struct vfsmount *ans = (struct vfsmount *) kmalloc(sizeof(struct vfsmount));
     if (ans == 0) return ERR_PTR(-ENOMEM);
     ans->mnt_parent = ans;
@@ -334,10 +337,12 @@ struct vfsmount *ext3_init_mount(struct dentry *root_entry, struct super_block *
     INIT_LIST_HEAD(&(ans->mnt_hash));
     //mnt_hash加入root_mnt链表
     list_add(&(ans->mnt_hash), &(root_mnt->mnt_hash));
+    debug_end("EXT3-init mount\n");
     return ans;
 }
 
 u32 init_ext3(u32 base) {
+    debug_start("EXT3-init ext3\n");
     struct ext3_base_information *base_information = ext3_init_base_information(base);  //读取ext3基本信息
     if (IS_ERR_OR_NULL(base_information)) goto err;
 
@@ -360,11 +365,14 @@ u32 init_ext3(u32 base) {
     list_add(&(root_dentry->d_alias), &(root_inode->i_dentry));
 
     struct vfsmount *root_mount = ext3_init_mount(root_dentry, super_block);
+    goto end;
     err:
     {
         kernel_printf("ERROR: fail to initialize VFS!");
         return -1;
     } //pass
+    end:
+    debug_end("EXT3-init ext3\n");
     return 0;
 }
 
@@ -391,6 +399,7 @@ u32 ext3_check_inode_exists(struct inode *inode) { //返回0说明不存在该in
 
 /* 返回目录列表中的下一个目录，调由系统调用readdir()用它 */
 u32 ext3_readdir(struct file *file, struct getdent *getdent) {
+    debug_start("EXT3-readdir\n");
     u32 err, i;
     u32 offset, block;
     u32 actual_page_num;
@@ -434,6 +443,7 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
             curAddr += curDentry->entry_len;
         }  //页内的目录遍历
     }  //遍历每一页
+    debug_end("EXT3-readdir\n");
     return 0;
 }
 
@@ -491,6 +501,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //注意：索引节点和对应的数据块不一定在同一个块组里，所以块位图和索引节点位图未必在同一个块组里
     //首先清除块位图
     //首先获取块位图
+    debug_start("EXT3_DELETE_DENTRY");
     u8 target_sect[SECTOR_BYTE_SIZE];
     struct inode *target_inode = target_dentry->d_inode;
     struct ext3_super_block *super_block = ((struct ext3_base_information *) (target_dentry->d_sb->s_fs_info))->super_block.content;
@@ -608,11 +619,13 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         kernel_memset(sourceHead + (int) (targetTail - targetHead), 0, (int) (sourceTail - sourceHead)); //后面清空
     } else kernel_memset(sourceHead, 0, (int) (sourceTail - sourceHead));  //但是如果后面没有的话还是要删除的
     target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+    debug_end("EXT3_DELETE_DENTRY");
     return 0;
 }
 
 /* 在特定文件夹中寻找索引节点，该索引节点要对应于dentry中给出的文件名 */
 struct dentry *ext3_lookup(struct inode *target_inode, struct dentry *target_dentry, struct nameidata *nd) {
+    debug_start("EXT3_LOOKUP");
     struct ext3_base_information *base_information = target_inode->i_sb->s_fs_info;
     u32 i; //for loop
     u8 *pageHead, *pageTail;
@@ -633,12 +646,14 @@ struct dentry *ext3_lookup(struct inode *target_inode, struct dentry *target_den
             pageHead += curDentry->entry_len;
         }
     }
+    debug_end("EXT3_LOOKUP");
     return 0;
 }
 
 //创建ext3文件节点
 //返回ERRVALUE说明出错，返回0说明成功
 u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd){
+    debug_start("EXT3_CREATE");
     u8 buffer[SECTOR_BYTE_SIZE];
     struct ext3_base_information* base_information = dir->i_sb->s_fs_info;
     u32 total_group_num = base_information->group_count;
@@ -692,26 +707,31 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     target_dentry->d_inode = allocated_inode;
     target_dentry->d_parent = container_of(dir,struct dentry,d_inode);
     nd->dentry = target_dentry;
+    debug_end("EXT3_CREATE");
     return 0;
 }
 
 
 u32 ext3_mkdir(struct inode *dir, struct dentry *target_dentry, u32 mode) {  //忽略mode
+    debug_start("EXT3-MKDIR");
     struct nameidata* nd = (struct nameidata*) kmalloc(sizeof(struct nameidata));
     if (nd == 0) return -ENOMEM;
     u32 err = ext3_create(dir,target_dentry,nd);
     target_dentry->d_inode->i_op = &(ext3_inode_operations[0]);
     if (IS_ERR_VALUE(err)) return err;
     target_dentry->d_inode->i_type = EXT3_DIR;
+    debug_end("EXT3-MKDIR");
     return 0;
 }
 
 u32 ext3_rmdir(struct inode* dir, struct dentry* target_dentry){
+    debug_start("EXT3-RMDIR");
     u32 err = ext3_delete_dentry_inode(target_dentry);
     list_del(&(target_dentry->d_alias));
     list_del(&(target_dentry->d_lru));
     list_del(&(target_dentry->d_subdirs));
     if (IS_ERR_VALUE(err)) return err;
+    debug_end("EXT3-RMDIR");
     return 0;
 }
 

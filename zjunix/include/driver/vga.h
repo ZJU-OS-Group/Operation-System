@@ -21,7 +21,7 @@ extern int cursor_freq;
 #define VGA_INFO    0xf00
 #define VGA_ERR     0x00f
 #define VGA_NORMAL  0xfff
-#define VGA_WARNING 0xff0
+#define VGA_WARNING 0xf0f
 
 struct screen_color {
     int front;

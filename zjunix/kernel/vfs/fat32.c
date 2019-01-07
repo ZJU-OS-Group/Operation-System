@@ -63,6 +63,8 @@ u32 init_fat32(u32 base)
     debug_start("fat32.c init_fat32 start\n");
     // 构建 fat32_basic_information 结构
     fat32_BI = (struct fat32_basic_information *) kmalloc ( sizeof(struct fat32_basic_information) );
+    debug_warning("FAT32 BI : ");
+    kernel_printf("%d\n",fat32_BI);
     if (fat32_BI == 0)
     {
         err = -ENOMEM;
@@ -72,6 +74,8 @@ u32 init_fat32(u32 base)
 
     // 构建 fat32_dos_boot_record 结构
     fat32_BI->fat32_DBR = (struct fat32_dos_boot_record *) kmalloc ( sizeof(struct fat32_dos_boot_record) );
+    debug_warning("FAT32 DBR : ");
+    kernel_printf("%d\n",fat32_BI->fat32_DBR);
     if (fat32_BI->fat32_DBR == 0)
     {
         err = -ENOMEM;
@@ -110,6 +114,8 @@ u32 init_fat32(u32 base)
     debug_start("start read in fat32_file_system_information\n");
     fat32_BI->fat32_FSINFO = (struct fat32_file_system_information *) kmalloc \
         ( sizeof(struct fat32_file_system_information) );
+    debug_warning("FAT32 FSINFO : ");
+    kernel_printf("%d\n",fat32_BI->fat32_FSINFO);
     if (fat32_BI->fat32_FSINFO == 0)
     {
         err = -ENOMEM;
@@ -127,15 +133,15 @@ u32 init_fat32(u32 base)
         // 构建 fat32_file_allocation_table 结构
     debug_start("start read in fat32_FAT\n");
     fat32_BI->fat32_FAT1 = (struct fat32_file_allocation_table *) kmalloc ( sizeof(struct fat32_file_allocation_table) );
+    debug_warning("FAT32 FAT1 : ");
+    kernel_printf("%d\n",fat32_BI);
     if (fat32_BI->fat32_FAT1 == 0)
         return -ENOMEM;
     fat32_BI->fat32_FAT1->base = base + fat32_BI->fat32_DBR->reserved;                 // FAT起始于非保留扇区开始的扇区
-
     fat32_BI->fat32_FAT1->data_sec = fat32_BI->fat32_FAT1->base + fat32_BI->fat32_DBR->fat_num * fat32_BI->fat32_DBR->fat_size;
     fat32_BI->fat32_FAT1->root_sec = fat32_BI->fat32_FAT1->data_sec + ( fat32_BI->fat32_DBR->root_clu - 2 ) * fat32_BI->fat32_DBR->sec_per_clu;
-    for(i = 0;i < FAT32_CLUSTER_NUM;i++)
-        fat32_BI->fat32_FAT1->clu_situ[i] = 0x00000000;
-
+/*    for(i = 0;i < FAT32_CLUSTER_NUM;i++)
+        fat32_BI->fat32_FAT1->clu_situ[i] = 0x00000000;*/
     kernel_printf("fat32.c:135 load fat32 file allocation table ok!\n");
      // 构建 file_system_type 结构
     fat32_fs_type = (struct file_system_type *) kmalloc ( sizeof(struct file_system_type) );
@@ -145,11 +151,10 @@ u32 init_fat32(u32 base)
         return err;
     }
     fat32_fs_type->name = "fat32";
-
     // 构建根目录关联的 dentry 结构
     debug_start("start constructing root dentry\n");
     root_dentry = (struct dentry *) kmalloc ( sizeof(struct dentry) );
-    if (fat32_fs_type == 0)
+    if (root_dentry == 0)
     {
         err = -ENOMEM;
         return err;
@@ -159,14 +164,17 @@ u32 init_fat32(u32 base)
     INIT_LIST_HEAD(&(root_dentry->d_subdirs));
     INIT_LIST_HEAD(&(root_dentry->d_u.d_child));
     INIT_LIST_HEAD(&(root_dentry->d_alias));
+    root_dentry->d_name.name = "/";
+    root_dentry->d_name.len = 1;
     dcache->c_op->add(dcache, root_dentry);
+
     //相关联的信息初始化
     pwd_dentry = root_dentry;
 
     //构建super_block 结构
     debug_start("start constructing superblock for fat32\n");
     fat32_sb = (struct super_block*)kmalloc(sizeof(struct super_block));
-    if (fat32_fs_type == 0)
+    if (fat32_sb == 0)
     {
         err = -ENOMEM;
         return err;
@@ -180,7 +188,6 @@ u32 init_fat32(u32 base)
     fat32_sb->s_root = root_dentry;
     INIT_LIST_HEAD(&(fat32_sb->s_inodes));
     INIT_LIST_HEAD(&(fat32_sb->s_list));
-
     // 构建根目录关联的 inode 结构
     debug_start("start constructing inode for root dir\n");
     root_inode = (struct inode *) kmalloc ( sizeof(struct inode) );
@@ -237,6 +244,8 @@ u32 init_fat32(u32 base)
     while ( 0x0FFFFFFF != cluNo ){
         root_inode->i_blocks++;
         cluNo = read_fat(root_inode, cluNo);          // 读FAT32表
+        debug_warning("cluNo:");
+        kernel_printf("%d\n", cluNo);
     }
     root_inode->i_data.a_page = (u32 *)kmalloc(sizeof(u32) * root_inode->i_blocks);
     if (root_inode->i_data.a_page == 0)

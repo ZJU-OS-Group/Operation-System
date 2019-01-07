@@ -5,6 +5,8 @@
 #include <zjunix/list.h>
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/slab.h>
+#include <zjunix/debug/debug.h>
+
 // 公用缓存
 struct cache * dcache;
 struct cache * pcache;

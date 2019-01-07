@@ -67,12 +67,14 @@ void init_kernel() {
 //    init_fs();
     init_vfs();
     log(LOG_END, "Virtual File System.");
+    while(1);
     // System call
     log(LOG_START, "System Calls.");
     init_syscall();
     log(LOG_END, "System Calls.");
     // Process control
     log(LOG_START, "Process Control Module.");
+    init_pid();
     init_pc();
     create_startup_process();
     log(LOG_END, "Process Control Module.");
