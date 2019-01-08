@@ -16,9 +16,9 @@ void pcache_LRU(struct cache *this) {
                 this->c_op->write_back(_replaced_page);
         }
         //三个链表的地址管理
-        list_del(_replaced_page->p_lru);
-        list_del(_replaced_page->page_hashtable);
-        list_del(_replaced_page->page_list);
+        list_del(&(_replaced_page->p_lru));
+        list_del(&(_replaced_page->page_hashtable));
+        list_del(&(_replaced_page->page_list));
         //释放页
         release_page(_replaced_page);
 }
@@ -32,9 +32,9 @@ void pcache_add(struct cache* this, void* obj) {
         struct vfs_page* tempPage = (struct vfs_page*)obj;
         hash_value = getIntHash(tempPage->page_address, this->cache_tablesize);
         //哈希链表头部插入
-        list_add(tempPage->page_hashtable, &(this->c_hashtable[hash_value]));
+        list_add(&(tempPage->page_hashtable), &(this->c_hashtable[hash_value]));
         //LRU头部插入
-        list_add(&(this->c_lru), tempPage->p_lru);
+        list_add(&(this->c_lru), &(tempPage->p_lru));
         this->cache_size++;
 }
 
@@ -60,10 +60,10 @@ void* pcache_look_up(struct cache* this, struct condition* conditions) {
         }
         if(found)
         {
-                list_del(result->page_hashtable);
-                list_del(result->p_lru);
-                list_add(result->page_hashtable, start_list);
-                list_add(result->p_lru, &(this->c_lru));
+                list_del(&(result->page_hashtable));
+                list_del(&(result->p_lru));
+                list_add(&(result->page_hashtable), start_list);
+                list_add(&(result->p_lru), &(this->c_lru));
                 return (void*)result;
         }
 

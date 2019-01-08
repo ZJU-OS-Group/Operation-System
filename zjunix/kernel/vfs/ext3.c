@@ -309,9 +309,9 @@ u32 fetch_root_data(struct inode *root_inode) {
         current_page->page_state = P_CLEAR;
         current_page->page_address = target_location;  //物理页号
         current_page->p_address_space = &(root_inode->i_data);
-        INIT_LIST_HEAD(current_page->p_lru);
-        INIT_LIST_HEAD(current_page->page_hashtable);
-        INIT_LIST_HEAD(current_page->page_list);
+        INIT_LIST_HEAD(&(current_page->p_lru));
+        INIT_LIST_HEAD(&(current_page->page_hashtable));
+        INIT_LIST_HEAD(&(current_page->page_list));
         u32 err = root_inode->i_data.a_op->readpage(current_page);
         //读取当前页
         if (err < 0) {
@@ -320,7 +320,7 @@ u32 fetch_root_data(struct inode *root_inode) {
         }
         pcache->c_op->add(pcache, (void *) current_page);
         //把current_page加入到pcache
-        list_add(current_page->page_list, &(current_page->p_address_space->a_cache));
+        list_add(&(current_page->page_list), &(current_page->p_address_space->a_cache));
     }
     debug_end("EXT3-fetch root data\n");
     return 0;
@@ -461,16 +461,16 @@ struct vfs_page *ext3_fetch_page(struct inode *target_inode, u32 logical_page_nu
         curPage->p_address_space = target_address_space;
         curPage->page_address = actual_page_num;
         curPage->page_state = P_CLEAR;
-        INIT_LIST_HEAD(curPage->p_lru);
-        INIT_LIST_HEAD(curPage->page_list);
-        INIT_LIST_HEAD(curPage->page_hashtable);
+        INIT_LIST_HEAD(&(curPage->p_lru));
+        INIT_LIST_HEAD(&(curPage->page_list));
+        INIT_LIST_HEAD(&(curPage->page_hashtable));
         u32 err = target_address_space->a_op->readpage(curPage);  //填完最后一项data就大功告成啦！这里完成了页的预处理
         if (IS_ERR_VALUE(err)) {
             release_page(curPage);
             ERR_PTR(err);
         }
         pcache->c_op->add(pcache, curPage);
-        list_add(curPage->page_list, &(target_address_space->a_cache)); //把当前已缓存的页添加到已缓存的页链表首部
+        list_add(&(curPage->page_list), &(target_address_space->a_cache)); //把当前已缓存的页添加到已缓存的页链表首部
     }
     return curPage;
 }

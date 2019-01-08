@@ -72,9 +72,9 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 			tempPage->page_state = P_CLEAR;
 			tempPage->page_address = realPageNo;
 			tempPage->p_address_space = &(file_inode->i_data);
-			INIT_LIST_HEAD(tempPage->page_hashtable);
-			INIT_LIST_HEAD(tempPage->page_list);
-			INIT_LIST_HEAD(tempPage->p_lru);
+			INIT_LIST_HEAD(&(tempPage->page_hashtable));
+			INIT_LIST_HEAD(&(tempPage->page_list));
+			INIT_LIST_HEAD(&(tempPage->p_lru));
 
 			err = file_inode->i_data.a_op->readpage(tempPage);
 			if(err)
@@ -84,7 +84,7 @@ u32 generic_file_read(struct file * file, u8 * buf, u32 count, u32 * pos)
 			}
 
 			pcache->c_op->add(pcache, tempPage);
-			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
+			list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
 		}
 		u8* dest;
 		u8* src;
@@ -157,9 +157,9 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 			tempPage->page_state = P_CLEAR;
 			tempPage->page_address = realPageNo;
 			tempPage->p_address_space = &(file_inode->i_data);
-			INIT_LIST_HEAD(tempPage->page_hashtable);
-			INIT_LIST_HEAD(tempPage->page_list);
-			INIT_LIST_HEAD(tempPage->p_lru);
+			INIT_LIST_HEAD(&(tempPage->page_hashtable));
+			INIT_LIST_HEAD(&(tempPage->page_list));
+			INIT_LIST_HEAD(&(tempPage->p_lru));
 
 			err = file_inode->i_data.a_op->readpage(tempPage);
 			if(err)
@@ -169,7 +169,7 @@ u32 generic_file_write(struct file * file, u8 * buf, u32 count, u32 * pos)
 			}
 
 			pcache->c_op->add(pcache, tempPage);
-			list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
+			list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
 		}
 
 		u8* dest;
