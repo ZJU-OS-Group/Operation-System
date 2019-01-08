@@ -201,7 +201,7 @@ u32 init_fat32(u32 base)
     root_inode->i_op                = &(fat32_inode_operations[0]);
     root_inode->i_fop    = &(fat32_file_operations);
     root_inode->i_sb     = fat32_sb;
-    root_inode->i_blocks = 0;
+    root_inode->i_blocks = 1;
     INIT_LIST_HEAD(&(root_inode->i_dentry));
     INIT_LIST_HEAD(&(root_inode->i_hash));
     INIT_LIST_HEAD(&(root_inode->i_sb_list));
@@ -1064,37 +1064,37 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
     u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];
     u32 err;
     u32 realPageNo;
-    u32 i, j;
+    int i, j, k;
     struct inode* file_inode;
     struct vfs_page* tempPage;
     struct condition conditions;
     struct fat32_dir_entry* temp_dir_entry;
     debug_start("fat32.c:1044 fat32_readdir start\n");
-
+    kernel_printf("%d\n", file->f_dentry->d_fsdata);
     file_inode = file->f_dentry->d_inode;
+    kernel_printf("file_inode data:%d\n", file_inode->i_block_size);
     getdent->count = 0;
     getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_block_count * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
     if (getdent->dirent == 0)
         return -ENOMEM;
-    for(i = 0;i < file_inode->i_block_count;i++)
-    {
+    file_inode->i_block_count = 1;
+    for(i = 0;i < file_inode->i_block_count;i++) {
         realPageNo = file_inode->i_data.a_op->bmap(file_inode, i);
-        if(!realPageNo) return -ENOMEM;
-
+        if (!realPageNo) return -ENOMEM;
+        kernel_printf("realPageNo %d\n", realPageNo);
         conditions.cond1 = &(realPageNo);
         conditions.cond2 = file_inode;
-        tempPage = (struct vfs_page*)pcache->c_op->look_up(pcache, &conditions);
+        tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
         //页不在高速缓存中就需要调重新分配
-        if(tempPage == 0)
-        {
-            tempPage = (struct vfs_page*)kmalloc(sizeof(struct vfs_page));
-            if(!tempPage)
-            {
+        if (tempPage == 0) {
+            debug_info("page is not in pcache!\n");
+            tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
+            if (!tempPage) {
                 debug_err("fat32.c:1065 get page of file information node error!\n");
                 return -ENOMEM;
             }
 
-            tempPage->page_state =  P_CLEAR;
+            tempPage->page_state = P_CLEAR;
             tempPage->page_address = realPageNo;
             tempPage->p_address_space = &(file_inode->i_data);
             INIT_LIST_HEAD(&(tempPage->p_lru));
@@ -1103,63 +1103,63 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
 
             //fat32系统读入页
             err = file_inode->i_data.a_op->readpage(tempPage);
-            if(IS_ERR_VALUE(err))
-            {
+            if (IS_ERR_VALUE(err)) {
                 release_page(tempPage);
                 return 0;
             }
+            debug_info("read in new page ok!\n");
             tempPage->page_state = P_CLEAR;
-            pcache_add(pcache, (void*)tempPage);
+            pcache_add(pcache, (void *) tempPage);
             //将文件已缓冲的页接入链表
             list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
         }
 
+        kernel_printf("i: %d, block num : %d\n", i, file_inode->i_block_count);
+
+        //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
+        for (j = 0; j < file_inode->i_block_size; j += FAT32_DIR_ENTRY_LEN) {
+            temp_dir_entry = (struct fat32_dir_entry *) (tempPage + j);
+            kernel_printf("j: %d\n", j);
+            //0x08表示卷标(虽然没有)  0F是长文件名(其实也没有)
+            if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME) {
+                debug_info("not a file\n");
+                continue;
+            }
+            //空文件名，其实没有目录项了
+            if (temp_dir_entry->name[0] == '\0') {
+                kernel_printf("no dir left!\n");
+                kernel_printf(" ");
+                break;
+            }
+            //或者是被删除了 ??
+            if (temp_dir_entry->name[0] == 0xE5) {
+                debug_info("file has been deleted\n");
+                continue;
+            }
+            //把一般形式文件名复制，准备处理
+            for (k = 0; k < MAX_FAT32_SHORT_FILE_NAME_LEN; k++)
+                name[k] = temp_dir_entry->name[k];
+
+            entryname_str.name = name;
+            entryname_str.len = MAX_FAT32_SHORT_FILE_NAME_LEN;
+            debug_info("convert filename, start!\n");
+            fat32_convert_filename(&normalname_str, &entryname_str, temp_dir_entry->lcase,
+                                   FAT32_FILE_NAME_LONG_TO_NORMAL);
+            getdent->dirent[getdent->count].name = normalname_str.name;
+            getdent->dirent[getdent->count].ino = temp_dir_entry->startlo + (temp_dir_entry->starthi << 16);
+
+            if (temp_dir_entry->attr & ATTR_DIRECTORY) {
+                getdent->dirent[getdent->count].type = FTYPE_DIR;
+            } else if (temp_dir_entry->attr & ATTR_NORMAL) {
+                getdent->dirent[getdent->count].type = FTYPE_NORM;
+            } else {
+                getdent->dirent[getdent->count].type = FTYPE_UNKOWN;
+            }
+            getdent->count++;
+            kernel_printf("dir count: %d\n", getdent->count);
+        }
     }
-
-    //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
-    for(i = 0;i < file_inode->i_block_size;i+=FAT32_DIR_ENTRY_LEN)
-    {
-        temp_dir_entry = (struct fat32_dir_entry*) (tempPage + i);
-        //0x08表示卷标(虽然没有)  0F是长文件名(其实也没有)
-        if(temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME)
-        {
-            continue;
-        }
-        //空文件名，其实没有目录项了
-        if(temp_dir_entry->name[0] == '\0')
-        {
-            break;
-        }
-        //或者是被删除了 ??
-        if(temp_dir_entry->name[0] == 0xE5)
-        {
-            continue;
-        }
-        //把一般形式文件名复制，准备处理
-        for ( j = 0; j < MAX_FAT32_SHORT_FILE_NAME_LEN; j++ )
-            name[j] = temp_dir_entry->name[j];
-
-        entryname_str.name = name;
-        entryname_str.len = MAX_FAT32_SHORT_FILE_NAME_LEN;
-
-        fat32_convert_filename(&normalname_str, &entryname_str, temp_dir_entry->lcase, FAT32_FILE_NAME_LONG_TO_NORMAL);
-        getdent->dirent[getdent->count].name = normalname_str.name;
-        getdent->dirent[getdent->count].ino = temp_dir_entry->startlo + (temp_dir_entry->starthi << 16);
-
-        if(temp_dir_entry->attr & ATTR_DIRECTORY)
-        {
-            getdent->dirent[getdent->count].type = FTYPE_DIR;
-        }
-        else if(temp_dir_entry->attr & ATTR_NORMAL)
-        {
-            getdent->dirent[getdent->count].type = FTYPE_NORM;
-        }
-        else
-        {
-            getdent->dirent[getdent->count].type = FTYPE_UNKOWN;
-        }
-        getdent->count++;
-
-    }
+    debug_end("readdir ok!\n");
+    kernel_printf("");
     return 0;
 }
