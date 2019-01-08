@@ -38,9 +38,15 @@ void create_startup_process() {
     //pc_create(1, ps, (unsigned int)kmalloc(4096) + 4096, init_gp, "powershell");
     pc_create("powershell", (void*)ps, 0, 0, 0, 0, HIGH_PRIORITY_CLASS);
     log(LOG_OK, "Shell init");
-    pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, REALTIME_PRIORITY_CLASS);
+    pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, HIGH_PRIORITY_CLASS);
 //    pc_create(2, system_time_proc, (unsigned int)kmalloc(4096) + 4096, init_gp, "time");
     log(LOG_OK, "Timer init");
+//    unsigned int init_gp;
+//    asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
+//    pc_create(1, ps, (unsigned int)kmalloc(4096) + 4096, init_gp, "powershell");
+//    log(LOG_OK, "Shell init");
+//    pc_create(2, system_time_proc, (unsigned int)kmalloc(4096) + 4096, init_gp, "time");
+//    log(LOG_OK, "Timer init");
 }
 #pragma GCC pop_options
 
@@ -67,7 +73,6 @@ void init_kernel() {
 //    init_fs();
     init_vfs();
     log(LOG_END, "Virtual File System.");
-    while(1);
     // System call
     log(LOG_START, "System Calls.");
     init_syscall();
@@ -86,6 +91,6 @@ void init_kernel() {
     machine_info();
     *GPIO_SEG = 0x11223344;
     // Enter shell
-    while (1)
-        ;
+    while (1);
 }
+

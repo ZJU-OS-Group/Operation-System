@@ -1,33 +1,35 @@
 #ifndef _ZJUNIX_PC_H
 #define _ZJUNIX_PC_H
 #include <zjunix/pid.h>
+#include <zjunix/vfs/vfs.h>
 #include "list.h"
 
 #define TASK_NAME_LEN           32
 #define PRIORITY_LEVELS         32          /* 优先级等级数 */
 #define KERNEL_STACK_SIZE       4096     /* 内核栈大小 */
 #define PROC_DEFAULT_TIMESLOTS  6    /* 默认时间配额 */
-#define PRIORITY_CLASS_NUM      6
+#define PRIORITY_CLASS_NUM      7
 #define PRIORITY_LEVEL_NUM      7
 
 /**************************************** 优先权类 *************************************/
 enum PRIORITY_CLASS{
-    IDLE_PRIORITY_CLASS,
-    BELOW_NORMAL_PRIORITY_CLASS,
-    NORMAL_PRIORITY_CLASS,
-    ABOVE_NORMAL_PRIORITY_CLASS,
+    REALTIME_PRIORITY_CLASS,
     HIGH_PRIORITY_CLASS,
-    REALTIME_PRIORITY_CLASS
+    ABOVE_NORMAL_PRIORITY_CLASS,
+    NORMAL_PRIORITY_CLASS,
+    BELOW_NORMAL_PRIORITY_CLASS,
+    IDLE_PRIORITY_CLASS,
+    ZERO_PRIORITY_CLASS
 };
 
 enum PRIORITY_LEVEL{
-    IDLE,
-    LOWEST,
-    BELOW_NORMAL,
-    NORMAL,
-    ABOVE_NORMAL,
+    TIME_CRITICAL,
     HIGHEST,
-    TIME_CRITICAL
+    ABOVE_NORMAL,
+    NORMAL,
+    BELOW_NORMAL,
+    LOWEST,
+    IDLE
 };
 
 /**************************************** 进程状态 *************************************/
@@ -69,8 +71,8 @@ struct task_struct{
     int state;                          /* 当前进程状态 */
     unsigned int time_counter;          /* 时间片 */
     struct file* task_files;            /* 进程打开的文件指针 */
-    unsigned int priority_class;           /* 优先级类序号 */
-    unsigned int priority_level;              /* 优先级内部级别 */
+    unsigned int priority_class;        /* 优先级类序号 */
+    unsigned int priority_level;        /* 优先级内部级别 */
     struct list_head schedule_list;     /* 用于进程调度 */
     struct list_head task_node;         /* 用于添加进进程列表 */
     struct list_head wait_queue;        /* 正在等待该进程的进程列表 */
@@ -86,7 +88,7 @@ typedef union {
 void init_pc();
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
-               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class);
+              unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
 int pc_kill(pid_t pid); // 杀死pid对应的进程
 struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块
@@ -99,6 +101,7 @@ struct task_struct* get_preemptive_task();                                  // �
 struct task_struct* find_next_task();                                       // 找到下一个要被运行的task
 void task_files_release(struct task_struct* task);                          // 释放进程的文件
 int is_realtime(struct task_struct* task);                                  // 根据进程优先级判断是否是实时任务
+void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context); // 从pc_schedule中抽出来的core code
 void pc_exchange(struct task_struct* next, context* pt_context, int flag);  // 将当前进程换成next
 
 void add_wait(struct task_struct *task);                    // 将进程添加进等待列表
@@ -114,4 +117,4 @@ void change_priority(struct task_struct *task, int delta);  // 修改进程的�
 int min(int a, int b);
 unsigned max(unsigned int a,unsigned int b);
 
-#endif  // !_ZJUNIX_PC_H
+#endif
