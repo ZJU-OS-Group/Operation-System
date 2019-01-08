@@ -67,7 +67,6 @@ void init_kernel() {
 //    init_fs();
     init_vfs();
     log(LOG_END, "Virtual File System.");
-    while(1);
     // System call
     log(LOG_START, "System Calls.");
     init_syscall();

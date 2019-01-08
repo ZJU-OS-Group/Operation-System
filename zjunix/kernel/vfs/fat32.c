@@ -292,7 +292,7 @@ u32 init_fat32(u32 base)
         pcache_add(pcache, tempPage);
         list_add(&(tempPage->page_list), &(tempPage->p_address_space->a_cache));
     }
-    kernel_printf("fat32.c:276 load fat32 root dir page ok!");
+    kernel_printf("fat32.c:276 load fat32 root dir page ok!\n");
     // 构建本文件系统关联的 vfsmount挂载
     debug_start("start constructing fat32 mount\n");
     root_mnt = (struct vfsmount*)kmalloc(sizeof(struct vfsmount));
@@ -1013,24 +1013,29 @@ u32 fat32_bitmap(struct inode* _inode, u32 pageNo)
 u32 fat32_readpage(struct vfs_page* page)
 {
     u32 err, base, abs_sect_addr;
-    struct inode* tempinode;
+    struct inode* temp_inode;
     //找出绝对扇区地址
-    tempinode = page->p_address_space->a_host;
-    abs_sect_addr = ((struct fat32_basic_information*)(tempinode->i_sb->s_fs_info)) \
-    ->fat32_FAT1->data_sec + (page->page_address - 2) * (tempinode->i_block_size >> SECTOR_LOG_SIZE);
+    temp_inode = page->p_address_space->a_host;
+    abs_sect_addr = ((struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info)) \
+    ->fat32_FAT1->data_sec + (page->page_address - 2) * (temp_inode->i_block_size >> SECTOR_LOG_SIZE);
     //第一、第二个扇区是系统扇区
-    page->page_data = (u8*)kmalloc(sizeof(u8) * tempinode->i_block_size);
+
+    kernel_printf("absolute sector addr: %d\n", abs_sect_addr);
+    page->page_data = (u8*)kmalloc(sizeof(u8) * temp_inode->i_block_size);
     if(page->page_data == 0)
     {
         err = -ENOMEM;
         return err;
     }
-    err = vfs_read_block(page->page_data, abs_sect_addr, tempinode->i_block_size);
-    if(err == 0)
+    debug_info("page_data allocate memory ok!\n");
+    kernel_printf("inode block size: %d\n", temp_inode->i_block_size);
+    err = vfs_read_block(page->page_data, abs_sect_addr, temp_inode->i_block_size);
+    if(err != 0)
     {
         err = -EIO;
         return err;
     }
+    debug_info("read page_data ok!\n");
     return 0;
 }
 
