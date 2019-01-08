@@ -709,7 +709,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         return err;
     }
     //为新文件分配簇,创建一个空文件
-    for(i = 0;i < FAT32_CLUSTER_NUM;i++)
+    for(i = 2;i < FAT32_CLUSTER_NUM;i++)
     {
         addr = read_fat(parent_inode, i);
         if(addr == 0x00000000)
