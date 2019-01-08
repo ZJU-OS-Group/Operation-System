@@ -276,9 +276,9 @@ u32 init_fat32(u32 base)
         tempPage->page_state = P_CLEAR;
         tempPage->page_address = root_inode->i_data.a_page[i];
         tempPage->p_address_space = &(root_inode->i_data);
-        INIT_LIST_HEAD(tempPage->page_list);
-        INIT_LIST_HEAD(tempPage->page_hashtable);
-        INIT_LIST_HEAD(tempPage->p_lru);
+        INIT_LIST_HEAD(&(tempPage->page_list));
+        INIT_LIST_HEAD(&(tempPage->page_hashtable));
+        INIT_LIST_HEAD(&(tempPage->p_lru));
 
         err = tempPage->p_address_space->a_op->readpage(tempPage);
         if(IS_ERR_VALUE(err))
@@ -290,7 +290,7 @@ u32 init_fat32(u32 base)
         debug_info("read tempPage ok!\n");
 
         pcache_add(pcache, tempPage);
-        list_add(tempPage->page_list, &(tempPage->p_address_space->a_cache));
+        list_add(&(tempPage->page_list), &(tempPage->p_address_space->a_cache));
     }
     kernel_printf("fat32.c:276 load fat32 root dir page ok!");
     // 构建本文件系统关联的 vfsmount挂载
@@ -355,9 +355,9 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
             tempPage->page_state   = P_CLEAR;
             tempPage->page_address = tempPageNo;
             tempPage->p_address_space = &(temp_inode->i_data);
-            INIT_LIST_HEAD(tempPage->page_hashtable);
-            INIT_LIST_HEAD(tempPage->p_lru);
-            INIT_LIST_HEAD(tempPage->page_list);
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_list));
 
             err = temp_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -367,7 +367,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
 
             tempPage->page_state= P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(tempPage->page_list, &(temp_inode->i_data.a_cache));
+            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
@@ -502,9 +502,9 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
             tempPage->page_state    = P_CLEAR;
             tempPage->page_address = tempPageNo;
             tempPage->p_address_space = &(temp_inode->i_data);
-            INIT_LIST_HEAD(tempPage->page_hashtable);
-            INIT_LIST_HEAD(tempPage->p_lru);
-            INIT_LIST_HEAD(tempPage->page_list);
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_list));
 
             err = temp_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -514,7 +514,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
 
             tempPage->page_state = P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(tempPage->page_list, &(temp_inode->i_data.a_cache));
+            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
@@ -615,9 +615,9 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
             tempPage->page_state = P_CLEAR;
             tempPage->page_address  = tempPageNo;
             tempPage->p_address_space = &(parent_inode->i_data);
-            INIT_LIST_HEAD(tempPage->page_hashtable);
-            INIT_LIST_HEAD(tempPage->p_lru);
-            INIT_LIST_HEAD(tempPage->page_list);
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_list));
 
             err = parent_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
@@ -627,7 +627,7 @@ u32 fat32_write_inode(struct inode * temp_inode, struct dentry * parent)
 
             tempPage->page_state = P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(tempPage->page_list, &(parent_inode->i_data.a_cache));
+            list_add(&(tempPage->page_list), &(parent_inode->i_data.a_cache));
         }
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
         for ( i = 0; i < parent_inode->i_block_size; i += FAT32_DIR_ENTRY_LEN ){
@@ -767,9 +767,9 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         tempPage->page_state = P_CLEAR;
         tempPage->page_address = realPageNo;
         tempPage->p_address_space = &(temp_inode->i_data);
-        INIT_LIST_HEAD(tempPage->p_lru);
-        INIT_LIST_HEAD(tempPage->page_hashtable);
-        INIT_LIST_HEAD(tempPage->page_list);
+        INIT_LIST_HEAD(&(tempPage->p_lru));
+        INIT_LIST_HEAD(&(tempPage->page_hashtable));
+        INIT_LIST_HEAD(&(tempPage->page_list));
         //fat32系统读入页
         err = temp_inode->i_data.a_op->readpage(tempPage);
         if (IS_ERR_VALUE(err))
@@ -780,7 +780,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         tempPage->page_state = P_CLEAR;
         pcache_add(pcache, (void *) tempPage);
         //将文件已缓冲的页接入链表
-        list_add(tempPage->page_list, &(temp_inode->i_data.a_cache));
+        list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
     }
     temp_address_space->a_pagesize = parent_inode->i_data.a_pagesize;
     //将temp_dentry与新建inode关联
@@ -1092,9 +1092,9 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             tempPage->page_state =  P_CLEAR;
             tempPage->page_address = realPageNo;
             tempPage->p_address_space = &(file_inode->i_data);
-            INIT_LIST_HEAD(tempPage->p_lru);
-            INIT_LIST_HEAD(tempPage->page_hashtable);
-            INIT_LIST_HEAD(tempPage->page_list);
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->page_list));
 
             //fat32系统读入页
             err = file_inode->i_data.a_op->readpage(tempPage);
@@ -1106,7 +1106,7 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             tempPage->page_state = P_CLEAR;
             pcache_add(pcache, (void*)tempPage);
             //将文件已缓冲的页接入链表
-            list_add(tempPage->page_list, &(file_inode->i_data.a_cache));
+            list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
         }
 
     }

@@ -150,9 +150,9 @@ struct vfs_page {
     u8*     page_data;
     u32     page_state;
     u32     page_address;                                           //物理页号, 对应文件系统定义的块地址
-    struct list_head*           page_hashtable;                     // 哈希表链表
-    struct list_head*           p_lru;                              // LRU链表
-    struct list_head*           page_list;                          // 同一文件已缓冲页的链表
+    struct list_head            page_hashtable;                     // 哈希表链表
+    struct list_head            p_lru;                              // LRU链表
+    struct list_head            page_list;                          // 同一文件已缓冲页的链表
     struct address_space*       p_address_space;                    // 所属的address_space结构
 
 };
