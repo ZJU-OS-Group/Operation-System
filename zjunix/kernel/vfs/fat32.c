@@ -52,6 +52,7 @@ struct address_space_operations fat32_address_space_operations = {
 
 u32 init_fat32(u32 base)
 {
+    kernel_printf("base: %d", base);
     u32 i, j, k;
     u32 err;
     u32 cluNo;
@@ -63,8 +64,6 @@ u32 init_fat32(u32 base)
     debug_start("fat32.c init_fat32 start\n");
     // 构建 fat32_basic_information 结构
     fat32_BI = (struct fat32_basic_information *) kmalloc ( sizeof(struct fat32_basic_information) );
-    debug_warning("FAT32 BI : ");
-    kernel_printf("%d\n",fat32_BI);
     if (fat32_BI == 0)
     {
         err = -ENOMEM;
@@ -74,8 +73,6 @@ u32 init_fat32(u32 base)
 
     // 构建 fat32_dos_boot_record 结构
     fat32_BI->fat32_DBR = (struct fat32_dos_boot_record *) kmalloc ( sizeof(struct fat32_dos_boot_record) );
-    debug_warning("FAT32 DBR : ");
-    kernel_printf("%d\n",fat32_BI->fat32_DBR);
     if (fat32_BI->fat32_DBR == 0)
     {
         err = -ENOMEM;
@@ -92,7 +89,6 @@ u32 init_fat32(u32 base)
         return err;
     }
     fat32_BI->fat32_DBR->system_sign_and_version = vfs_get_u32(fat32_BI->fat32_DBR->data + 0x03);
-    kernel_printf("system sign:%s", fat32_BI->fat32_DBR->system_sign_and_version);
     fat32_BI->fat32_DBR->sec_per_clu   = *(fat32_BI->fat32_DBR->data + 0x0D);
     fat32_BI->fat32_DBR->reserved      = vfs_get_u16 (fat32_BI->fat32_DBR->data + 0x0E);
     fat32_BI->fat32_DBR->fat_num       = *(fat32_BI->fat32_DBR->data + 0x10);
@@ -109,13 +105,11 @@ u32 init_fat32(u32 base)
     fat32_BI->fat32_DBR->system_format_ASCII[5] = *(fat32_BI->fat32_DBR->data + 0x57);
     fat32_BI->fat32_DBR->system_format_ASCII[6] = *(fat32_BI->fat32_DBR->data + 0x58);
     fat32_BI->fat32_DBR->system_format_ASCII[7] = *(fat32_BI->fat32_DBR->data + 0x59);
-    kernel_printf("If fat32 DBR read in correctly? %s\n", fat32_BI->fat32_DBR->system_format_ASCII);
     // 构建 fat32_file_system_information 结构
     debug_start("start read in fat32_file_system_information\n");
     fat32_BI->fat32_FSINFO = (struct fat32_file_system_information *) kmalloc \
         ( sizeof(struct fat32_file_system_information) );
     debug_warning("FAT32 FSINFO : ");
-    kernel_printf("%d\n",fat32_BI->fat32_FSINFO);
     if (fat32_BI->fat32_FSINFO == 0)
     {
         err = -ENOMEM;
@@ -123,25 +117,31 @@ u32 init_fat32(u32 base)
     }
     fat32_BI->fat32_FSINFO->base = fat32_BI->fat32_DBR->base + 1;                     // FSINFO在基地址后一个扇区
     kernel_memset(fat32_BI->fat32_FSINFO->data, 0, sizeof(fat32_BI->fat32_FSINFO->data));
+    debug_info("start to read in FSINFO data\n");
     err = vfs_read_block(fat32_BI->fat32_FSINFO->data, fat32_BI->fat32_FSINFO->base, 1);
+
     if (err)
     {
         err = -EIO;
         return err;
-                                               }
+    }
+
     kernel_printf("fat32.c:123 load fat32 basic information ok!\n");
         // 构建 fat32_file_allocation_table 结构
     debug_start("start read in fat32_FAT\n");
     fat32_BI->fat32_FAT1 = (struct fat32_file_allocation_table *) kmalloc ( sizeof(struct fat32_file_allocation_table) );
-    debug_warning("FAT32 FAT1 : ");
+    debug_warning("FAT32 FAT1 : \n");
     kernel_printf("%d\n",fat32_BI);
     if (fat32_BI->fat32_FAT1 == 0)
         return -ENOMEM;
     fat32_BI->fat32_FAT1->base = base + fat32_BI->fat32_DBR->reserved;                 // FAT起始于非保留扇区开始的扇区
+    kernel_printf("FAT1-BASE %d\n", fat32_BI->fat32_FAT1->base);
     fat32_BI->fat32_FAT1->data_sec = fat32_BI->fat32_FAT1->base + fat32_BI->fat32_DBR->fat_num * fat32_BI->fat32_DBR->fat_size;
+    kernel_printf("FAT32-datasec %d\n",  fat32_BI->fat32_FAT1->data_sec);
     fat32_BI->fat32_FAT1->root_sec = fat32_BI->fat32_FAT1->data_sec + ( fat32_BI->fat32_DBR->root_clu - 2 ) * fat32_BI->fat32_DBR->sec_per_clu;
 /*    for(i = 0;i < FAT32_CLUSTER_NUM;i++)
         fat32_BI->fat32_FAT1->clu_situ[i] = 0x00000000;*/
+
     kernel_printf("fat32.c:135 load fat32 file allocation table ok!\n");
      // 构建 file_system_type 结构
     fat32_fs_type = (struct file_system_type *) kmalloc ( sizeof(struct file_system_type) );
@@ -240,13 +240,14 @@ u32 init_fat32(u32 base)
 
     //开始从初始簇遍历
     cluNo = fat32_BI->fat32_DBR->root_clu;
-    //32位，虚拟地址范围不能超过0x0FFFFFFF
+    //32位，0x0FFFFFFF表示文件结束
     while ( 0x0FFFFFFF != cluNo ){
         root_inode->i_blocks++;
         cluNo = read_fat(root_inode, cluNo);          // 读FAT32表
         debug_warning("cluNo:");
         kernel_printf("%d\n", cluNo);
     }
+    debug_info("read fat1 for root_dentry end\n");
     root_inode->i_data.a_page = (u32 *)kmalloc(sizeof(u32) * root_inode->i_blocks);
     if (root_inode->i_data.a_page == 0)
     {
@@ -271,6 +272,7 @@ u32 init_fat32(u32 base)
             err = -ENOMEM;
             return err;
         }
+        debug_info("tempPage allocate memory ok!\n");
         tempPage->page_state = P_CLEAR;
         tempPage->page_address = root_inode->i_data.a_page[i];
         tempPage->p_address_space = &(root_inode->i_data);
@@ -285,11 +287,12 @@ u32 init_fat32(u32 base)
             err = -EIO;
             return err;
         }
+        debug_info("read tempPage ok!\n");
+
         pcache_add(pcache, tempPage);
         list_add(tempPage->page_list, &(tempPage->p_address_space->a_cache));
     }
     kernel_printf("fat32.c:276 load fat32 root dir page ok!");
-
     // 构建本文件系统关联的 vfsmount挂载
     debug_start("start constructing fat32 mount\n");
     root_mnt = (struct vfsmount*)kmalloc(sizeof(struct vfsmount));
@@ -844,10 +847,13 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
+    kernel_printf("sec_addr %d\n", sec_addr);
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
+    kernel_printf("sec_index %d\n", sec_index);
     vfs_read_block(buffer, sec_addr, 1);
     debug_end("fat32.c:832 read_fat end\n");
-    return vfs_get_u32(buffer + (sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))));
+    kernel_printf("%d\n", vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT))) );
+    return vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT)));
 }
 
 u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
