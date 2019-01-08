@@ -45,8 +45,16 @@ u32 init_vfs() {
         log(LOG_FAIL, "init_ext3()");
         goto vfs_init_err;
     }
-    log(LOG_OK, "init_ext3()");
+    err = mount_ext3();
+    if ( IS_ERR_VALUE(err) ){
+        log(LOG_FAIL, "mount_ext3()");
+        goto vfs_init_err;
+    }
+    log(LOG_OK, "mount_ext3()");
 
+    log(LOG_OK, "init_ext3()");
+    debug_warning("root_dentry is :");
+    kernel_printf("%d\n",root_dentry);
     return 0;
 
     vfs_init_err:

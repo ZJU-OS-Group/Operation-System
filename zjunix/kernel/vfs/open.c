@@ -35,6 +35,8 @@ struct file *get_empty_file_pointer() {
 // 根据查询到的nameidata结构填写file结构，从而完成open的操作
 struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags) {
     debug_start("[open.c: dentry_open:37]\n");
+    debug_warning("dentry_open: 38  ");
+    kernel_printf("%d\n",dentry);
     struct file *f;
     struct inode *inode;
     u32 err;

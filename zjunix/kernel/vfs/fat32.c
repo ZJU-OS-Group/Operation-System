@@ -166,6 +166,7 @@ u32 init_fat32(u32 base)
     INIT_LIST_HEAD(&(root_dentry->d_alias));
     root_dentry->d_name.name = "/";
     root_dentry->d_name.len = 1;
+    root_dentry->d_op = &fat32_dentry_operations;
     dcache->c_op->add(dcache, root_dentry);
 
     //相关联的信息初始化
@@ -201,7 +202,7 @@ u32 init_fat32(u32 base)
     root_inode->i_op                = &(fat32_inode_operations[0]);
     root_inode->i_fop    = &(fat32_file_operations);
     root_inode->i_sb     = fat32_sb;
-    root_inode->i_blocks = 1;
+    root_inode->i_blocks = 0;
     INIT_LIST_HEAD(&(root_inode->i_dentry));
     INIT_LIST_HEAD(&(root_inode->i_hash));
     INIT_LIST_HEAD(&(root_inode->i_sb_list));
@@ -231,6 +232,9 @@ u32 init_fat32(u32 base)
     }
     //相关联项赋值
     root_dentry->d_inode = root_inode;
+    root_dentry->d_parent = root_dentry; // todo: zc change
+    debug_err("root_inode address:");
+    kernel_printf("%d\n",root_inode);
 
     // 构建根目录inode结构中的address_space结构
     root_inode->i_data.a_host       = root_inode;

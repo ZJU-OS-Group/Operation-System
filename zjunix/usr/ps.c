@@ -186,19 +186,19 @@ void parse_cmd() {
         } else {
             result = vfs_rm(param);
         }
-		kernel_printf("ext3 rm return with %d\n", result);
+		kernel_printf("vfs rm return with %d\n", result);
 	}
 	else if (kernel_strcmp(ps_buffer, "ls") == 0){
-		result = vfs_ls(param);
-		kernel_printf("ext3 ls return with %d\n", result);
+        result = vfs_ls(param);
+		kernel_printf("vfs ls return with %d\n", result);
 	} 
 	else if (kernel_strcmp(ps_buffer, "cd") == 0){
 		result = vfs_cd(param);
-		kernel_printf("ext3 cd return with %d\n", result);
+		kernel_printf("vfs cd return with %d\n", result);
 	}
 	else if (kernel_strcmp(ps_buffer, "mv") == 0){
 		result = vfs_mv(param);
-		kernel_printf("ext3 mv return with %d\n", result);
+		kernel_printf("vfs mv return with %d\n", result);
 	}  
 	else {
         kernel_puts(ps_buffer, 0xfff, 0);

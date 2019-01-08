@@ -1,4 +1,5 @@
 #include <zjunix/vfs/vfs.h>
+#include <driver/vga.h>
 
 // 从addr的绝对扇区地址开始读count个扇区的数据
 inline u32 vfs_read_block(u8 *buf, u32 addr, u32 count) {
@@ -32,6 +33,7 @@ inline void set_bit(u8 *source, u32 index){
 }
 
 int generic_qstr_compare(struct qstr * a, struct qstr * b) {
+    kernel_printf("utils.c 36: compare: %s, %s\n", a->name, b->name);
     return kernel_strcmp(a->name,b->name);
 }
 

@@ -84,12 +84,12 @@ void init_kernel() {
     create_startup_process();
     log(LOG_END, "Process Control Module.");
     // Interrupts
-    log(LOG_START, "Enable Interrupts.");
-    init_interrupts();
-    log(LOG_END, "Enable Interrupts.");
     // Init finished
     machine_info();
     *GPIO_SEG = 0x11223344;
+    log(LOG_START, "Enable Interrupts.");
+    init_interrupts();
+    log(LOG_END, "Enable Interrupts.");
     // Enter shell
     while (1);
 }

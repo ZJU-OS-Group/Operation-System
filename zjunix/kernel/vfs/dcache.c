@@ -3,6 +3,7 @@
 #include <zjunix/vfs/vfscache.h>
 #include <zjunix/vfs/hash.h>
 #include <zjunix/debug/debug.h>
+#include <intr.h>
 
 /********************************** 外部变量 ************************************/
 extern struct cache     *dcache;
@@ -18,12 +19,14 @@ void dput(struct dentry *dentry) {
 
 // 为字符串计算哈希值
 u32 __stringHash(struct qstr * qstr, u32 size) {
+    debug_warning("[dcache.c:__stringHash:21]\n");
     u32 i = 0;
     u32 value = 0;
     for (i = 0; i < qstr->len; i++)
         value = value * 31 + (u32)(qstr->name[i]);            // 参考Java
 
     u32 mask = size - 1;                        // 求余
+//    kernel_printf("string_hash: %d\n", value&mask);
     return value & mask;
 }
 
@@ -39,20 +42,32 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
     struct list_head    *start;
     parent  = (struct dentry*) (cond->cond1);
     name    = (struct qstr*) (cond->cond2);
+    kernel_printf("cond: cond2: %d\n", cond->cond2);
 
+//    kernel_printf("test1\n");
     // 计算名字对应的哈希值，找到那个哈希值对应页面的链表头
+    kernel_printf("dcache.c:49:d_name:%s, len: %d, cache_tablesize: %d\n", name->name, name->len, this->cache_tablesize);
     hash = __stringHash(name, this->cache_tablesize);
     current = &(this->c_hashtable[hash]);
+//    kernel_printf("hash: %d\n", hash);
+//    kernel_printf("hashtable: %d\n", this->c_hashtable[hash]);
+//    kernel_printf("cache_size: %d\n", this->cache_size);
     start = current;
 
+    kernel_printf("test2\n");
     // 遍历这个链表搜索，需要父目录及名字匹配
     found = 0;
     while ( current->next != start ){
         current = current->next;
         tested = container_of(current, struct dentry, d_hash); // 通过d_hash的指针获得结构体的指针
         qstr = &(tested->d_name);
+//        kernel_printf("dcache.c: 57, qstr: %s, %d\n", qstr->name, qstr->len);
+//        kernel_printf("dcache.c: 58, name: %s, %d\n", name->name, name->len);
+//        kernel_printf("dcache.c:66, test_parent: %d, parent: %d\n", tested->d_parent, parent);
+        kernel_printf("dcache.c: 67: d_op: %d\n", parent->d_op);
         if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
+            kernel_printf("found\n");
             break;
         }
     }
@@ -131,6 +146,7 @@ void dcache_add(struct cache *this, void * object) {
 
     // 计算目录项名字对应的哈希值
     addend = (struct dentry *) object;
+//    kernel_printf("add: d_name:%s, len: %d, cache_tablesize: %d\n", addend->d_name.name, addend->d_name.len, this->cache_tablesize);
     hash = __stringHash(&addend->d_name, this->cache_tablesize);
 
     // 如果整个目录项缓冲已满，替换一页出去
@@ -145,6 +161,7 @@ void dcache_add(struct cache *this, void * object) {
 
     // 当前cache的size加一
     this->cache_size += 1;
+//    kernel_printf("add: hash: %d\n", hash);
     debug_end("[dcache.c: dcache_add:148]\n");
 }
 

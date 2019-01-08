@@ -400,6 +400,7 @@ u32 generic_file_flush(struct file *);
 // mount.c for file system mount
 u32 follow_mount(struct vfsmount **, struct dentry **);
 struct vfsmount * lookup_mnt(struct vfsmount *, struct dentry *);
+u32 mount_ext3();
 
 // usr.c for user command
 u32 vfs_cat(const u8 *);
@@ -424,5 +425,7 @@ void set_bit(u8 *source, u32 index);
 u32 init_vfs();
 u32 vfs_read_MBR();
 u32 get_next_zero_bit(const u8*, u32);
+
+
 
 #endif

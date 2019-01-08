@@ -1,5 +1,6 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/debug/debug.h>
+#include <intr.h>
 
 
 /********************************** 外部变量 ************************************/
@@ -20,6 +21,7 @@ u32 open_namei(const u8 *pathname, u32 flag, struct nameidata *nd){
 
     /* 仅查找，不用create */
     if (!(flag&O_CREAT)) {
+        kernel_printf("open_namei: %s\n", pathname);
         err = path_lookup(pathname, LOOKUP_FOLLOW, nd);
         if (err)
             return err;
@@ -88,6 +90,7 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
         nd->dentry = pwd_dentry;
     }
     debug_end("[namei.c: path_lookup:90]\n");
+//    kernel_printf("path_lookup: %s\n", name);
     return link_path_walk(name, nd);
 }
 
@@ -97,28 +100,34 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     u32 err = 0;
     u32 lookup_flags = nd->flags;
     struct path next;
+    struct qstr this;
 
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
-    while (*name=='/') name++;
-
     if (!*name) {
         // 检查有效性，不会
         return 0;
     }
 
+//    while (*name=='/') name++;
     // 初始化inode，这是查找的当前位置，之后从这开始找
     // TODO：这里先不考虑链接
+//    if(*name == 0) {
+//        this.name="/";
+//        this.len = 1;
+//        goto last_component;
+//    }
 
     // 解析每一个分量
     while (1) {
         u8 c;
-        struct qstr this;
         this.name = name;
         do { // 处理到'/'为止
             name++;
             c = *name;
         } while (c && (c != '/'));
         this.len = (u32) (name - this.name);
+//        kernel_printf("namei.c 121: %s\n", name);
+//        kernel_printf("namei.c 122: %s, %d\n", this.name, this.len);
 
         if (!c) { // 解析完毕了，后面没有'/'了
             debug_info("[namei.c: link_path_walk:124] go to last component\n");
@@ -146,9 +155,13 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         }
         // 书上说这里要hash，不清楚是拿来干嘛的
         nd->flags |= LOOKUP_CONTINUE;               // 表示还有下一个分量要分析
+        kernel_printf("namei.c: 148 name: %s, %d\n", this.name, this.len);
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
         if (err)                                    // (this.name)相关的目录项对象（next.dentry）
             break;
+
+//        kernel_printf("%d\n", next.dentry);
+//        kernel_printf("%d\n", next.dentry->d_inode);
 
         // 检查next.dentry是否指向某个文件系统的安装点
         // 如果是的话，更新乘这个文件系统的上级的dentry和mount
@@ -199,6 +212,7 @@ last_component:
             }
         }
         // 书上说这里要hash，不清楚是拿来干嘛的
+        kernel_printf("namei.c: 215 name: %s, %d\n", this.name, this.len);
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
         if (err)                                    // (this.name)相关的目录项对象（next.dentry）
             break;
@@ -267,10 +281,11 @@ u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {
     struct vfsmount *mnt = nd->mnt;
     // 在目录项高速缓存中寻找，查找文件名和父目录项相符的目录缓冲项
     struct condition cond;
+//    kernel_printf("namei.c: name: %s, %d\n", name->name, name->len);
     cond.cond1 = (void*) nd->dentry;
     cond.cond2 = (void*) name;
     struct dentry* dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
-
+//    kernel_printf("namei.c:275: dentry:%d\n", dentry);
     // 目录项高速缓冲（内存）没有，到外存中找
     if (!dentry)
         goto need_lookup;

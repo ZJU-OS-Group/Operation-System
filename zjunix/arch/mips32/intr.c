@@ -1,3 +1,5 @@
+#include <driver/vga.h>
+#include <zjunix/debug/debug.h>
 #include "intr.h"
 #include "arch.h"
 
@@ -9,6 +11,7 @@ intr_fn interrupts[8];
 void init_interrupts() {
     // status 0000 0000 0000 0000 1001 1100 0000 0001
     // cause 0000 0000 1000 0000 0000 0000 0000 0000
+    debug_start("init_interrupts!\n");
     unsigned int t;
     asm volatile(
         "mfc0 $t0, $12\n\t"
@@ -16,6 +19,7 @@ void init_interrupts() {
         "move %0, $t0\n\t"
         "mtc0 $t0, $12"
         : "=r"(t));
+    debug_end("init_interrupts!\n");
 }
 
 int enable_interrupts() {
