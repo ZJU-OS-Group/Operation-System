@@ -1,6 +1,4 @@
-//
-// Created by Desmond.
-//
+
 #include <zjunix/pid.h>
 #include <zjunix/debug/debug.h>
 
@@ -15,23 +13,21 @@ inline pid_t min_pid(pid_t a, pid_t b) {
 }
 //以下操作都是成功:返回1，不成功：返回0
 void init_pid() {
-    debug_start("PID-INIT\n");
+    debug_start("[pc.c: init_pid]\n");
     int i;
     for (i = 0; i < PID_BYTES; i++) pidmap[i] = 0;
     pidmap[0] = PIDMAP_INIT;
     nextPid = PID_MIN;
     stackTop = 0;
     minInPool = PID_MAX_LIMIT;
-    debug_end("PID-INIT\n");
+    debug_end("[pc.c: init_pid]\n");
 }
 
 int pid_alloc(pid_t *ret){
-    debug_start("PID-ALLOC\n");
     if (stackTop > 0) {
         pid_t ans = pidPool[--stackTop];
         pidmap[ans >> 3] |= (1 << (ans & 7)); //pidmap置位
         *ret = ans;   //交付pid
-        debug_end("PID-ALLOC\n");
         return 1;
     }
     pid_t i;
@@ -40,15 +36,12 @@ int pid_alloc(pid_t *ret){
         pidmap[i >> 3] |= (1 << (i & 7)); //pidmap置位
         nextPid = (pid_t) (i + 1);      //更新nextPid
         *ret = i;
-        debug_end("PID-ALLOC\n");
         return 1;  //交付pid
     }
-    debug_warning("PID ALL ALLOCATED!\n");
     if (i >= PID_MAX_LIMIT) return 0;
 }
 
 int pid_free(pid_t pid){
-    debug_start("PID-FREE\n");
     int ans = pid_exist(pid);
     if (ans) {
         pidmap[pid >> 3] &= ~(1 << (pid & 7));
@@ -60,10 +53,9 @@ int pid_free(pid_t pid){
             minInPool = PID_MAX_LIMIT;
         }  //如果被弃用的PID过多的话，将栈清空，并且让next_pid回到最小值处开始后移
     }
-    debug_end("PID-FREE\n");
     return ans;
 }
 
 int pid_exist(pid_t pid){
-    return (pid <= PID_MAX_LIMIT && (pidmap[pid >> 3] & (1 << (pid & 7))));
+    return ((pid <= PID_MAX_LIMIT) && ((pidmap[pid >> 3] & (1 << (pid & 7)))));
 }
