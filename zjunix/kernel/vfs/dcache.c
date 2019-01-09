@@ -65,7 +65,7 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
         kernel_printf("dcache.c: 58, name: %s, %d\n", name->name, name->len);
 //        kernel_printf("dcache.c:66, test_parent: %d, parent: %d\n", tested->d_parent, parent);
         kernel_printf("dcache.c: 67: d_op: %d\n", parent->d_op);
-        kernel_printf("QAQAQAQAQQQQ: [%d] [%d]\n",tested->d_parent->d_name,parent->d_name);
+        kernel_printf("QAQAQAQAQQQQ: [%d] [%d] [%d]\n",tested->d_parent,parent,root_dentry);
         if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
             kernel_printf("found\n");

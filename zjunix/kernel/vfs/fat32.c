@@ -349,8 +349,6 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
 
         // 如果页高速缓存中没有，则需要在外存中寻找（一定能够找到，因为不是创建文件）
         if ( tempPage == 0 ){
-
-
             tempPage = (struct vfs_page *) kmalloc ( sizeof(struct vfs_page) );
             if (!tempPage)
                 return ERR_PTR(-ENOMEM);
@@ -834,9 +832,14 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     struct dentry* parent_dentry;
     struct nameidata* _nameidata;
     struct inode* temp_inode;
-    parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
+    parent_dentry = container_of(parent_inode, struct dentry, d_inode);
     temp_dentry->d_parent = parent_dentry;
-
+    /*debug_warning("fat32.c: mkdir: 839:");
+    kernel_printf("LOL name addr parent_dentry: %d, root_dentry: %d\n", parent_dentry->d_name, root_dentry->d_name);
+    kernel_printf("LOL dentry addr parent_dentry: %d, root_dentry: %d\n", parent_dentry, root_dentry);
+    kernel_printf("LOL parent_dentry: %s, root_dentry: %s\n", parent_dentry->d_name.name, root_dentry->d_name.name);
+    kernel_printf("LOL parent_inode: %d, root_inode: %d\n", parent_dentry->d_inode, root_dentry->d_inode);
+*/
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
     err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
     if(err)

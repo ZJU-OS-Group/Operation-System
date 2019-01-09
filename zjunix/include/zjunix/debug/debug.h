@@ -4,7 +4,6 @@
 
 #ifndef OPERATION_SYSTEM_DEBUG_H
 #define OPERATION_SYSTEM_DEBUG_H
-#define DEBUG_EN 1
 #include <driver/vga.h>
 void debug_start(const char*);
 
