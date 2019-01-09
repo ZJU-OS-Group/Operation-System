@@ -65,7 +65,7 @@ void reset_free_bit(int bitPos) {
     free_bitmap &= ~(1 << bitPos);
 }
 
-int find_next_occupied_bit(int bitPos) {
+int find_next_working_bit(int bitPos) {
     int i;
     if (free_bitmap == 0x00000000) return -1;  //如果所有的机器都在运行，那么就返回-1
     for (i = bitPos+1; i < KERNEL_NUM; i++)
@@ -402,6 +402,7 @@ int pc_kill(pid_t pid) {
         // 不可能出现还在running的，已经在pid==current[curKernel]->pid这一步过滤掉了
     }
     target->state = S_TERMINATE; // 状态标记为终止
+    reset_free_bit(curKernel);  // 标记当前处理器空闲
 //    debug_warning("STEP3\n");
     add_exit(target);
     // 关闭进程文件，释放进程文件空间
@@ -439,28 +440,35 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
     current[curKernel]->time_counter -= 3;
     change_priority(current[curKernel],1);
-    /* 时间配额没有用完，判断需不需要被抢占 */
     next = find_next_task();  //首先不需要等待时间片用完，只要时钟中断触发就可以安排新的task
+    if (next != current[curKernel]) { //如果
+
+    }
     //next会拿到就绪队列里最高优先级的进程
     int nextKernel = find_next_free_bit();
     //注意，这里还需要再实现一个时间片轮转的逻辑
     if (nextKernel != -1) { //说明现在可以再分配一个新的进程
         current[nextKernel] = next; //把新拿到的进程分配给新的处理器
-        set_free_bit(nextKernel);   //标记当前处理器正在工作
+        set_free_bit(nextKernel);   //标记当前目标分配的处理器正在工作
         updateFlag = 1;
-    } else {  //说明现在全满了
+    } else {
+        // 说明现在全满了
         // 第一步：找到目前具有最低优先级的处理器
         // 第二步：判断是否抢占并更新优先级
-
+        nextKernel = find_lowest_priority();
+        int nextPriority = PRIORITY[next->priority_class][next->priority_level];
+        int currentPriority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
+        if (nextPriority > currentPriority) updateFlag = 1;
     }
     // 现在还需要检查是否切换了kernel
     // 上文需要更新nextKernel
-    //todo :这里找到了next运行进程，然后下面还需要做上下文切换
+    // todo :这里找到了next运行进程，然后下面还需要做上下文切换
     if (is_realtime(current[curKernel])) // 如果是实时task，重置时间片
         pc_exchange(next, pt_context, 1);
     else
         pc_exchange(next, pt_context, 0);
-    curKernel = nextKernel;
+    curKernel = find_next_working_bit(curKernel);  //寻找下一个正在使用的处理器并更新到新的处理器
+
 //    if (current[curKernel]->time_counter > 0) {
 ////        kernel_printf("Test1: what's the current process? %s\n",current->name);
 //        next = get_preemptive_task();

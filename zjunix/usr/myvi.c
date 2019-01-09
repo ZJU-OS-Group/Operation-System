@@ -60,6 +60,7 @@ void load_file(char *file_path) {
     char newchar;
     int ret = 1;
     target_file = vfs_open(file_path, O_RDONLY); // 打开文件
+    kernel_printf("[myvi.c load_file:63] target_file: %d\n", &target_file);
 
     if (IS_ERR_OR_NULL(target_file)){
         if ( PTR_ERR(target_file) == -ENOENT )
@@ -76,6 +77,8 @@ void load_file(char *file_path) {
     } else {
         is_new_file = 0; // 非新文件
     }
+    disable_interrupts();
+    while (1);
 
     file_size = target_file->f_dentry->d_inode->i_size;
     int i = 0;
