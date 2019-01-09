@@ -199,7 +199,8 @@ u32 init_fat32(u32 base)
     root_inode->i_op                = &(fat32_inode_operations[0]);
     root_inode->i_fop    = &(fat32_file_operations);
     root_inode->i_sb     = fat32_sb;
-    root_inode->i_blocks = 0;
+    root_inode->i_blocks = 1;
+    root_inode->i_block_count = 0;
     INIT_LIST_HEAD(&(root_inode->i_dentry));
     INIT_LIST_HEAD(&(root_inode->i_hash));
     INIT_LIST_HEAD(&(root_inode->i_sb_list));
@@ -243,7 +244,7 @@ u32 init_fat32(u32 base)
     cluNo = fat32_BI->fat32_DBR->root_clu;
     //32位，0x0FFFFFFF表示文件结束
     while ( 0x0FFFFFFF != cluNo ){
-        root_inode->i_blocks++;
+        root_inode->i_block_count++;
         cluNo = read_fat(root_inode, cluNo);          // 读FAT32表
         debug_warning("cluNo:");
         kernel_printf("%d\n", cluNo);
@@ -373,7 +374,14 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
         }
         kernel_printf("page addr: %d\n", tempPage->page_address);
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
-
+        struct inode* test_inode;
+        u32 abs_sect_addr;
+        test_inode = tempPage->p_address_space->a_host;
+        abs_sect_addr = ((struct fat32_basic_information *) (test_inode->i_sb->s_fs_info)) \
+->fat32_FAT1->data_sec + (tempPage->page_address - 2) * (test_inode->i_block_size >> SECTOR_LOG_SIZE);
+        //第一、第二个扇区是系统扇区
+        debug_warning("absolute sector addr: ");
+        kernel_printf("%d\n", abs_sect_addr);
         for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
 
             temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + i);
@@ -1022,7 +1030,8 @@ u32 fat32_readpage(struct vfs_page* page) {
     abs_sect_addr = ((struct fat32_basic_information *) (temp_inode->i_sb->s_fs_info)) \
 ->fat32_FAT1->data_sec + (page->page_address - 2) * (temp_inode->i_block_size >> SECTOR_LOG_SIZE);
     //第一、第二个扇区是系统扇区
-    kernel_printf("absolute sector addr: %d\n", abs_sect_addr);
+    debug_warning("absolute sector addr: ");
+    kernel_printf("%d\n", abs_sect_addr);
     page->page_data = (u8*)kmalloc(sizeof(u8) * temp_inode->i_block_size);
     if(page->page_data == 0)
     {
@@ -1073,10 +1082,12 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
     kernel_printf("%d\n", file->f_dentry->d_fsdata);
     file_inode = file->f_dentry->d_inode;
     getdent->count = 0;
+    kernel_printf("i_block_count %d\n", file_inode->i_block_count);
+    kernel_printf("i_block_size %d\n", file_inode->i_block_size);
     getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_block_count * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
     if (getdent->dirent == 0)
     {
-     debug_err("dirent allocate memory fail");
+     debug_err("dirent allocate memory fail\n");
      return -ENOMEM;
     }
     file_inode->i_block_count = 1;
@@ -1118,6 +1129,14 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
         }
         kernel_printf("page addr: %d\n", tempPage->page_address);
+        struct inode* test_inode;
+        u32 abs_sect_addr;
+        test_inode = tempPage->p_address_space->a_host;
+        abs_sect_addr = ((struct fat32_basic_information *) (test_inode->i_sb->s_fs_info)) \
+->fat32_FAT1->data_sec + (tempPage->page_address - 2) * (test_inode->i_block_size >> SECTOR_LOG_SIZE);
+        //第一、第二个扇区是系统扇区
+        debug_warning("absolute sector addr: ");
+        kernel_printf("%d\n", abs_sect_addr);
         //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
         for (j = 0; j < file_inode->i_block_size; j += FAT32_DIR_ENTRY_LEN) {
             temp_dir_entry = (struct fat32_dir_entry *) (tempPage + j);
