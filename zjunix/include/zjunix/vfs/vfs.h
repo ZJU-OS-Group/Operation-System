@@ -250,7 +250,7 @@ struct inode {
     struct list_head                    i_hash;         /* 散列表，用于快速查找inode */
     struct list_head                    i_list;         /* 索引节点链表 */
     struct list_head                    i_sb_list;      /* 超级块链表超级块  */
-    struct list_head                    i_dentry;       /* 目录项链表 */
+    struct dentry*                      i_dentry;       /* 目录项链表 */
     u32                                 i_ino;          /* 节点号 */
     u32                                 i_blocks;       /* inode对应的文件所用块数 */
     u32                                 i_size;         /* inode对应文件的字节数 */

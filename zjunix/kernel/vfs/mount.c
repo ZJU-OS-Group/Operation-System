@@ -35,6 +35,8 @@ u32 mount_ext3(){
 
     dentry->d_mounted = 1;
     dentry->d_inode = mnt->mnt_root->d_inode;
+    dentry->d_parent = root_dentry;
+    kernel_printf("mount ext3 in %d, %d\n", dentry->d_parent);
     mnt->mnt_mountpoint = dentry;
     mnt->mnt_parent = root_mnt;
     debug_warning("Mount ext3 successfully!\n");
@@ -50,6 +52,7 @@ u32 follow_mount(struct vfsmount **mnt, struct dentry **dentry) {
 
     // 查找挂载的对象
     while ((*dentry)->d_mounted) {
+        debug_warning("mount.c follow_mount 53:\n");
         struct vfsmount *mounted = lookup_mnt(*mnt, *dentry);
         if (!mounted)
             break;
@@ -70,7 +73,7 @@ struct vfsmount * lookup_mnt(struct vfsmount *mnt, struct dentry *dentry) {
     struct list_head *head = &(mnt->mnt_hash);
     struct list_head *tmp = head;
     struct vfsmount *p, *found = 0;
-
+    debug_start("mount.c: lookup_mnt:74\n");
     // 在字段为hash的双向链表寻找。这里有所有已安装的文件系统的对象
     // 这里并没有为其实现hash查找，仅普通链表
     for (;;) {
@@ -84,6 +87,8 @@ struct vfsmount * lookup_mnt(struct vfsmount *mnt, struct dentry *dentry) {
             break;
         }
     }
+    debug_end("mount.c lookup:88");
+    kernel_printf("result: %d\n", found);
 
     return found;
 }

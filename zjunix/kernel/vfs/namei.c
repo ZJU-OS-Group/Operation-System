@@ -162,6 +162,12 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         // 检查next.dentry是否指向某个文件系统的安装点
         // 如果是的话，更新乘这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
+        if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
+        {
+            debug_warning("namei.c 165 ext3");
+            kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
+            return 0;
+        }
 
         // 检查next.dentry对应的inode是否为空
         if (!next.dentry->d_inode) {
@@ -219,6 +225,17 @@ last_component:
         // 如果是的话，更新成这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
+        kernel_printf("hhhhhhhhhhhh %s\n",next.dentry->d_name.name);
+        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
+        {
+            root_dentry = next.dentry;
+            root_mnt = next.mnt;
+            nd->dentry = next.dentry;
+            nd->mnt = next.mnt;
+            debug_warning("namei.c 222 ext3");
+            kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
+            return 0;
+        }
         if (!next.dentry->d_inode) {
             kernel_printf("namei.c 218: not a dentry, the dentry's name: %s\n", next.dentry->d_name);
             kernel_printf("namei.c 219: not a dentry, the dentry's inode: %d\n", next.dentry->d_inode);
@@ -226,6 +243,7 @@ last_component:
         }
         if (lookup_flags&LOOKUP_DIRECTORY) { // 如果要求最后一个分量是目录，那就必须要判断，不然无所谓
             err = -ENOTDIR;
+
             if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) {
                 kernel_printf("namei.c: 222: not a dentry, the i_op: %d, %d\n", next.dentry->d_inode->i_op, next.dentry->d_inode->i_op->lookup);
                 break;
