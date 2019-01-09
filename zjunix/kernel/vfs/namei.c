@@ -160,6 +160,12 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         // 检查next.dentry是否指向某个文件系统的安装点
         // 如果是的话，更新乘这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
+        if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
+        {
+            debug_warning("namei.c 165 ext3");
+            kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
+            return 0;
+        }
 
         // 检查next.dentry对应的inode是否为空
         if (!next.dentry->d_inode) {
@@ -219,7 +225,8 @@ last_component:
         err = -ENOENT;
         if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
         {
-
+            debug_warning("namei.c 222 ext3");
+            kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
             return 0;
         }
         if (!next.dentry->d_inode) {
