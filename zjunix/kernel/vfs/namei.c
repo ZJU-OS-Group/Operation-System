@@ -218,7 +218,10 @@ last_component:
         if (!next.dentry->d_inode) break;
         if (lookup_flags&LOOKUP_DIRECTORY) { // 如果要求最后一个分量是目录，那就必须要判断，不然无所谓
             err = -ENOTDIR;
-            if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) break;
+            if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) {
+                kernel_printf("namei.c: 222: not a dentry, the i_op: %d, %d\n", next.dentry->d_inode->i_op, next.dentry->d_inode->i_op->lookup);
+                break;
+            }
         }
         debug_end("[namei.c: link_path_walk:215]\n");
         return 0;
