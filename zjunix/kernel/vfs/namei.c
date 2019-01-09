@@ -305,6 +305,7 @@ need_lookup:
     debug_info("[namei.c: do_lookup:287] need lookup\n");
     // 即将使用底层文件系统在外存中查找，并构建需要的目录项
     dentry = real_lookup(nd->dentry, name, nd);
+    kernel_printf("namei.c: 308: real_lookup result: %d\n", dentry);
     if (IS_ERR(dentry))
         goto fail;
     goto done;
@@ -324,12 +325,12 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
     struct dentry *dentry = d_alloc(parent, name);
     result = ERR_PTR(-ENOMEM);
     if (dentry) {
-        debug_info("namei.c: real_lookup: 327:");
-        kernel_printf("%d, result: %d", dentry, result);
+//        debug_info("namei.c: real_lookup: 327:");
+//        kernel_printf("%d, result: %d\n", dentry, result);
         // 查找需要的dentry对应的inode。若找到，相应的inode会被新建并加入高速缓存，dentry与之的联系也会被建立
         result = dir->i_op->lookup(dir, dentry, nd);
-        kernel_printf("i_op: lookup result: %d\n", result);
-        if (result) dput(dentry);
+//        kernel_printf("i_op: lookup result: %d\n", result);
+        if (!result) dput(dentry);
         else result = dentry;
     }
     debug_end("[namei.c: real_lookup:314]\n");
