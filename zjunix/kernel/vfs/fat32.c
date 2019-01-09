@@ -61,13 +61,11 @@ u32 init_fat32(u32 base)
     struct super_block* fat32_sb;
     struct vfs_page* tempPage;
     struct inode* root_inode;
-    debug_start("fat32.c init_fat32 start\n");
     // 构建 fat32_basic_information 结构
     fat32_BI = (struct fat32_basic_information *) kmalloc ( sizeof(struct fat32_basic_information) );
     if (fat32_BI == 0)
     {
         err = -ENOMEM;
-        debug_err("fat32.c:69 fat32_BI allocate memory error!\n");
         return err;
     }
 
@@ -342,6 +340,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
     // 对目录关联的每一页
     for ( i = 0; i < temp_inode->i_blocks; i++){
         tempPageNo = temp_inode->i_data.a_op->bmap(temp_inode, i);
+        kernel_printf("page number:%d\n", tempPageNo);
         // 首先在页高速缓存中寻找
         conditions.cond1 = (void*)(&tempPageNo);
         conditions.cond2 = (void*)(temp_inode);
@@ -372,7 +371,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
             pcache->c_op->add(pcache, (void*)tempPage);
             list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
         }
-
+        kernel_printf("page addr: %d\n", tempPage->page_address);
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
 
         for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
@@ -1014,16 +1013,15 @@ u32 fat32_bitmap(struct inode* _inode, u32 pageNo)
     return _inode->i_data.a_page[pageNo];
 }
 
-u32 fat32_readpage(struct vfs_page* page)
-{
+u32 fat32_readpage(struct vfs_page* page) {
     u32 err, base, abs_sect_addr;
-    struct inode* temp_inode;
+    struct inode *temp_inode;
+    int count = 0;
     //找出绝对扇区地址
     temp_inode = page->p_address_space->a_host;
-    abs_sect_addr = ((struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info)) \
-    ->fat32_FAT1->data_sec + (page->page_address - 2) * (temp_inode->i_block_size >> SECTOR_LOG_SIZE);
+    abs_sect_addr = ((struct fat32_basic_information *) (temp_inode->i_sb->s_fs_info)) \
+->fat32_FAT1->data_sec + (page->page_address - 2) * (temp_inode->i_block_size >> SECTOR_LOG_SIZE);
     //第一、第二个扇区是系统扇区
-
     kernel_printf("absolute sector addr: %d\n", abs_sect_addr);
     page->page_data = (u8*)kmalloc(sizeof(u8) * temp_inode->i_block_size);
     if(page->page_data == 0)
@@ -1031,8 +1029,6 @@ u32 fat32_readpage(struct vfs_page* page)
         err = -ENOMEM;
         return err;
     }
-    debug_info("page_data allocate memory ok!\n");
-    kernel_printf("inode block size: %d\n", temp_inode->i_block_size);
     err = vfs_read_block(page->page_data, abs_sect_addr, temp_inode->i_block_size);
     if(err != 0)
     {
@@ -1076,20 +1072,24 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
     debug_start("fat32.c:1044 fat32_readdir start\n");
     kernel_printf("%d\n", file->f_dentry->d_fsdata);
     file_inode = file->f_dentry->d_inode;
-    kernel_printf("file_inode data:%d\n", file_inode->i_block_size);
     getdent->count = 0;
     getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_block_count * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
     if (getdent->dirent == 0)
-        return -ENOMEM;
+    {
+     debug_err("dirent allocate memory fail");
+     return -ENOMEM;
+    }
     file_inode->i_block_count = 1;
     for(i = 0;i < file_inode->i_block_count;i++) {
         realPageNo = file_inode->i_data.a_op->bmap(file_inode, i);
+        if (!realPageNo) return -ENOMEM;
         if (!realPageNo) return -ENOMEM;
         kernel_printf("realPageNo %d\n", realPageNo);
         conditions.cond1 = &(realPageNo);
         conditions.cond2 = file_inode;
         tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
         //页不在高速缓存中就需要调重新分配
+        err = file_inode->i_data.a_op->readpage(tempPage);
         if (tempPage == 0) {
             debug_info("page is not in pcache!\n");
             tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
@@ -1117,9 +1117,7 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             //将文件已缓冲的页接入链表
             list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
         }
-
-        kernel_printf("i: %d, block num : %d\n", i, file_inode->i_block_count);
-
+        kernel_printf("page addr: %d\n", tempPage->page_address);
         //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
         for (j = 0; j < file_inode->i_block_size; j += FAT32_DIR_ENTRY_LEN) {
             temp_dir_entry = (struct fat32_dir_entry *) (tempPage + j);
@@ -1135,7 +1133,7 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
                 kernel_printf(" ");
                 break;
             }
-            //或者是被删除了 ??
+            //或者是被删除了
             if (temp_dir_entry->name[0] == 0xE5) {
                 debug_info("file has been deleted\n");
                 continue;
