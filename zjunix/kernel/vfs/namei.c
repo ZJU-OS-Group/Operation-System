@@ -101,19 +101,12 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     struct path next;
     struct qstr this;
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
+    while(*name=='/'||*name==' ') name++;
+
     if (!*name) {
-        // 检查有效性，不会
+        // 直接返回，因为就只有空格或根目录
         return 0;
     }
-
-//    while (*name=='/') name++;
-    // 初始化inode，这是查找的当前位置，之后从这开始找
-    // TODO：这里先不考虑链接
-//    if(*name == 0) {
-//        this.name="/";
-//        this.len = 1;
-//        goto last_component;
-//    }
 
     // 解析每一个分量
     while (1) {
