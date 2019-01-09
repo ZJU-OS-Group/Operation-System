@@ -88,11 +88,11 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
         nd->mnt = pwd_mnt;
         nd->dentry = pwd_dentry;
     }
-    kernel_printf("namei.c 92 root->dentry: %d\n", root_dentry);
-    kernel_printf("namei.c 93 root->mnt: %d\n", root_mnt);
+//    kernel_printf("namei.c 92 root->dentry: %d\n", root_dentry);
+//    kernel_printf("namei.c 93 root->mnt: %d\n", root_mnt);
     debug_end("[namei.c: path_lookup:90]\n");
-    kernel_printf("namei.c 92 nd->dentry: %d\n", nd->dentry);
-    kernel_printf("namei.c 93 nd->mnt: %d\n", nd->mnt);
+//    kernel_printf("namei.c 92 nd->dentry: %d\n", nd->dentry);
+//    kernel_printf("namei.c 93 nd->mnt: %d\n", nd->mnt);
 //    kernel_printf("path_lookup: %s\n", name);
     return link_path_walk(name, nd);
 }
@@ -218,6 +218,7 @@ last_component:
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
         if (!next.dentry->d_inode) {
+            kernel_printf("namei.c 218: not a dentry, the dentry's name: %s\n", next.dentry->d_name);
             kernel_printf("namei.c 219: not a dentry, the dentry's inode: %d\n", next.dentry->d_inode);
             break;
         }
