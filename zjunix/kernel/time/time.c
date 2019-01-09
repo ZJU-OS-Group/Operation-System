@@ -44,7 +44,6 @@ void system_time_proc() {
             "mfc0 %1, $9, 7\n\t"
             : "=r"(ticks_low), "=r"(ticks_high));
         get_time_string(ticks_high, ticks_low, buffer);
-
         for (i = 0; i < 11; i++)
             kernel_putchar_at(day[i], 0xfff, 0, 29, 61 + i);
         for (i = 0; i < 8; i++)
