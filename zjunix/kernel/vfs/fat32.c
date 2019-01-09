@@ -1043,7 +1043,7 @@ u32 fat32_readpage(struct vfs_page* page) {
         err = -ENOMEM;
         return err;
     }
-    err = vfs_read_block(page->page_data, abs_sect_addr, temp_inode->i_blocks);
+    err = vfs_read_block(page->page_data, abs_sect_addr, (temp_inode->i_blocks * temp_inode ->i_block_size / SECTOR_BYTE_SIZE));
     if(err != 0)
     {
         err = -EIO;
@@ -1132,18 +1132,9 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             //将文件已缓冲的页接入链表
             list_add(&(tempPage->page_list), &(file_inode->i_data.a_cache));
         }
-        kernel_printf("page addr: %d\n", tempPage->page_address);
-        struct inode* test_inode;
-        u32 abs_sect_addr;
-        test_inode = tempPage->p_address_space->a_host;
-        abs_sect_addr = ((struct fat32_basic_information *) (test_inode->i_sb->s_fs_info)) \
-->fat32_FAT1->data_sec + (tempPage->page_address - 2) * (test_inode->i_block_size >> SECTOR_LOG_SIZE);
-        //第一、第二个扇区是系统扇区
-        debug_warning("absolute sector addr: ");
-        kernel_printf("%d\n", abs_sect_addr);
         //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
         for (j = 0; j < file_inode->i_block_size; j += FAT32_DIR_ENTRY_LEN) {
-            temp_dir_entry = (struct fat32_dir_entry *) (tempPage + j);
+            temp_dir_entry = (struct fat32_dir_entry *) (tempPage->page_data + j);
             kernel_printf("j: %d\n", j);
             //0x08表示卷标(虽然没有)  0F是长文件名(其实也没有)
             if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME) {
@@ -1153,7 +1144,6 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
             //空文件名，其实没有目录项了
             if (temp_dir_entry->name[0] == '\0') {
                 kernel_printf("no dir left!\n");
-                kernel_printf(" ");
                 break;
             }
             //或者是被删除了
