@@ -10,7 +10,7 @@
 #define PROC_DEFAULT_TIMESLOTS  6    /* 默认时间配额 */
 #define PRIORITY_CLASS_NUM      7
 #define PRIORITY_LEVEL_NUM      7
-#define KERNEL_NUM              4
+#define KERNEL_NUM              32
 
 /**************************************** 优先权类 *************************************/
 enum PRIORITY_CLASS{

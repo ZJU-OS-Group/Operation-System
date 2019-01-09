@@ -261,6 +261,7 @@ u32 get_group_info_base(struct inode *inode, u8 block_offset) {
     return group_target_base;
 }
 
+//todo:根目录下cd..就回到fat32
 u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信息并填充到vfs块内
     u32 i;  //For loop
     u8 target_buffer[SECTOR_BYTE_SIZE];
@@ -412,6 +413,7 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
     struct ext3_dir_entry *curDentry;
     u8 *pageTail;
     u8 *curAddr;
+    debug_warning("hello I'm here!\n");
     getdent->count = 0;  //初始化当前目标填充区域的计数器为0
     getdent->dirent = (struct dirent *) kmalloc(sizeof(struct dirent) * (MAX_DIRENT_NUM));
     for (i = 0; i < inode->i_blocks; i++) { //遍历这个目录文件内的所有块
