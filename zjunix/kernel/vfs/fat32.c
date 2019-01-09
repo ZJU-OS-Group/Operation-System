@@ -199,8 +199,8 @@ u32 init_fat32(u32 base)
     root_inode->i_op                = &(fat32_inode_operations[0]);
     root_inode->i_fop    = &(fat32_file_operations);
     root_inode->i_sb     = fat32_sb;
-    root_inode->i_blocks = 1;
-    root_inode->i_block_count = 0;
+    root_inode->i_blocks = 0;
+    root_inode->i_block_count = 1;
     INIT_LIST_HEAD(&(root_inode->i_dentry));
     INIT_LIST_HEAD(&(root_inode->i_hash));
     INIT_LIST_HEAD(&(root_inode->i_sb_list));
@@ -244,7 +244,7 @@ u32 init_fat32(u32 base)
     cluNo = fat32_BI->fat32_DBR->root_clu;
     //32位，0x0FFFFFFF表示文件结束
     while ( 0x0FFFFFFF != cluNo ){
-        root_inode->i_block_count++;
+        root_inode->i_blocks++;
         cluNo = read_fat(root_inode, cluNo);          // 读FAT32表
         debug_warning("cluNo:");
         kernel_printf("%d\n", cluNo);
@@ -881,7 +881,10 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
     vfs_read_block(buffer, sec_addr, 1);
     //32位数据直接修改buffer
-    buffer[sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))] = content;
+    buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 3] = (u8)((content & 0xFF) >> 24);
+    buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 2] = (u8)((content & 0x00FF) >> 16);
+    buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 1] = (u8)((content & 0x0000FF) >> 8);
+    buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) ] = (u8)((content & 0x000000FF));
     err = vfs_write_block(buffer, sec_addr, 1);
     if(err)
     {
@@ -1024,7 +1027,7 @@ u32 fat32_bitmap(struct inode* _inode, u32 pageNo)
 u32 fat32_readpage(struct vfs_page* page) {
     u32 err, base, abs_sect_addr;
     struct inode *temp_inode;
-    int count = 0;
+    int count = 0, i;
     //找出绝对扇区地址
     temp_inode = page->p_address_space->a_host;
     abs_sect_addr = ((struct fat32_basic_information *) (temp_inode->i_sb->s_fs_info)) \
@@ -1033,15 +1036,18 @@ u32 fat32_readpage(struct vfs_page* page) {
     debug_warning("absolute sector addr: ");
     kernel_printf("%d\n", abs_sect_addr);
     page->page_data = (u8*)kmalloc(sizeof(u8) * temp_inode->i_block_size);
+    kernel_printf("%d\n", temp_inode->i_block_size);
     if(page->page_data == 0)
     {
+
         err = -ENOMEM;
         return err;
     }
-    err = vfs_read_block(page->page_data, abs_sect_addr, temp_inode->i_block_size);
+    err = vfs_read_block(page->page_data, abs_sect_addr, temp_inode->i_blocks);
     if(err != 0)
     {
         err = -EIO;
+        debug_info("read in block error!\n");
         return err;
     }
     debug_info("read page_data ok!\n");
@@ -1079,19 +1085,17 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
     struct condition conditions;
     struct fat32_dir_entry* temp_dir_entry;
     debug_start("fat32.c:1044 fat32_readdir start\n");
-    kernel_printf("%d\n", file->f_dentry->d_fsdata);
     file_inode = file->f_dentry->d_inode;
     getdent->count = 0;
-    kernel_printf("i_block_count %d\n", file_inode->i_block_count);
+    kernel_printf("i_blocks %d\n", file_inode->i_blocks);
     kernel_printf("i_block_size %d\n", file_inode->i_block_size);
-    getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_block_count * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
+    getdent->dirent = (struct dirent *) kmalloc ( sizeof(struct dirent) * (file_inode->i_blocks * file_inode->i_block_size / FAT32_DIR_ENTRY_LEN));
     if (getdent->dirent == 0)
     {
      debug_err("dirent allocate memory fail\n");
      return -ENOMEM;
     }
-    file_inode->i_block_count = 1;
-    for(i = 0;i < file_inode->i_block_count;i++) {
+    for(i = 0;i < file_inode->i_blocks;i++) {
         realPageNo = file_inode->i_data.a_op->bmap(file_inode, i);
         if (!realPageNo) return -ENOMEM;
         if (!realPageNo) return -ENOMEM;
@@ -1100,7 +1104,7 @@ u32 fat32_readdir(struct file * file, struct getdent * getdent)
         conditions.cond2 = file_inode;
         tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
         //页不在高速缓存中就需要调重新分配
-        err = file_inode->i_data.a_op->readpage(tempPage);
+        tempPage = 0;
         if (tempPage == 0) {
             debug_info("page is not in pcache!\n");
             tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
