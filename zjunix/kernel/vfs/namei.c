@@ -224,8 +224,7 @@ last_component:
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
         kernel_printf("hhhhhhhhhhhh %s\n",next.dentry->d_name.name);
-        kernel_printf("hhhhhhhhhhh %d, %d\n", next.dentry->d_parent, root_dentry);
-        if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
+        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
         {
             debug_warning("namei.c 222 ext3");
             kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
