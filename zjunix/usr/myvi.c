@@ -2,26 +2,28 @@
 #include <driver/ps2.h>
 #include <driver/vga.h>
 #include <zjunix/vfs/vfs.h>
+#include <zjunix/debug/debug.h>
 
 extern int cursor_freq;
-int pre_cursor_freq;
-struct file* target_file;
+int pre_cursor_freq;  // 光标
+struct file* target_file; // 目标文件
 
-int is_new_file;
-extern struct dentry* pwd_dentry;
+int is_new_file; // 是否新建文件（若按照pathname找不到则为新建的文件）
+extern struct dentry* pwd_dentry; // 当前目录
 
-char buffer[BUFFER_SIZE];
+char buffer[BUFFER_SIZE]; // 缓冲区，4096
 char instruction[COLUMN_LEN] = "";
-char *filename;
+char *filename; // 文件名
 int inst_len = 0;
 int size = 0;
-int cursor_location;
-int page_location = 0;
-int page_end;
+int cursor_location; // 光标位置
+int page_location = 0; // 页面位置
+int page_end; // 页面末尾
 int err;
 int mode;
 
 char myvi_init() {
+    // 初始化一系列相关值
     int i;
     size = 0;
     inst_len = 0;
@@ -52,11 +54,13 @@ char *mystrcpy(char *dest, const char *src) {
 }
 
 void load_file(char *file_path) {
+    debug_start("[myvi.c: load_file: 57]\n");
     int file_size;
     int cnt = 0;
     char newchar;
     int ret = 1;
-    target_file = vfs_open(file_path, O_RDONLY);
+    target_file = vfs_open(file_path, O_RDONLY); // 打开文件
+
     if (IS_ERR_OR_NULL(target_file)){
         if ( PTR_ERR(target_file) == -ENOENT )
             kernel_printf("File not found!\n");
@@ -65,12 +69,12 @@ void load_file(char *file_path) {
     else{
         ret = 0;
     }
-    if (ret != 0) {
-        is_new_file = 1;
-        buffer[size++] = '\n';
+    if (ret != 0) { // 新文件
+        is_new_file = 1; // 标定新文件flag
+        buffer[size++] = '\n'; // 初始化一个空行
         return;
     } else {
-        is_new_file = 0;
+        is_new_file = 0; // 非新文件
     }
 
     file_size = target_file->f_dentry->d_inode->i_size;
@@ -359,14 +363,16 @@ void do_last_line_mode(char key) {
 }
 
 int myvi(char *para) {
+    debug_start("[myvi.c: myvi] init \n");
     myvi_init();
+    debug_end("[myvi.c: myvi] init finish\n");
 
-    filename = para;
+    filename = para; // 文件名
     pre_cursor_freq = cursor_freq;
     cursor_freq = 0;
-    kernel_set_cursor();
+    kernel_set_cursor(); // set光标，zjunix的内核函数
 
-    load_file(filename);
+    load_file(filename); // 根据文件名加载文件
 
     screen_flush();
 

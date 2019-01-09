@@ -122,8 +122,6 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
             c = *name;
         } while (c && (c != '/'));
         this.len = (u32) (name - this.name);
-//        kernel_printf("namei.c 121: %s\n", name);
-//        kernel_printf("namei.c 122: %s, %d\n", this.name, this.len);
 
         if (!c) { // 解析完毕了，后面没有'/'了
             debug_info("[namei.c: link_path_walk:124] go to last component\n");
