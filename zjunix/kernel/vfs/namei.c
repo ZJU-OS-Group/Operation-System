@@ -107,7 +107,7 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
     while(*name=='/'||*name==' ') name++;
 
-    if (!*name || *name == '\n') {
+    if (!*name) {
         kernel_printf("/ or .\n");
         // 直接返回，因为就只有空格或根目录
         return 0;
@@ -199,7 +199,7 @@ last_component:
             goto lookup_parent;
         if (this.name[0]=='.') {
             if (this.len==1) { // './'当前目录
-                continue;
+                return 0;
             }
             if (this.len==2 && this.name[1]=='.') { // '../'父目录
                 follow_dotdot(nd);
