@@ -223,6 +223,8 @@ last_component:
         // 如果是的话，更新成这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
+        kernel_printf("hhhhhhhhhhhh %s\n",next.dentry->d_name.name);
+        kernel_printf("hhhhhhhhhhh %d, %d\n", next.dentry->d_parent, root_dentry);
         if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
         {
             debug_warning("namei.c 222 ext3");
