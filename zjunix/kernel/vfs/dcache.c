@@ -124,7 +124,7 @@ struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
     INIT_LIST_HEAD(&dentry->d_hash);
     INIT_LIST_HEAD(&dentry->d_lru);
     INIT_LIST_HEAD(&dentry->d_subdirs);
-    INIT_LIST_HEAD(&dentry->d_alias);
+    INIT_LIST_HEAD(&dentry->d_alias); // todo: dont't know is dentry or root_dentry
     if (parent) {
         dentry->d_parent = parent;
         dget(parent);
