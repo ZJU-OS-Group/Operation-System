@@ -252,9 +252,11 @@ u32 vfs_ls(const u8 * path) {
 
     // 读取目录到gedent中
     err = file->f_op->readdir(file, &getdent);
+//    kernel_printf("usr.c: vfs_ls: 255 err: %d\n", err);
     if (err)
         return err;
 
+//    kernel_printf("usr.c vfs_ls: 259 count: %d\n", getdent.count);
     // 遍历gedent，向屏幕打印结果
     for (int i = 0; i < getdent.count; ++i) {
         if (getdent.dirent[i].type == FTYPE_DIR)

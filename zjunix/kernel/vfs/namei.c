@@ -88,7 +88,11 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
         nd->mnt = pwd_mnt;
         nd->dentry = pwd_dentry;
     }
+    kernel_printf("namei.c 92 root->dentry: %d\n", root_dentry);
+    kernel_printf("namei.c 93 root->mnt: %d\n", root_mnt);
     debug_end("[namei.c: path_lookup:90]\n");
+    kernel_printf("namei.c 92 nd->dentry: %d\n", nd->dentry);
+    kernel_printf("namei.c 93 nd->mnt: %d\n", nd->mnt);
 //    kernel_printf("path_lookup: %s\n", name);
     return link_path_walk(name, nd);
 }
@@ -103,15 +107,16 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
     while(*name=='/'||*name==' ') name++;
 
-    if (!*name) {
+    if (!*name || *name == '\n') {
+        kernel_printf("/ or .\n");
         // 直接返回，因为就只有空格或根目录
         return 0;
     }
-
     // 解析每一个分量
     while (1) {
         u8 c;
         this.name = name;
+        kernel_printf("namei.c 119: name: %s\n", name);
         do { // 处理到'/'为止
             name++;
             c = *name;
@@ -201,7 +206,7 @@ last_component:
             }
         }
         // 书上说这里要hash，不清楚是拿来干嘛的
-        kernel_printf("namei.c: 215 name: %s, %d\n", this.name, this.len);
+//        kernel_printf("namei.c: 215 name: %s, %d\n", this.name, this.len);
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
         if (err)                                    // (this.name)相关的目录项对象（next.dentry）
             break;
@@ -284,7 +289,6 @@ done:
     // 找到，修改path的字段，返回无错误
     path->mnt = mnt;
     path->dentry = dentry;
-    kernel_printf("MMMMMMMMMMM %d\n",dentry->d_inode);
     dget(dentry);
     return 0;
 

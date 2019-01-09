@@ -42,11 +42,11 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
     struct list_head    *start;
     parent  = (struct dentry*) (cond->cond1);
     name    = (struct qstr*) (cond->cond2);
-    kernel_printf("cond: cond2: %d\n", cond->cond2);
+//    kernel_printf("cond: cond2: %d\n", cond->cond2);
 
 //    kernel_printf("test1\n");
     // 计算名字对应的哈希值，找到那个哈希值对应页面的链表头
-    kernel_printf("dcache.c:49:d_name:%s, len: %d, cache_tablesize: %d\n", name->name, name->len, this->cache_tablesize);
+//    kernel_printf("dcache.c:49:d_name:%s, len: %d, cache_tablesize: %d\n", name->name, name->len, this->cache_tablesize);
     hash = __stringHash(name, this->cache_tablesize);
     current = &(this->c_hashtable[hash]);
 //    kernel_printf("hash: %d\n", hash);
