@@ -228,6 +228,8 @@ last_component:
         {
             root_dentry = next.dentry;
             root_mnt = next.mnt;
+            nd->dentry = next.dentry;
+            nd->mnt = next.mnt;
             debug_warning("namei.c 222 ext3");
             kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
             return 0;
