@@ -425,8 +425,8 @@ int is_realtime(struct task_struct* task) {
 }
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
-    int updateFlag = 0;
-    struct task_struct* next;
+    int preemFlag = 0;
+    struct task_struct* next,last;
     /* 判断异常类型 */
     if (cause==0) {
         // TODO: interruption
@@ -434,40 +434,58 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     else if (cause==8) {
         // TODO: system call
     }
-
     // 清理结束链表
     clear_exit();
     /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
     current[curKernel]->time_counter -= 3;
     change_priority(current[curKernel],1);
-    next = find_next_task();  //首先不需要等待时间片用完，只要时钟中断触发就可以安排新的task
-    if (next != current[curKernel]) { //如果
 
+    if (current[curKernel]->time_counter == 0) {
+        //如果时间片用完了，那么要把当前的进程移交到就绪队列，并且设置当前处理器无负载
+        add_ready(current[curKernel]);
+        //这里要把当前核心的当前进程移送到ready队列
+        reset_free_bit(curKernel);
+        current[curKernel]->time_counter = PROC_DEFAULT_TIMESLOTS;  //分配一个完整的时间配额
+        current[curKernel]->state = S_READY;
     }
-    //next会拿到就绪队列里最高优先级的进程
-    int nextKernel = find_next_free_bit();
+    next = find_next_task();
+    //首先不需要等待时间片用完，只要时钟中断触发就可以安排新的task，这里要找到下一个要运行的非idle进程
+    if (next != 0) {
+        //如果就绪队列还有内容，那么尝试将其调度到一个处理器上
+        int allocKernel = find_next_free_bit();
+        if (allocKernel != -1) {             //说明现在还有一个空处理器
+            current[allocKernel] = next;     //把新拿到的进程分配给新的处理器
+            set_free_bit(allocKernel);       //标记当前目标分配的处理器接收到了进程
+            remove_ready(next);              //next已经可以运行，不属于就绪状态
+        } else {
+            // 说明现在全满了
+            // 第一步：找到目前具有最低优先级的处理器
+            // 第二步：判断是否抢占并更新优先级
+            allocKernel = find_lowest_priority();
+            int nextPriority = PRIORITY[next->priority_class][next->priority_level];
+            int currentPriority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
+            if (nextPriority > currentPriority) { //这里直接抢占
+                add_ready(current[allocKernel]);
+                remove_ready(next);
+                current[allocKernel] = next;
+                preemFlag = (current[curKernel]->time_counter != 0);
+            }
+        }
+    }
     //注意，这里还需要再实现一个时间片轮转的逻辑
-    if (nextKernel != -1) { //说明现在可以再分配一个新的进程
-        current[nextKernel] = next; //把新拿到的进程分配给新的处理器
-        set_free_bit(nextKernel);   //标记当前目标分配的处理器正在工作
-        updateFlag = 1;
-    } else {
-        // 说明现在全满了
-        // 第一步：找到目前具有最低优先级的处理器
-        // 第二步：判断是否抢占并更新优先级
-        nextKernel = find_lowest_priority();
-        int nextPriority = PRIORITY[next->priority_class][next->priority_level];
-        int currentPriority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
-        if (nextPriority > currentPriority) updateFlag = 1;
-    }
+
     // 现在还需要检查是否切换了kernel
     // 上文需要更新nextKernel
     // todo :这里找到了next运行进程，然后下面还需要做上下文切换
-    if (is_realtime(current[curKernel])) // 如果是实时task，重置时间片
-        pc_exchange(next, pt_context, 1);
-    else
-        pc_exchange(next, pt_context, 0);
-    curKernel = find_next_working_bit(curKernel);  //寻找下一个正在使用的处理器并更新到新的处理器
+    int nextKernel = find_next_working_bit(curKernel);  //寻找下一个正在使用的处理器并更新到新的处理器
+    if (nextKernel != -1) {   //如果能找到下一个正在运行的处理器，那么移交控制权
+        if (is_realtime(current[curKernel]))
+            pc_exchange(next, pt_context, 1);  //如果是实时task，重置时间片
+        else
+            pc_exchange(next, pt_context, 0);  //如果是非实时task，则继续使用这个时间片
+    }
+    curKernel = nextKernel;
+
 
 //    if (current[curKernel]->time_counter > 0) {
 ////        kernel_printf("Test1: what's the current process? %s\n",current->name);
@@ -532,14 +550,7 @@ struct task_struct* get_preemptive_task() {
 //    debug_start("[pc.c:get_preemptive_task:441]\n");
     struct task_struct* next;
     u32 current_priority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
-    next = (struct task_struct*)kmalloc(sizeof(struct task_struct));
-//    next = &(current->context);
     next = current[curKernel];
-
-    // 从高到低寻找比current优先级高的
-//    kernel_printf("Test1-3: current priority: %d\n",current_priority);
-//    kernel_printf("Test1-3: prioirty_levels: %d\n",PRIORITY_LEVELS);
-
     for (int i = PRIORITY_LEVELS-1; i > current_priority; --i) {
 //        if (ready_bitmap[i]) {
         if (get_ready_bit(i) == 1) {
@@ -547,6 +558,10 @@ struct task_struct* get_preemptive_task() {
             break;
         }
     }
+    // 从高到低寻找比current优先级高的
+//    kernel_printf("Test1-3: current priority: %d\n",current_priority);
+//    kernel_printf("Test1-3: prioirty_levels: %d\n",PRIORITY_LEVELS);
+
     return next;
 }
 
@@ -593,22 +608,15 @@ struct task_struct* find_in_tasks(pid_t pid) {
 }
 
 // 在就绪队列中寻找下一个要运行的进程并返回
-struct task_struct* find_next_task() {
+struct task_struct* find_next_task() { //如果输入参数是1，那么不考虑idle，否则考虑idle
     //debug_start("[pc.c: find_next_task:410]\n");
-    struct task_struct* next;
-    u32 current_priority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
-
-    /* 先从优先级高于current的列表里面寻找，若找到直接返回 */
-    next = get_preemptive_task();
-    if (next != current[curKernel])
-        return next;
-
-    // 如果没有找到，那么找同级的
-//    if (ready_bitmap[current_priority]) {
-    if (get_ready_bit(current_priority) == 1) {
-        next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
+    struct task_struct* next = 0;
+    for (int i = PRIORITY_LEVELS-1; i > 0; --i) {
+        if (get_ready_bit(i)) {  //如果该优先级就绪了，那么获取这个next
+            next = container_of(ready_queue[i].queue_head.next, struct task_struct, schedule_list);
+            break;
+        }
     }
-    //debug_end("[pc.c: find_next_task:423] equal priority\n");
     return next;
 }
 
