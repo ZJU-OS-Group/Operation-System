@@ -207,7 +207,7 @@ struct inode *ext3_init_inode(struct super_block *super_block, u32 ino_num) {
     ans->i_sb = super_block;
     ans->i_block_size = super_block->s_block_size;
     INIT_LIST_HEAD(&(ans->i_list)); //初始化索引节点链表
-    INIT_LIST_HEAD(&(ans->i_dentry));  //初始化目录项链表
+    //INIT_LIST_HEAD(&(ans->i_dentry));  //初始化目录项链表
     INIT_LIST_HEAD(&(ans->i_hash));  //初始化散列表
     switch (ans->i_block_size) {
         case 1024:
@@ -362,7 +362,7 @@ u32 init_ext3(u32 base) {
 
     //将root_inode和root_dentry进行关联
     root_dentry->d_inode = root_inode;
-    list_add(&(root_dentry->d_alias), &(root_inode->i_dentry));
+   // list_add(&(root_dentry->d_alias), &(root_inode->i_dentry));
 
     struct vfsmount *root_mount = ext3_init_mount(root_dentry, super_block);
     goto end;
