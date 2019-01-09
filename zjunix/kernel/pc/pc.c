@@ -138,6 +138,8 @@ void init_pc() {
     init_pc_list();
 
     idle = (struct task_struct*)(kernel_sp - KERNEL_STACK_SIZE);
+    kernel_printf("kernel_sp = %d\n, KERNEL_STACK_SIZE = %d\n",kernel_sp,KERNEL_STACK_SIZE);
+    kernel_printf("task_struct size : %d \n",sizeof(struct task_struct));
     idle->ASID = 0;
     idle->time_counter = PROC_DEFAULT_TIMESLOTS;
     kernel_strcpy(idle->name, "init");
