@@ -324,8 +324,11 @@ struct dentry * real_lookup(struct dentry *parent, struct qstr *name, struct nam
     struct dentry *dentry = d_alloc(parent, name);
     result = ERR_PTR(-ENOMEM);
     if (dentry) {
+        debug_info("namei.c: real_lookup: 327:");
+        kernel_printf("%d, result: %d", dentry, result);
         // 查找需要的dentry对应的inode。若找到，相应的inode会被新建并加入高速缓存，dentry与之的联系也会被建立
         result = dir->i_op->lookup(dir, dentry, nd);
+        kernel_printf("i_op: lookup result: %d\n", result);
         if (result) dput(dentry);
         else result = dentry;
     }
