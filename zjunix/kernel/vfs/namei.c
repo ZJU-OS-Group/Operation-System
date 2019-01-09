@@ -208,14 +208,19 @@ last_component:
         // 书上说这里要hash，不清楚是拿来干嘛的
 //        kernel_printf("namei.c: 215 name: %s, %d\n", this.name, this.len);
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
-        if (err)                                    // (this.name)相关的目录项对象（next.dentry）
+        if (err) {                                    // (this.name)相关的目录项对象（next.dentry）
+            kernel_printf("namei.c 212, the do_lookup err: %d\n", err);
             break;
+        }
 
         // 检查next.dentry是否指向某个文件系统的安装点
         // 如果是的话，更新成这个文件系统的上级的dentry和mount
         follow_mount(&next.mnt,&next.dentry);
         err = -ENOENT;
-        if (!next.dentry->d_inode) break;
+        if (!next.dentry->d_inode) {
+            kernel_printf("namei.c 219: not a dentry, the dentry's inode: %d\n", next.dentry->d_inode);
+            break;
+        }
         if (lookup_flags&LOOKUP_DIRECTORY) { // 如果要求最后一个分量是目录，那就必须要判断，不然无所谓
             err = -ENOTDIR;
             if (!next.dentry->d_inode->i_op || !next.dentry->d_inode->i_op->lookup) {
