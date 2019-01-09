@@ -226,6 +226,8 @@ last_component:
         kernel_printf("hhhhhhhhhhhh %s\n",next.dentry->d_name.name);
         if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
         {
+            root_dentry = next.dentry;
+            root_mnt = next.mnt;
             debug_warning("namei.c 222 ext3");
             kernel_printf("next dentry: %d, nd dentry: %d\n", next.dentry, nd->dentry);
             return 0;
