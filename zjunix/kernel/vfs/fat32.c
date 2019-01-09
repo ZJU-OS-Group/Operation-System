@@ -167,7 +167,6 @@ u32 init_fat32(u32 base)
     root_dentry->d_name.name = "/";
     root_dentry->d_name.len = 1;
     root_dentry->d_op = &fat32_dentry_operations;
-    dcache->c_op->add(dcache, root_dentry);
 
     //相关联的信息初始化
     pwd_dentry = root_dentry;
@@ -241,7 +240,7 @@ u32 init_fat32(u32 base)
     root_inode->i_data.a_pagesize   = fat32_sb->s_block_size;
     root_inode->i_data.a_op         = &(fat32_address_space_operations);
     INIT_LIST_HEAD(&(root_inode->i_data.a_cache));
-
+    dcache->c_op->add(dcache, root_dentry);
     //开始从初始簇遍历
     cluNo = fat32_BI->fat32_DBR->root_clu;
     //32位，0x0FFFFFFF表示文件结束
@@ -456,13 +455,14 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
             break;                              // 跳出的是对每一页的循环
     }
 
+    if (!found)
+        return 0;
+    //todo : zy :这里存疑，不过不应该给nameidata复写不存在的目标内容！
     // 完善nameidata的信息
     _nameidata->dentry = temp_dentry;
     _nameidata->mnt = root_mnt;
     _nameidata->flags = found;
     // 如果没找到相应的inode
-    if (!found)
-        return 0;
 
     // 完善dentry的信息
     temp_dentry->d_inode = new_inode;
@@ -826,8 +826,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     u32 err;
     struct dentry* parent_dentry;
     struct nameidata* _nameidata;
+    struct inode* temp_inode;
     parent_dentry = container_of(parent_inode->i_dentry.next, struct dentry, d_alias);
-
     temp_dentry->d_parent = parent_dentry;
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));

@@ -65,6 +65,7 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
 //        kernel_printf("dcache.c: 58, name: %s, %d\n", name->name, name->len);
 //        kernel_printf("dcache.c:66, test_parent: %d, parent: %d\n", tested->d_parent, parent);
         kernel_printf("dcache.c: 67: d_op: %d\n", parent->d_op);
+//        kernel_printf("QAQAQAQAQQQQ: %d %d\n",tested->d_parent,parent);
         if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
             kernel_printf("found\n");
@@ -123,8 +124,7 @@ struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
     INIT_LIST_HEAD(&dentry->d_hash);
     INIT_LIST_HEAD(&dentry->d_lru);
     INIT_LIST_HEAD(&dentry->d_subdirs);
-    INIT_LIST_HEAD(&(root_dentry->d_alias));
-
+    INIT_LIST_HEAD(&dentry->d_alias);
     if (parent) {
         dentry->d_parent = parent;
         dget(parent);
@@ -133,7 +133,6 @@ struct dentry * d_alloc(struct dentry *parent, const struct qstr *name) {
     } else {
         INIT_LIST_HEAD(&dentry->d_u.d_child);
     }
-
     dcache->c_op->add(dcache, (void*)dentry);
     debug_end("[dcache.c: d_alloc:123]\n");
     return dentry;

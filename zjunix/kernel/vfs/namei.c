@@ -79,7 +79,6 @@ u32 path_lookup(const u8 * name, u32 flags, struct nameidata *nd) {
     nd->last_type = LAST_ROOT;
     nd->flags = flags;
     nd->depth = 0;
-
     if ( *name == '/' ) { // 绝对路径
         dget(root_dentry);
         nd->mnt = root_mnt;
@@ -101,7 +100,6 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     u32 lookup_flags = nd->flags;
     struct path next;
     struct qstr this;
-
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
     if (!*name) {
         // 检查有效性，不会
@@ -295,6 +293,7 @@ done:
     // 找到，修改path的字段，返回无错误
     path->mnt = mnt;
     path->dentry = dentry;
+    kernel_printf("MMMMMMMMMMM %d\n",dentry->d_inode);
     dget(dentry);
     return 0;
 
@@ -341,6 +340,7 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
     struct condition cond;
     cond.cond1 = (void*) nd->dentry;
     cond.cond2 = (void*) name;
+
     dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
 
     // 如果没有找到，尝试在外存找
@@ -360,7 +360,6 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
         else
             dput(new);
     }
-
     debug_end("[namei.c: __lookup_hash:349]\n");
     return dentry;
 }
@@ -374,7 +373,7 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir) {
     if (nd->last_type != LAST_NORM)
         goto fail;
     nd->flags &= ~LOOKUP_PARENT;
-    dentry = __lookup_hash(&nd->last, nd->dentry, 0);
+    dentry = __lookup_hash(&nd->last, nd->dentry, nd);
     if (IS_ERR(dentry))
         goto fail;
     if (!is_dir && nd->last.name[nd->last.len] && !dentry->d_inode)

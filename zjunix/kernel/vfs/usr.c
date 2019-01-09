@@ -72,11 +72,10 @@ u32 vfs_mkdir(const u8 * path) {
     err = path_lookup(path,LOOKUP_PARENT,&nd);
     if (err)
         return err;
-
     // 若是没有则创建dentry
     dentry = lookup_create(&nd, 1);
-    err = PTR_ERR(dentry);
-    if (!IS_ERR(dentry)) {
+//    err = PTR_ERR(dentry);
+    if (!IS_ERR_OR_NULL(dentry)) {
         struct inode * dir = nd.dentry->d_inode;
         if (!dir->i_op || !dir->i_op->mkdir) {
             debug_err("[usr.c: vfs_mkdir:82] operation not permitted\n");
@@ -84,6 +83,7 @@ u32 vfs_mkdir(const u8 * path) {
         }
 
         // 调用文件系统对应的mkdir
+
         err = dir->i_op->mkdir(dir, dentry, 0);
         dput(dentry);
     }
