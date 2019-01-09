@@ -2,10 +2,12 @@
 #include <driver/vga.h>
 #include <zjunix/debug/debug.h>
 
+extern struct dentry  *root_dentry;
+extern struct dentry  *pwd_dentry;
 // 根据路径名，返回文件操作符file
 struct file *vfs_open(const u8 *filename, u32 flags) {
     debug_start("[open.c: vfs_open:7]\n");
-
+//    kernel_printf("open.c vfs_open: filename: %s\n", filename);
     u32 err;
     struct nameidata nd;
 
@@ -37,6 +39,8 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     debug_start("[open.c: dentry_open:37]\n");
     debug_warning("dentry_open: 38  ");
     kernel_printf("%d\n",dentry);
+    kernel_printf("root dentry:%d\n", root_dentry);
+    kernel_printf("pwd dentry:%d\n", pwd_dentry);
     struct file *f;
     struct inode *inode;
     u32 err;
