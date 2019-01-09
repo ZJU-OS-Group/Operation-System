@@ -54,18 +54,18 @@ void* dcache_look_up(struct cache *this, struct condition *cond) {
 //    kernel_printf("cache_size: %d\n", this->cache_size);
     start = current;
 
-    kernel_printf("test2\n");
+//    kernel_printf("test2\n");
     // 遍历这个链表搜索，需要父目录及名字匹配
     found = 0;
     while ( current->next != start ){
         current = current->next;
         tested = container_of(current, struct dentry, d_hash); // 通过d_hash的指针获得结构体的指针
         qstr = &(tested->d_name);
-//        kernel_printf("dcache.c: 57, qstr: %s, %d\n", qstr->name, qstr->len);
-//        kernel_printf("dcache.c: 58, name: %s, %d\n", name->name, name->len);
+        kernel_printf("dcache.c: 57, qstr: %s, %d\n", qstr->name, qstr->len);
+        kernel_printf("dcache.c: 58, name: %s, %d\n", name->name, name->len);
 //        kernel_printf("dcache.c:66, test_parent: %d, parent: %d\n", tested->d_parent, parent);
         kernel_printf("dcache.c: 67: d_op: %d\n", parent->d_op);
-//        kernel_printf("QAQAQAQAQQQQ: %d %d\n",tested->d_parent,parent);
+        kernel_printf("QAQAQAQAQQQQ: [%d] [%d]\n",tested->d_parent->d_name,parent->d_name);
         if ( !parent->d_op->d_compare(qstr, name) && tested->d_parent == parent ){
             found = 1; // 都匹配上了
             kernel_printf("found\n");

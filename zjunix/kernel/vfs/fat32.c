@@ -854,16 +854,16 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     u8 buffer[SECTOR_BYTE_SIZE];
     u32 sec_addr;
     u32 sec_index;
-    debug_start("fat32.c:826 read_fat start\n");
+//    debug_start("fat32.c:826 read_fat start\n");
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
-    kernel_printf("sec_addr %d\n", sec_addr);
+//    kernel_printf("sec_addr %d\n", sec_addr);
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
-    kernel_printf("sec_index %d\n", sec_index);
+//    kernel_printf("sec_index %d\n", sec_index);
     vfs_read_block(buffer, sec_addr, 1);
-    debug_end("fat32.c:832 read_fat end\n");
-    kernel_printf("%d\n", vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT))) );
+//    debug_end("fat32.c:832 read_fat end\n");
+//    kernel_printf("%d\n", vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT))) );
     return vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT)));
 }
 

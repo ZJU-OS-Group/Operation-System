@@ -32,9 +32,18 @@ inline void set_bit(u8 *source, u32 index){
     *(source + index / BITS_PER_BYTE) |= 1 << (index % BITS_PER_BYTE);
 }
 
+//int generic_qstr_compare(struct qstr * a, struct qstr * b) {
+//    kernel_printf("utils.c 36: compare: %s, %s\n", a->name, b->name);
+//    return kernel_strcmp(a->name,b->name);
+//}
 int generic_qstr_compare(struct qstr * a, struct qstr * b) {
     kernel_printf("utils.c 36: compare: %s, %s\n", a->name, b->name);
-    return kernel_strcmp(a->name,b->name);
+    u8 len = 0;
+    if (a->len != b->len) return 1;   //不相等
+    for (len = 0; len < a->len; len++) {
+        if (*(a->name+len) != *(b->name+len)) return 1;
+    }
+    return 0;
 }
 
 u32 get_next_zero_bit(const u8 *source, u32 byte_len) {

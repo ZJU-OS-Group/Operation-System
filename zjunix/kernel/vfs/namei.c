@@ -151,8 +151,10 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
         nd->flags |= LOOKUP_CONTINUE;               // 表示还有下一个分量要分析
         kernel_printf("namei.c: 148 name: %s, %d\n", this.name, this.len);
         err = do_lookup(nd, &this, &next);          // 真正的查找，得到与给定的父目录（nd->dentry）和文件名，把下一个分量对应的目录赋给next
-        if (err)                                    // (this.name)相关的目录项对象（next.dentry）
+        if (err) {                                   // (this.name)相关的目录项对象（next.dentry）
+            debug_warning("namei.c: 155, do_lookup not found\n");
             break;
+        }
 
 //        kernel_printf("%d\n", next.dentry);
 //        kernel_printf("%d\n", next.dentry->d_inode);
@@ -305,14 +307,19 @@ need_lookup:
     debug_info("[namei.c: do_lookup:287] need lookup\n");
     // 即将使用底层文件系统在外存中查找，并构建需要的目录项
     dentry = real_lookup(nd->dentry, name, nd);
-    kernel_printf("namei.c: 308: real_lookup result: %d\n", dentry);
+//    kernel_printf("namei.c: 308: real_lookup result: %d\n", dentry);
     if (IS_ERR(dentry))
         goto fail;
+    if (IS_ERR_OR_NULL(dentry))
+        goto fail2; // 因为null引起的错误
     goto done;
 
 fail:
     debug_err("[namei.c: do_lookup:295] fail\n");
     return PTR_ERR(dentry);
+fail2:
+    debug_err("[namei.c: do_lookup:319] fail2\n");
+    return -ENOENT;
 }
 
 // 对实际文件系统进行查找，调用具体文件系统节点的查找函数执行查找
