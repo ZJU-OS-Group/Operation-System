@@ -19,7 +19,6 @@
 #define SLOB_UNIT_SIZE sizeof(struct slob_unit)
 #define SLOB_UNITS(x)  x/SLOB_UNIT_SIZE
 
-
 struct slob_unit{
 
 };
