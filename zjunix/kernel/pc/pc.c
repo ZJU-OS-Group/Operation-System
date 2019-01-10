@@ -414,12 +414,11 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
-    kernel_printf("");
     while (semaphore);
     semaphore = 1;
-    debug_start("");
 //    debug_warning("current procname:\n");
 //    kernel_printf("%s\n",current->name);
+//    kernel_printf("????\n");
     pc_schedule_core(status,cause,pt_context);
 //    debug_end("[pc.c: pc_schedule:419]\n");
 

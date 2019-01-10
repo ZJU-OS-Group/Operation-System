@@ -1,6 +1,7 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/debug/debug.h>
 #include <intr.h>
+#include <zjunix/vfs/ext3.h>
 
 
 /********************************** 外部变量 ************************************/
@@ -385,7 +386,7 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
             debug_err("[namei.c: __lookup_hash:337] alloc failed\n");
             return dentry;
         }
-
+        kernel_printf("%d\n",inode->i_op);
         // 尝试在外存中查找需要的dentry对应的inode。若找到，相应的inode会被新建并加入高速缓存，dentry与之的联系也会被建立
         dentry = inode->i_op->lookup(inode, new, nd);
         if (!dentry)
