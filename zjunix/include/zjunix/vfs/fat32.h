@@ -107,6 +107,7 @@ u32 fat32_create_inode(struct inode *, struct dentry *, struct nameidata *);
 u32 fat32_readdir(struct file *, struct getdent *);
 u32 fat32_mkdir(struct inode*, struct dentry*, u32);
 u32 fat32_rmdir(struct inode*, struct dentry*);
+u32 fat32_touch(struct inode*, struct dentry*, u32);
 u32 fat32_rename (struct inode*, struct dentry*, struct inode*, struct dentry*);
 void fat32_convert_filename(struct qstr*, const struct qstr*, u8, u32);
 u32 fat32_readpage(struct vfs_page *);

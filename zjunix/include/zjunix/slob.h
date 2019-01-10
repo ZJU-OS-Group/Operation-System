@@ -37,7 +37,7 @@ struct slob_page {
             atomic_t _count;      /* 填充用，为了不覆盖page->_count */
             int units;      /* slob的空闲单元数 */
             unsigned long pad[2];
-            slob_t *free;        /* 指向第一个空闲块 */
+            struct slob_block *free;        /* 指向第一个空闲块 */
             struct list_head page_list;    /* 用于链入slob全局链表 */
         }info;
         struct page page;

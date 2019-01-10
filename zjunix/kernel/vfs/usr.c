@@ -62,7 +62,37 @@ u32 vfs_cat(const u8 *path) {
     debug_end("[usr.c: vfs_cat:61]\n");
     return 0;
 }
+// touch: 新建文件
+u32 vfs_touch(const u8 * path)
+{
+    debug_start("[usr.c: vfs_touch:67]\n");
+    u32 err=0;
+    struct dentry *dentry;
+    struct nameidata nd;
+    // 找到path对应的nd信息
+    extern struct dentry* root_dentry;
+    err = path_lookup(path,LOOKUP_PARENT,&nd);
+    if (err)
+        return err;
+    // 若是没有则创建dentry
+    dentry = lookup_create(&nd, 1);
+//    err = PTR_ERR(dentry);
+    if (!IS_ERR_OR_NULL(dentry)) {
+        struct inode * dir = nd.dentry->d_inode;
+        if (!dir->i_op || !dir->i_op->mkdir) {
+            debug_err("[usr.c: vfs_mkdir:82] operation not permitted\n");
+            return -EPERM;
+        }
 
+        // 调用文件系统对应的touch
+        kernel_printf("777777777777777777777777777 %d %d\n",container_of(&(nd.dentry->d_inode),struct dentry,d_inode),root_dentry);
+        err = dir->i_op->touch(nd.dentry->d_inode, dentry, 0);
+        dput(dentry);
+    }
+    dput(nd.dentry);
+    debug_end("[usr.c: vfs_touch:91]\n");
+    return err;
+}
 // mkdir：新建目录
 u32 vfs_mkdir(const u8 * path) {
     debug_start("[usr.c: vfs_mkdir:67]\n");

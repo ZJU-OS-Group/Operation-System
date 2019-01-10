@@ -284,6 +284,8 @@ struct inode_operations {
     struct dentry * (*lookup) (struct inode *,struct dentry *, struct nameidata *);
     /* 创建硬链接 */
     int (*link) (struct dentry *,struct inode *,struct dentry *);
+    /* 创建文件*/
+    u32 (*touch) (struct inode *, struct dentry*, u32);
     /* 被系统调用mkdir()调用，创建父目录inode下的一个新目录dentry，mode指定创建时的初始模式 */
     u32 (*mkdir) (struct inode*, struct dentry*, u32);
     /* 被系统调用rmdir()调用，删除父目录inode中的子目录dentry */
@@ -412,7 +414,7 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 u32 vfs_create(const u8 *);
-
+u32 vfs_touch(const u8 *);
 // utils.c for some util functions
 u32 vfs_read_block(u8 *buf, u32 addr, u32 count);
 u32 vfs_write_block(u8 *buf, u32 addr, u32 count);

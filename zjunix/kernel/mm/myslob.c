@@ -62,6 +62,30 @@ void* slob_alloc(int size, int align)
     return err;
 }
 
+void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
+{
+    void *b;
+
+    if (c->size < (1<< PAGE_SHIFT)) {//对象小于PAGE_SIZE，由Slob分配器进行分配
+        b = slob_alloc(c->size, flags, c->align, node);
+        trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+                                    SLOB_UNITS(c->size) * SLOB_UNIT,
+                                    flags, node);
+    }
+    else{//否则通过伙伴系统分配
+        b = slob_new_pages(flags, get_order(c->size), node);
+        trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+                                    (1<< PAGE_SHIFT) << get_order(c->size),
+                                    flags, node);
+    }
+
+    if (c->ctor)//如果定义了构造函数则调用构造函数
+        c->ctor(b);
+
+    kmemleak_alloc_recursive(b, c->size, 1, c->flags, flags);
+    return b;
+}
+
 void set_slob_page(struct slob_page* tempPage)
 {
 

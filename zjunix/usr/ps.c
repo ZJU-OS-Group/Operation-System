@@ -184,6 +184,10 @@ void parse_cmd() {
     	result = vfs_mkdir(param);
     	kernel_printf("ext3 mkdir return with %d\n", result);
    	}
+    else if (kernel_strcmp(ps_buffer, "touch") == 0){
+        result = vfs_touch(param);
+        kernel_printf("fat32 touch return with %d\n", result);
+    }
     else if (kernel_strcmp(ps_buffer, "rm") == 0){
         if (param[0]=='-'&&param[1]=='r') {
             while (*param!=' ') {

@@ -325,6 +325,21 @@ u32 init_fat32(u32 base)
 //为fat32实现的super_operation
 struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_dentry, struct nameidata *_nameidata)
 {
+    char dotdot[2];
+    char dot[1];
+    dotdot[0] = '.';
+    dotdot[1] = '.';
+    dot[0] = '.';
+    if(kernel_strcmp(temp_dentry->d_name.name, dotdot) == 0)
+    {
+        return temp_dentry->d_parent;
+    }
+
+    if(kernel_strcmp(temp_dentry->d_name.name, dot) == 0)
+    {
+        return temp_dentry;
+    }
+
     struct qstr entryname_str;
     struct qstr normalname_str;
     u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];
@@ -893,6 +908,164 @@ u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 
     return 0;
 }
+
+u32 fat32_touch(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode)
+{
+    u32 err;
+    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];
+    int i, j, k;
+    int writen = 0;
+    int realPageNo;
+    struct condition conditions;
+    struct dentry* parent_dentry;
+    struct nameidata* _nameidata;
+    struct inode* temp_inode;
+    struct fat32_dir_entry* temp_dir_entry;
+    struct vfs_page* tempPage;
+    struct qstr normal_str;
+    struct qstr long_str;
+    u8 buf[SECTOR_BYTE_SIZE];
+    //写父项的dir entry
+    kernel_memset(buf, 0, sizeof(buf));
+    //构建fat32 dir entry项
+    kernel_printf("making: %s\n", temp_dentry->d_name.name);
+    for(i = 0;i < parent_inode->i_blocks;i++) {
+        realPageNo = parent_inode->i_data.a_op->bmap(parent_inode, i);
+        if (!realPageNo) return -ENOMEM;
+        conditions.cond1 = &(realPageNo);
+        conditions.cond2 = parent_inode;
+        tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
+        //页不在高速缓存中就需要调重新分配
+        tempPage = 0;
+        if (tempPage == 0) {
+            debug_info("page is not in pcache!\n");
+            tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
+            if (!tempPage) {
+                debug_err("fat32.c:1065 get page of file information node error!\n");
+                return -ENOMEM;
+            }
+
+            tempPage->page_state = P_CLEAR;
+            tempPage->page_address = realPageNo;
+            tempPage->p_address_space = &(parent_inode->i_data);
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->page_list));
+
+            //fat32系统读入页
+            err = parent_inode->i_data.a_op->readpage(tempPage);
+            if (IS_ERR_VALUE(err)) {
+                release_page(tempPage);
+                return 0;
+            }
+            debug_info("read in new page ok!\n");
+            tempPage->page_state = P_CLEAR;
+            pcache_add(pcache, (void *) tempPage);
+            //将文件已缓冲的页接入链表
+            list_add(&(tempPage->page_list), &(parent_inode->i_data.a_cache));
+        }
+        //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
+        for (j = 0; j < parent_inode->i_block_size; j += FAT32_DIR_ENTRY_LEN) {
+            temp_dir_entry = (struct fat32_dir_entry *) (tempPage->page_data + j);
+            kernel_printf("j: %d\n", j);
+            //0x08表示卷标(虽然没有)  0F是长文件名(其实也没有)
+            if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME) {
+                debug_info("not a file\n");
+                continue;
+            }
+            //空文件名，其实没有目录项了
+            if (temp_dir_entry->name[0] == '\0') {
+                kernel_printf("no dir left!\n");
+                for(k = 0;k < temp_dentry->d_name.len;k++)
+                {
+                    name[k] = temp_dentry->d_name.name[k];
+                    if(temp_dentry->d_name.name[k] == '\0')
+                        break;
+                }
+
+                temp_dir_entry->lcase = LCASE;
+                name[k] = '\0';
+                kernel_printf("name: %s\n", name);
+
+                normal_str.len = k;
+                for(;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                    name[k] = '\0';
+
+                normal_str.name = name;
+                fat32_convert_filename(&long_str, &normal_str, temp_dir_entry->lcase, FAT32_FILE_NAME_NORMAL_TO_LONG);
+                for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                {
+                    temp_dir_entry->name[k] = long_str.name[k];
+                    if(temp_dir_entry->name[k] == '\0')
+                        temp_dir_entry->name[k] = 0x20;
+                }
+                kernel_printf("name: %s\n", temp_dir_entry->name);
+                temp_dir_entry->attr = ATTR_NORMAL;
+                temp_dir_entry->size = 4096;
+                writen = 1;
+                break;
+            }
+            //或者是被删除了
+            if (temp_dir_entry->name[0] == 0xE5) {
+                debug_info("file has been deleted\n");
+                for(k = 0;k < temp_dentry->d_name.len;k++)
+                {
+                    name[k] = temp_dentry->d_name.name[k];
+                    if(temp_dentry->d_name.name[k] == '\0')
+                        break;
+                }
+                kernel_printf("name: %s\n", name);
+                temp_dir_entry->lcase = LCASE;
+                 normal_str.len = k;
+                 for(;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                     name[k] = '\0';
+
+                 normal_str.name = name;
+                 fat32_convert_filename(&long_str, &normal_str, temp_dir_entry->lcase, FAT32_FILE_NAME_NORMAL_TO_LONG);
+                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                 {
+                     temp_dir_entry->name[k] = long_str.name[k];
+                     if(temp_dir_entry->name[k] == '\0')
+                         temp_dir_entry->name[k] = 0x20;
+                 }
+
+                temp_dir_entry->attr = ATTR_NORMAL;
+                temp_dir_entry->size = 4096;
+                writen = 1;
+                break;
+            }
+        }
+        if(writen)
+        {
+            break;
+        }
+    }
+
+    if(!writen)
+    {
+        err = -EIO;
+        return err;
+    }
+    parent_dentry = parent_inode->i_dentry;
+
+    temp_dentry->d_parent = parent_dentry;
+
+    list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
+    err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
+    if(err != 0)
+    {
+        err = -EEXIST;
+        return err;
+    }
+    temp_inode = temp_dentry->d_inode;
+    temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
+    temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
+
+    parent_inode->i_data.a_op->writepage(tempPage);
+    debug_end("fat32.c:815 fat32_touch ok!\n");
+    return err;
+}
+
 u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode)
 {
     u32 err;
@@ -1049,6 +1222,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     temp_inode = temp_dentry->d_inode;
     temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
     temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
+
     parent_inode->i_data.a_op->writepage(tempPage);
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
     return err;
