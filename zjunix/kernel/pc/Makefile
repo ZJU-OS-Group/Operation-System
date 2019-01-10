@@ -1,3 +1,3 @@
-OBJS := pc.o pid.o testProc.o switch_ex.o
+OBJS := pc.o pid.o testProc.o
 
 include $(SUB_MAKE_INCLUDE)
