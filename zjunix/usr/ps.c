@@ -156,7 +156,7 @@ void parse_cmd() {
         pc_create("loop", (void*)system_loop_proc,0,0,0,0,ABOVE_NORMAL_PRIORITY_CLASS);
 //        pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
 
-    } else if (kernel_strcmp(ps_buffer, "suicide")) {
+    } else if (kernel_strcmp(ps_buffer, "suicide") == 0) {
         pc_create("suicide", (void*)system_suicide_proc,0,0,0,0,NORMAL_PRIORITY_CLASS);
     }
     /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
