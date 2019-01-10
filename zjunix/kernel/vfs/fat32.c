@@ -757,7 +757,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     }
         //得到文件起始簇号后初始化新建inode信息
     temp_inode->i_count  = 1;
-    temp_inode->i_ino    = addr;                     //inode号等于文件起始簇号
+    temp_inode->i_ino    = i;                     //inode号等于文件起始簇号
     temp_inode->i_op     = &(fat32_inode_operations[0]);
     temp_inode->i_fop    = &(fat32_file_operations);
     temp_inode->i_sb     = root_mnt->mnt_sb;
