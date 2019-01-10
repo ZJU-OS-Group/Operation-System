@@ -490,11 +490,14 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
     struct inode* temp_inode;
     struct condition conditions;
     struct fat32_dir_entry* temp_dir_entry;
+    struct dentry* parent_dentry;
+    struct inode* parent_inode;
 
     temp_inode = temp_dentry->d_inode;
-
-    for ( i = 0; i < temp_inode->i_blocks; i++){
-        tempPageNo = temp_inode->i_data.a_op->bmap(temp_inode, i);
+    parent_dentry = temp_dentry->d_parent;
+    parent_inode = parent_dentry->d_inode;
+    for ( i = 0; i < parent_inode->i_blocks; i++){
+        tempPageNo = parent_inode->i_data.a_op->bmap(parent_inode, i);
 
         // 首先在页高速缓存中寻找
         conditions.cond1 = (void*)(&tempPageNo);
@@ -502,6 +505,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
         tempPage = (struct vfs_page *)pcache->c_op->look_up(pcache, &conditions);
 
         // 如果页高速缓存中没有，则需要在外存中寻找（一定能够找到，因为不是创建文件）
+        tempPage = 0;
         if (tempPage == 0 ){
             tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
             if (!tempPage)
@@ -511,12 +515,12 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
             }
             tempPage->page_state    = P_CLEAR;
             tempPage->page_address = tempPageNo;
-            tempPage->p_address_space = &(temp_inode->i_data);
+            tempPage->p_address_space = &(parent_inode->i_data);
             INIT_LIST_HEAD(&(tempPage->page_hashtable));
             INIT_LIST_HEAD(&(tempPage->p_lru));
             INIT_LIST_HEAD(&(tempPage->page_list));
 
-            err = temp_inode->i_data.a_op->readpage(tempPage);
+            err = parent_inode->i_data.a_op->readpage(tempPage);
             if ( IS_ERR_VALUE(err) ){
                 release_page(tempPage);
                 return 0;
@@ -524,12 +528,12 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
 
             tempPage->page_state = P_CLEAR;
             pcache->c_op->add(pcache, (void*)tempPage);
-            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
+            list_add(&(tempPage->page_list), &(parent_inode->i_data.a_cache));
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
-        for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
-            temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + i);
+        for (j = 0;j < parent_inode->i_block_size;j += FAT32_DIR_ENTRY_LEN ){
+            temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + j);
 
             // 先判断是不是短文件名，如果不是的话跳过（08 卷标、0F长文件名）
             if (temp_dir_entry->attr == ATTR_VOLUMN || temp_dir_entry->attr == ATTR_LONG_FILENAME)
@@ -555,7 +559,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
 
             // 如果与待找的名字相同，则标记此目录项为删除
             if ( generic_qstr_compare( &normalname_str, &(temp_dentry->d_name)) == 0 ){
-                kernel_printf("fat32.c:528 get %s in delete inode\n", normalname_str.name);
+                kernel_printf("fat32.c:562 get %s in delete inode\n", normalname_str.name);
                 temp_dir_entry->name[0] = 0xE5;
                 found = 1;
                 break;                          // 跳出的是对每一个目录项的循环
@@ -572,16 +576,16 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
     }
     else
     {
-        tempPage->page_state = P_DIRTY;
+        //tempPage->page_state = P_DIRTY;
         //这里是直接写入外存
-        /* err = fat32_writepage(tempPage);
+         err = fat32_writepage(tempPage);
            if(err)
            {
-           return err
+           return err;
            }
            else
            return 0;
-            */
+
     }
     debug_end("fat32.c:556 fat32_delete_inode ok!\n");
     return 0;
@@ -808,20 +812,34 @@ u32 fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct ino
 u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 {
     u32 err;
-   // struct dentry* parent_dentry;
-    write_fat(temp_dentry->d_inode, temp_dentry->d_inode->i_ino, 0X00000000);
-  //  parent_dentry = container_of(p(arent_inode->i_dentry.next,) struct dentry, d_alias);
+    struct dentry* parent_dentry;
+    kernel_printf("file to be deleted: %s\n", temp_dentry->d_name);
+    kernel_printf("parent dir %s\n", parent_inode->i_dentry->d_name);
+    parent_dentry = parent_inode->i_dentry;
+
+    kernel_printf("cluster number: %d\n", temp_dentry->d_inode->i_ino);
+    err = write_fat(temp_dentry->d_inode, temp_dentry->d_inode->i_ino, 0x00000000);
+    if(err)
+    {
+        debug_info("write fat error when deleting dir!\n");
+        return err;
+    }
+
+
     err = fat32_delete_inode(temp_dentry);
     if(err)
     {
+        debug_info("delete inode error when deleting dir!\n");
         return err;
     }
+
     u8 *target_buffer = (u8*)kmalloc(sizeof(u8)*MAX_FAT32_SHORT_FILE_NAME_LEN);
     if (target_buffer == 0) return -ENOMEM;
     kernel_memset(target_buffer,0,MAX_FAT32_SHORT_FILE_NAME_LEN);
     *(target_buffer) = 0xE5;
 //    temp_dentry->d_name.name[0] = 0xE5;
     temp_dentry->d_name.name = target_buffer;
+    list_del(&(temp_dentry->d_alias));
     list_del(&(temp_dentry->d_lru));
     list_del(&(temp_dentry->d_hash));
     list_del(&(temp_dentry->d_subdirs));
@@ -904,12 +922,18 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                     name[k] = temp_dentry->d_name.name[k];
                 }
                 temp_dir_entry->lcase = UCASE;
+
+                kernel_memset(normal_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
+                kernel_memset(long_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
+
                 normal_str.name = name;
                 normal_str.len = k;
                 fat32_convert_filename(&long_str, &normal_str, temp_dir_entry->lcase, FAT32_FILE_NAME_NORMAL_TO_LONG);
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
                     temp_dir_entry->name[k] = long_str.name[k];
+                    if(temp_dir_entry->name[k] == '\0')
+                        temp_dir_entry->name[k] = 0x20;
                 }
 
                 temp_dir_entry->attr = ATTR_DIRECTORY;
@@ -933,6 +957,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
                     temp_dir_entry->name[k] = long_str.name[k];
+                    if(temp_dir_entry->name[k] == '\0')
+                        temp_dir_entry->name[k] = 0x20;
                 }
 
 
@@ -1006,6 +1032,9 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 2] = (u8)((content & 0x00FF) >> 16);
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 1] = (u8)((content & 0x0000FF) >> 8);
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) ] = (u8)((content & 0x000000FF));
+
+    kernel_printf("write fat content :%d\n", content);
+
     err = vfs_write_block(buffer, sec_addr, 1);
     if(err)
     {
@@ -1164,7 +1193,7 @@ u32 fat32_readpage(struct vfs_page* page) {
         err = -ENOMEM;
         return err;
     }
-    err = vfs_read_block(page->page_data, abs_sect_addr, (temp_inode->i_blocks * temp_inode ->i_block_size / SECTOR_BYTE_SIZE));
+    err = vfs_read_block(page->page_data, abs_sect_addr, (temp_inode->i_blocks * temp_inode ->i_block_size) >> SECTOR_LOG_SIZE);
     if(err != 0)
     {
         err = -EIO;
@@ -1185,7 +1214,8 @@ u32 fat32_writepage(struct vfs_page* page)
     ->fat32_FAT1->data_sec + (page->page_address - 2) * (tempinode->i_block_size >> SECTOR_LOG_SIZE);
     //第一、第二个扇区是系统扇区
     //写回外存即可
-    err = vfs_write_block(page->page_data, abs_sect_addr, tempinode->i_block_size);
+    kernel_printf("abs sect addr: %d\n", abs_sect_addr);
+    err = vfs_write_block(page->page_data, abs_sect_addr, (tempinode->i_block_size * tempinode->i_blocks) >> SECTOR_LOG_SIZE);
     if(err)
     {
         err = -EIO;
