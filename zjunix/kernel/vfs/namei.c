@@ -391,8 +391,8 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
     cond.cond1 = (void*) nd->dentry;
     cond.cond2 = (void*) name;
     debug_warning("[namei.c: __lookup_hash:383]\t");
-    kernel_printf("base addr:%d", base);
-    kernel_printf(", base name: %s\n", base->d_name.name);
+    kernel_printf("base addr: %d, root addr: %d", base, root_dentry);
+    kernel_printf(", base name: %s, root name: %s\n", base->d_name.name, root_dentry->d_name.name);
 
     dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
 
