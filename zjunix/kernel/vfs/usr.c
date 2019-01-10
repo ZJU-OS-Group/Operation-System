@@ -41,6 +41,7 @@ u32 vfs_cat(const u8 *path) {
     // 读取文件内容到缓存区
     base = 0;
     file_size = file->f_dentry->d_inode->i_size;
+    kernel_printf("usr.c: 44 cat: %d", file_size);
 
     buf = (u8*) kmalloc ((unsigned int) (file_size + 1));
     if ( vfs_read(file, buf, file_size, &base) != file_size ) {
@@ -69,6 +70,7 @@ u32 vfs_mkdir(const u8 * path) {
     struct dentry *dentry;
     struct nameidata nd;
     // 找到path对应的nd信息
+    extern struct dentry* root_dentry;
     err = path_lookup(path,LOOKUP_PARENT,&nd);
     if (err)
         return err;
@@ -83,8 +85,8 @@ u32 vfs_mkdir(const u8 * path) {
         }
 
         // 调用文件系统对应的mkdir
-
-        err = dir->i_op->mkdir(dir, dentry, 0);
+        kernel_printf("777777777777777777777777777 %d %d\n",container_of(&(nd.dentry->d_inode),struct dentry,d_inode),root_dentry);
+        err = dir->i_op->mkdir(nd.dentry->d_inode, dentry, 0);
         dput(dentry);
     }
     dput(nd.dentry);

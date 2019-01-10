@@ -10,7 +10,7 @@
 #define PROC_DEFAULT_TIMESLOTS  6    /* 默认时间配额 */
 #define PRIORITY_CLASS_NUM      7
 #define PRIORITY_LEVEL_NUM      7
-#define KERNEL_NUM              4
+#define KERNEL_NUM              32
 
 /**************************************** 优先权类 *************************************/
 enum PRIORITY_CLASS{
@@ -117,5 +117,9 @@ void change_priority(struct task_struct *task, int delta);  // 修改进程的�
 
 int min(int a, int b);
 unsigned max(unsigned int a,unsigned int b);
+
+// some test process
+void system_loop_proc();                // 死循环loop进程
+void system_suicide_proc();             // 自杀进程
 
 #endif

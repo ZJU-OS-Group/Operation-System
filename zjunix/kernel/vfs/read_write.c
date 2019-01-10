@@ -1,7 +1,10 @@
 #include <zjunix/vfs/vfs.h>
+#include <zjunix/debug/debug.h>
 
 extern struct cache * pcache;
 u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos) {
+	debug_start("[read_write.c vfs_read:6] ");
+	kernel_printf("file:%d, buf:%s, count:%d, pos:%d\n", file,buf,count,pos);
 	u32 ret;
 
 	if (!(file->f_mode & FMODE_READ))
@@ -10,7 +13,8 @@ u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos) {
         return -EINVAL;
         			
 	ret = file->f_op->read(file, buf, count, pos);
-
+	debug_end("[read_write.c vfs_read: 16] ");
+	kernel_printf("%d\n",ret);
 	return ret;
 }
 
