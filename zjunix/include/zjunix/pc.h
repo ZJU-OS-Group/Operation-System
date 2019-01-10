@@ -121,5 +121,6 @@ unsigned max(unsigned int a,unsigned int b);
 // some test process
 void system_loop_proc();                // 死循环loop进程
 void system_suicide_proc();             // 自杀进程
+void pc_exit();
 
 #endif
