@@ -865,12 +865,11 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     //写父项的dir entry
     kernel_memset(buf, 0, sizeof(buf));
     //构建fat32 dir entry项
-
+    kernel_printf("making: %s\n", temp_dentry->d_name.name);
     for(i = 0;i < parent_inode->i_blocks;i++) {
         realPageNo = parent_inode->i_data.a_op->bmap(parent_inode, i);
         if (!realPageNo) return -ENOMEM;
         if (!realPageNo) return -ENOMEM;
-        kernel_printf("realPageNo %d\n", realPageNo);
         conditions.cond1 = &(realPageNo);
         conditions.cond2 = parent_inode;
         tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
@@ -996,6 +995,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
+    disable_interrupts();
+    while(1);
     return err;
 }
 u32 read_fat(struct inode * temp_inode, u32 index)
@@ -1007,9 +1008,9 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
-    kernel_printf("sec_addr %d\n", sec_addr);
+    kernel_printf(" ");
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
-    kernel_printf("sec_index %d\n", sec_index);
+    kernel_printf(" ");
     vfs_read_block(buffer, sec_addr, 1);
     return vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT)));
 }
