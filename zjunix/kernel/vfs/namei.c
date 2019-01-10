@@ -281,17 +281,25 @@ void follow_dotdot(struct nameidata *nd) {
 
     while (1) {
         // 如果已经是根目录了，没有办法回退了
-        if (nd->dentry==root_dentry && nd->mnt == root_mnt) break;
+        if (nd->dentry==root_dentry && nd->mnt == root_mnt) {
+            // todo: ext3回fat32的特判
+            debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
+            break;
+        }
 
         // 如果当前不在所属文件系统的根目录，向上一级再退出，此时nd已经被更新了
         if (nd->dentry != nd->mnt->mnt_root) {
             nd->dentry=nd->dentry->d_parent;
             dget(nd->dentry);
+            debug_warning("[namei.c: follow_dotdot:294] case 2 not root\n");
             break;
         }
         // 如果当前在所属文件系统的根目录，如果没有父文件系统，没有办法回退了
         //TODO：不太懂这种情况下为什么nd->dentry==root_dentry不成立，那就证明root_dentry不太对，那这个需要更新吗？
-        if (nd->mnt->mnt_parent==nd->mnt) break;
+        if (nd->mnt->mnt_parent==nd->mnt) {
+            debug_warning("[namei.c: follow_dotdot:294] case 3 no father fs\n");
+            break;
+        }
 
         // 返回父文件系统，就可以继续判断是继续返回爷爷文件系统还是目录直接回到上一级
         // TODO：为什么要做文件系统间的上一级呢？感觉有点点乱
@@ -299,6 +307,8 @@ void follow_dotdot(struct nameidata *nd) {
         dget(nd->dentry);
         nd->mnt=nd->mnt->mnt_parent;
     }
+    debug_warning("[namei.c: follow_dotdot:302] ");
+    kernel_printf("nd.dentry:%d, root.dentry:%d\n", nd->dentry, root_dentry);
     debug_end("[namei.c: follow_dotdot:261]\n");
 }
 
@@ -372,11 +382,17 @@ struct dentry * __lookup_hash(struct qstr *name, struct dentry *base, struct nam
     struct dentry   *dentry;
     struct inode    *inode;
 
+    debug_warning("[namei.c: __lookup_hash:375]\t");
+    kernel_printf("base addr:%d", base);
+    kernel_printf(", base name: %s\n", base->d_name.name);
     inode = base->d_inode;
     // 在目录项高速缓存中寻找，查找文件名和父目录项相符的目录缓冲项
     struct condition cond;
     cond.cond1 = (void*) nd->dentry;
     cond.cond2 = (void*) name;
+    debug_warning("[namei.c: __lookup_hash:383]\t");
+    kernel_printf("base addr:%d", base);
+    kernel_printf(", base name: %s\n", base->d_name.name);
 
     dentry = (struct dentry*) dcache->c_op->look_up(dcache, &cond);
 
