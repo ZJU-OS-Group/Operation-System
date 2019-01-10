@@ -914,13 +914,16 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
             if (temp_dir_entry->name[0] == '\0') {
                 kernel_printf("no dir left!\n");
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                    temp_dir_entry->name[k] = 0x20;
+                for(k = 0;k < temp_dentry->d_name.len;k++)
                 {
-                    name[k] = temp_dentry->d_name.name[k];
-                    if(temp_dentry->d_name.name[k] == '\0')
-                        break;
+                    temp_dir_entry->name[k] = temp_dentry->d_name.name[k];
+                    //if(temp_dentry->d_name.name[k] == '\0')
+                    //    break;
                 }
+
                 temp_dir_entry->lcase = UCASE;
-                name[k] = '\0';
+                /*name[k] = '\0';
                 kernel_printf("name: %s\n", name);
 
                 normal_str.len = k;
@@ -934,7 +937,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                     temp_dir_entry->name[k] = long_str.name[k];
                     if(temp_dir_entry->name[k] == '\0')
                         temp_dir_entry->name[k] = 0x20;
-                }
+                }*/
                 kernel_printf("name: %s\n", temp_dir_entry->name);
                 temp_dir_entry->attr = ATTR_DIRECTORY;
                 temp_dir_entry->size = 0;
@@ -945,14 +948,16 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
             if (temp_dir_entry->name[0] == 0xE5) {
                 debug_info("file has been deleted\n");
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                    temp_dir_entry->name[k] = 0x20;
+                for(k = 0;k < temp_dentry->d_name.len;k++)
                 {
-                    name[k] = temp_dentry->d_name.name[k];
-                    if(temp_dentry->d_name.name[k] == '\0')
-                        break;
+                    temp_dir_entry->name[k] = temp_dentry->d_name.name[k];
+                    //if(temp_dentry->d_name.name[k] == '\0')
+                    //    break;
                 }
                 kernel_printf("name: %s\n", name);
                 temp_dir_entry->lcase = UCASE;
-                normal_str.len = k;
+               /* normal_str.len = k;
                 for(;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                     name[k] = '\0';
 
@@ -965,7 +970,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                         temp_dir_entry->name[k] = 0x20;
                 }
 
-
+*/
                 temp_dir_entry->attr = ATTR_DIRECTORY;
                 temp_dir_entry->size = 0;
                 writen = 1;
