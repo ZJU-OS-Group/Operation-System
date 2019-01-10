@@ -291,7 +291,9 @@ void follow_dotdot(struct nameidata *nd) {
         if (nd->dentry != nd->mnt->mnt_root) {
             nd->dentry=nd->dentry->d_parent;
             dget(nd->dentry);
-            debug_warning("[namei.c: follow_dotdot:294] case 2 not root\n");
+            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", nd->dentry, nd->dentry->d_name.name,
+                    nd->mnt->mnt_root, nd->mnt->mnt_root->d_name.name);
             break;
         }
         // 如果当前在所属文件系统的根目录，如果没有父文件系统，没有办法回退了
