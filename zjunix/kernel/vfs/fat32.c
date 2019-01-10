@@ -921,7 +921,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                     name[k] = temp_dentry->d_name.name[k];
                 }
                 temp_dir_entry->lcase = UCASE;
-
+                kernel_printf("name: %s\n", name);
                 kernel_memset(normal_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
                 kernel_memset(long_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
 
@@ -934,7 +934,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                     if(temp_dir_entry->name[k] == '\0')
                         temp_dir_entry->name[k] = 0x20;
                 }
-
+                kernel_printf("name: %s\n", temp_dir_entry->name);
                 temp_dir_entry->attr = ATTR_DIRECTORY;
                 temp_dir_entry->size = 0;
                 writen = 1;
@@ -980,8 +980,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         kernel_printf("error mkdir on writing dir to parent root sector\n");
         return err;
     }
-
-    parent_dentry = container_of(&parent_inode, struct dentry, d_inode);
+    debug_info("make %s dir ok!\n");
+    parent_dentry = parent_inode->i_dentry;
     temp_dentry->d_parent = parent_dentry;
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
@@ -995,8 +995,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
-    disable_interrupts();
-    while(1);
     return err;
 }
 u32 read_fat(struct inode * temp_inode, u32 index)
