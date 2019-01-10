@@ -89,7 +89,8 @@ void parse_cmd() {
     int i = 0;
     char *param;
     for (i = 0; i < 63; i++) {
-        if (ps_buffer[i] == ' ') {
+        if (ps_buffer[i] == ' ' || ps_buffer[i] == '\n') {
+            // 以空格或者换行作为命令的切换
             ps_buffer[i] = 0;
             break;
         }
