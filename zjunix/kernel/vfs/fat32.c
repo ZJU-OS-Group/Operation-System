@@ -982,6 +982,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     }
     debug_info("make %s dir ok!\n");
     parent_dentry = parent_inode->i_dentry;
+
+    parent_dentry = parent_inode->i_dentry;
     temp_dentry->d_parent = parent_dentry;
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
@@ -995,6 +997,8 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
+    disable_interrupts();
+    while(1);
     return err;
 }
 u32 read_fat(struct inode * temp_inode, u32 index)
