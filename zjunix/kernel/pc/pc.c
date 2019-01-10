@@ -385,11 +385,14 @@ int is_realtime(struct task_struct* task) {
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
     /*** 展示动态优先级变化 *****/
-    counter_num ++;
-    if(counter_num==500) {
-        print_proc();
-        counter_num = 0;
-    }
+//    counter_num ++;
+//    if(counter_num==500) {
+//        print_proc();
+//        counter_num = 0;
+//    }
+    int cnt = 0;
+    while(cnt++<5000000) ;
+    print_proc();
     /*************************/
 
     struct task_struct* next;
