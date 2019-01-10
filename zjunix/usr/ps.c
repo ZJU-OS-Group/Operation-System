@@ -150,12 +150,16 @@ void parse_cmd() {
     else if (kernel_strcmp(ps_buffer, "time") == 0) {
         unsigned int init_gp;
         asm volatile("la %0, _gp\n\t" : "=r"(init_gp));
-        pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, ABOVE_NORMAL_PRIORITY_CLASS);
+        pc_create("time", (void*)system_time_proc, 0, 0, 0, 0, HIGH_PRIORITY_CLASS);
     }
-    else if (kernel_strcmp(ps_buffer, "proc") == 0) {
+    else if (kernel_strcmp(ps_buffer, "loop") == 0) {
+        pc_create("loop", (void*)system_loop_proc,0,0,0,0,ABOVE_NORMAL_PRIORITY_CLASS);
 //        pc_create(2, system_time_proc, (unsigned int)kmalloc(4096), init_gp, "time");
 
-    } /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
+    } else if (kernel_strcmp(ps_buffer, "suicide")) {
+        pc_create("suicide", (void*)system_suicide_proc,0,0,0,0,NORMAL_PRIORITY_CLASS);
+    }
+    /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
         result = proc_demo_create();
         kernel_printf("proc return with %d\n", result);
     }
@@ -199,7 +203,7 @@ void parse_cmd() {
 	else if (kernel_strcmp(ps_buffer, "mv") == 0){
 		result = vfs_mv(param);
 		kernel_printf("vfs mv return with %d\n", result);
-	}  
+	}
 	else {
         kernel_puts(ps_buffer, 0xfff, 0);
         kernel_puts(": command not found\n", 0xfff, 0);
