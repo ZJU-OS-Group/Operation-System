@@ -414,7 +414,7 @@ u32 vfs_ls(const u8 *);
 u32 vfs_cd(const u8 *);
 u32 vfs_mv(const u8 *);
 u32 vfs_create(const u8 *);
-
+u32 vfs_touch(const u8 *);
 // utils.c for some util functions
 u32 vfs_read_block(u8 *buf, u32 addr, u32 count);
 u32 vfs_write_block(u8 *buf, u32 addr, u32 count);
