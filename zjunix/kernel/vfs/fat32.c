@@ -996,14 +996,15 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
     err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
+    kernel_printf("err %d\n", err);
     if(err)
     {
         err = -EEXIST;
         return err;
     }
-    kernel_printf("i_ino :%d\n", temp_inode->i_ino);
-    temp_dir_entry->starthi = (unsigned int)(temp_inode->i_ino);
-    temp_dir_entry->startlo = (unsigned int)((temp_inode->i_ino >> 16) & 0x0000FFFF);
+    kernel_printf("ino %d:\n", temp_inode->i_ino);
+    temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
+    temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
     parent_inode->i_data.a_op->writepage(tempPage);
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
     return err;
