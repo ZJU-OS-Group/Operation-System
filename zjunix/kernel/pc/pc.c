@@ -383,6 +383,12 @@ int is_realtime(struct task_struct* task) {
 }
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
+    /*** 展示动态优先级变化 *****/
+    int cnt = 0;
+    while(cnt++<500) ;
+    print_proc();
+    /*************************/
+
     struct task_struct* next;
     /* 判断异常类型 */
     if (cause==0) {
@@ -482,15 +488,15 @@ struct task_struct* get_preemptive_task() {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    kernel_puts("PID\tname\tpriority\n", 0xfff, 0);
-    kernel_printf(" %x  %s  %d\n", current->ASID, current->name, PRIORITY[current->priority_class][current->priority_level]);
+    kernel_puts("ASID\tPID\tname\tpriority\n", 0xfff, 0);
+    kernel_printf(" %x\t%d\t%s\t%d\n", current->ASID, current->pid, current->name, PRIORITY[current->priority_class][current->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (ready_bitmap[i]) {
             int number = ready_queue[i].number;
             struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
             struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
             while(number) { // 循环完为止
-                kernel_printf(" %x  %s  %d\n", pcb->ASID, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
+                kernel_printf(" %x\t%d\t%s\t%d\n", pcb->ASID, pcb->pid, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
                 this = this->next;
                 pcb = container_of(this, struct task_struct, schedule_list);
                 number--;
