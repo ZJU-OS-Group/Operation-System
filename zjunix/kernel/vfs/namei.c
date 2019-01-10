@@ -143,7 +143,8 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
             }
             if (this.len==2 && this.name[1]=='.') { // '../'父目录
                 debug_info("[namei.c: link_path_walk:141] go to ../\n");
-                follow_dotdot(nd);
+//                follow_dotdot(nd);
+                follow_dotdot(&nd->mnt, &nd->dentry);
             } else { // '.s/test'这样子的目录真的不处理吗？隐藏目录
                 break;
             }
@@ -211,7 +212,8 @@ last_component:
                 return 0;
             }
             if (this.len==2 && this.name[1]=='.') { // '../'父目录
-                follow_dotdot(nd);
+//                follow_dotdot(nd);
+                follow_dotdot(&nd->mnt,&nd->dentry);
             } else { // '.s/test'这样子的目录真的不处理吗？隐藏目录
                 break;
             }
@@ -276,43 +278,80 @@ out_dput:
 }
 
 // 回退到父目录
-void follow_dotdot(struct nameidata *nd) {
+void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
     debug_start("[namei.c: follow_dotdot:239]\n");
+    while(1) {
+        struct vfsmount *parent;
+        struct dentry *old = *dentry; // TODO：全程感觉old没啥用
 
-    while (1) {
-        // 如果已经是根目录了，没有办法回退了
-        if (nd->dentry==root_dentry && nd->mnt == root_mnt) {
-            // todo: ext3回fat32的特判
+        // 如果当前所处的目录即为根目录则退出
+        if (*dentry == root_dentry && *mnt == root_mnt ){
             debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
             break;
         }
 
-        // 如果当前不在所属文件系统的根目录，向上一级再退出，此时nd已经被更新了
-        if (nd->dentry != nd->mnt->mnt_root) {
-            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", nd->dentry, nd->dentry->d_name.name,
-                          nd->mnt->mnt_root, nd->mnt->mnt_root->d_name.name);
-            nd->dentry=nd->dentry->d_parent;
-            dget(nd->dentry);
+        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
+        if (*dentry != (*mnt)->mnt_root) {
             debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
-            break;
-        }
-        // 如果当前在所属文件系统的根目录，如果没有父文件系统，没有办法回退了
-        //TODO：不太懂这种情况下为什么nd->dentry==root_dentry不成立，那就证明root_dentry不太对，那这个需要更新吗？
-        if (nd->mnt->mnt_parent==nd->mnt) {
-            debug_warning("[namei.c: follow_dotdot:294] case 3 no father fs\n");
+            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
+            (*mnt)->mnt_root->d_name.name );
+            *dentry = (*dentry)->d_parent;
+            dget(*dentry);
+            dput(old);
             break;
         }
 
-        // 返回父文件系统，就可以继续判断是继续返回爷爷文件系统还是目录直接回到上一级
-        // TODO：为什么要做文件系统间的上一级呢？感觉有点点乱
-        nd->dentry = nd->mnt->mnt_mountpoint;
-        dget(nd->dentry);
-        nd->mnt=nd->mnt->mnt_parent;
+        // 当前所处的目录为当前路径所属文件系统的根目录
+        parent = (*mnt)->mnt_parent;
+        // 文件系统即为本身，则表明没有父文件系统，退出
+        if (parent == *mnt)
+            break;
+
+        // 取当前文件系统的挂载点，退回父文件系统
+        *dentry = (*mnt)->mnt_mountpoint;
+        dget(*dentry);
+        dput(old);
+        *mnt = parent;
+        // 回到前面两种情况
     }
-    debug_warning("[namei.c: follow_dotdot:302] ");
-    kernel_printf("nd.dentry:%d, root.dentry:%d\n", nd->dentry, root_dentry);
-    debug_end("[namei.c: follow_dotdot:261]\n");
 }
+//void follow_dotdot(struct nameidata *nd) {
+//    debug_start("[namei.c: follow_dotdot:239]\n");
+//
+//    while (1) {
+//        // 如果已经是根目录了，没有办法回退了
+//        if (nd->dentry==root_dentry && nd->mnt == root_mnt) {
+//            // todo: ext3回fat32的特判
+//            debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
+//            break;
+//        }
+//
+//        // 如果当前不在所属文件系统的根目录，向上一级再退出，此时nd已经被更新了
+//        if (nd->dentry != nd->mnt->mnt_root) {
+//            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", nd->dentry, nd->dentry->d_name.name,
+//                          nd->mnt->mnt_root, nd->mnt->mnt_root->d_name.name);
+//            nd->dentry=nd->dentry->d_parent;
+//            dget(nd->dentry);
+//            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+//            break;
+//        }
+//        // 如果当前在所属文件系统的根目录，如果没有父文件系统，没有办法回退了
+//        //TODO：不太懂这种情况下为什么nd->dentry==root_dentry不成立，那就证明root_dentry不太对，那这个需要更新吗？
+//        if (nd->mnt->mnt_parent==nd->mnt) {
+//            debug_warning("[namei.c: follow_dotdot:294] case 3 no father fs\n");
+//            break;
+//        }
+//
+//        // 返回父文件系统，就可以继续判断是继续返回爷爷文件系统还是目录直接回到上一级
+//        // TODO：为什么要做文件系统间的上一级呢？感觉有点点乱
+//        nd->dentry = nd->mnt->mnt_mountpoint;
+//        dget(nd->dentry);
+//        nd->mnt=nd->mnt->mnt_parent;
+//    }
+//    debug_warning("[namei.c: follow_dotdot:302] ");
+//    kernel_printf("nd.dentry:%d, root.dentry:%d\n", nd->dentry, root_dentry);
+//    debug_end("[namei.c: follow_dotdot:261]\n");
+//}
 
 // 搜索父目录parent的孩子是否有名为name的entry结构
 u32 do_lookup(struct nameidata *nd, struct qstr *name, struct path *path) {

@@ -383,7 +383,8 @@ int vfs_close(struct file *); // 关闭并释放文件
 // namei.c for open_namei related functions
 u32 open_namei(const u8 *, u32, struct nameidata *);
 u32 path_lookup(const u8 *, u32, struct nameidata *);
-void follow_dotdot(struct nameidata *);
+//void follow_dotdot(struct nameidata *);
+void follow_dotdot(struct vfsmount** , struct dentry**);
 u32 link_path_walk(const u8 *, struct nameidata *);
 u32 do_lookup(struct nameidata *, struct qstr *, struct path *);
 struct dentry * real_lookup(struct dentry *, struct qstr *, struct nameidata *);
