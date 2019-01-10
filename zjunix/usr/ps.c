@@ -51,9 +51,9 @@ void ps() {
     kernel_puts("PowerShell\n", 0xfff, 0);
     kernel_puts("PS>", 0xfff, 0);
     while (1) {
-        kernel_printf("");
+//        kernel_printf("");
         c = kernel_getchar();
-        kernel_printf("I'm getting into PS! after get char\n");
+//        kernel_printf("I'm getting into PS! after get char\n");
         if (c == '\n') {
             ps_buffer[ps_buffer_index] = 0;
             if (kernel_strcmp(ps_buffer, "exit") == 0) {

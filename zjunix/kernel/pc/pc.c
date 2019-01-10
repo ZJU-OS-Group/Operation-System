@@ -10,6 +10,7 @@
 #include <zjunix/vfs/vfs.h>
 #include <zjunix/vfs/errno.h>
 #include <zjunix/debug/debug.h>
+#include <driver/ps2.h>
 
 const unsigned int PRIORITY[PRIORITY_CLASS_NUM][PRIORITY_LEVEL_NUM] = {
         {31,26,25,24,23,22,16},
@@ -390,10 +391,10 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
 //        print_proc();
 //        counter_num = 0;
 //    }
-    int cnt = 0;
-    while(cnt++<5000000) ;
-    print_proc();
-    /*************************/
+//    int cnt = 0;
+//    while(cnt++<5000000) ;
+//    print_proc();
+//    /*************************/
 
     struct task_struct* next;
     /* 判断异常类型 */
