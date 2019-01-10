@@ -25,10 +25,17 @@ struct list_head wait;                          // 等待列表
 struct list_head exited;                        // 结束列表
 struct list_head tasks;                         // 所有进程列表
 unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，表明该优先级的就绪队列里是否有东西
-//todo:就绪位图修改成u32
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 struct task_struct *current = 0;                // 当前进程
 volatile int semaphore = 0;   //信号量，避免两个中断产生临界区问题
+extern void switch_ex(context* regs);
+
+void pc_exit(){
+    asm volatile (      //进入异常模式 => 中断关闭
+            "li $v0, 10\n\t"
+            "syscall\n\t"
+    );
+}
 
 int min(int a, int b) {
     if (a > b) return b; return a;
@@ -299,7 +306,11 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
     pid_t kill_pid = current->pid;
     // 调度到下一个进程（将当前进程归到就绪队列中去）
     if (current->ASID != 0) {
+        kernel_printf("Current PID = %d\n",current->pid);
+        current->priority_class = ZERO_PRIORITY_CLASS;
+        current->priority_level = IDLE;
         pc_schedule_core(status, cause, pt_context);
+        kernel_printf("Current PID = %d\n",current->pid);
         pc_kill(kill_pid);
     }
     // 根据之前存的pid将对应的进程kill掉
@@ -372,6 +383,12 @@ int is_realtime(struct task_struct* task) {
 }
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
+    /*** 展示动态优先级变化 *****/
+    int cnt = 0;
+    while(cnt++<500) ;
+    print_proc();
+    /*************************/
+
     struct task_struct* next;
     /* 判断异常类型 */
     if (cause==0) {
@@ -471,15 +488,15 @@ struct task_struct* get_preemptive_task() {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    kernel_puts("PID\tname\tpriority\n", 0xfff, 0);
-    kernel_printf(" %x  %s  %d\n", current->ASID, current->name, PRIORITY[current->priority_class][current->priority_level]);
+    kernel_puts("ASID\tPID\tname\tpriority\n", 0xfff, 0);
+    kernel_printf(" %x\t%d\t%s\t%d\n", current->ASID, current->pid, current->name, PRIORITY[current->priority_class][current->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (ready_bitmap[i]) {
             int number = ready_queue[i].number;
             struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
             struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
             while(number) { // 循环完为止
-                kernel_printf(" %x  %s  %d\n", pcb->ASID, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
+                kernel_printf(" %x\t%d\t%s\t%d\n", pcb->ASID, pcb->pid, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
                 this = this->next;
                 pcb = container_of(this, struct task_struct, schedule_list);
                 number--;
@@ -593,10 +610,10 @@ void remove_ready(struct task_struct *task) {
 // 修改进程的优先级
 void change_priority(struct task_struct *task, int delta) {
 //    task->priority += delta;
-    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE_PRIORITY_CLASS);
+    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE);
 }
 
-///*
+
 //#include "../../arch/mips32/intr.h"
 //#include "../../arch/mips32/arch.h"
 //
@@ -733,8 +750,7 @@ void change_priority(struct task_struct *task, int delta) {
 //    INIT_LIST_HEAD(&exited);
 //    INIT_LIST_HEAD(&tasks);
 //    for (int i=0; i<PRIORITY_LEVELS; ++i) {
-//        */
-///* 初始化就绪队列 *//*
+///* 初始化就绪队列 */
 //
 //        INIT_LIST_HEAD(&(ready_queue[i].queue_head));
 //        ready_queue[i].number = 0;
@@ -812,7 +828,7 @@ void change_priority(struct task_struct *task, int delta) {
 //    register_interrupt_handler(7, pc_schedule);
 //
 //    asm volatile(
-//            "li $v0, 1000000\n\t"   // 1000000->v0
+//    "li $v0, 1000000\n\t"   // 1000000->v0
 //            "mtc0 $v0, $11\n\t"     // $11 compare
 //            "mtc0 $zero, $9");      // $9 count
 //    debug_end("[pc.c: init_pc:149]\n");
@@ -927,9 +943,7 @@ void change_priority(struct task_struct *task, int delta) {
 //    }
 //}
 //
-//
-//*/
-///*************************************************************************************************//*
+///*************************************************************************************************/
 //
 //// 每次调度的时候清空退出列表
 //void clear_exit() {
@@ -975,8 +989,7 @@ void change_priority(struct task_struct *task, int delta) {
 //int pc_kill(pid_t pid) {
 //    debug_start("[pc.c: pc_kill:244]\n");
 //    struct task_struct* target;
-//    */
-///* 三种不能kill的特殊情况进行特判 *//*
+///* 三种不能kill的特殊情况进行特判 */
 //
 //    if (pid==IDLE_PID) {
 //        kernel_puts("Can't kill the idle process.\n", VGA_RED, VGA_BLACK);
@@ -1031,7 +1044,7 @@ void change_priority(struct task_struct *task, int delta) {
 //
 //void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
 //    counter_num++;
-////    kernel_printf("counter_num: %d\n",counter_num);
+//    kernel_printf("");
 //    if (counter_num == 1000) {
 //        kernel_printf("current procname: %d %d\n",curKernel,free_bitmap);
 //        int i;
@@ -1041,8 +1054,7 @@ void change_priority(struct task_struct *task, int delta) {
 //    }
 //
 //    struct task_struct* next,last,preemBefore,preemAfter;
-//    */
-///* 判断异常类型 *//*
+///* 判断异常类型 */
 //
 //    if (cause==0) {
 //        // TODO: interruption
@@ -1054,8 +1066,7 @@ void change_priority(struct task_struct *task, int delta) {
 //    context *before,*after;
 //    before = &(current[curKernel]->context);
 //    clear_exit();
-//    */
-///* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 *//*
+///* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
 //
 //    current[curKernel]->time_counter -= 3;
 //    change_priority(current[curKernel],1);
@@ -1088,8 +1099,8 @@ void change_priority(struct task_struct *task, int delta) {
 //            int currentPriority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
 //            if (nextPriority > currentPriority) { //这里直接抢占
 //                if (allocKernel == curKernel) {
-//                    copy_context(pt_context, &(current[curKernel]->context)); */
-///* 将新的上下文保存到pt_context中 *//*
+//                    copy_context(pt_context, &(current[curKernel]->context));
+///* 将新的上下文保存到pt_context中 */
 //
 //                    copy_context(&(next->context), pt_context);
 //                }
@@ -1107,13 +1118,12 @@ void change_priority(struct task_struct *task, int delta) {
 //    if (nextKernel != -1)    //如果能找到下一个正在运行的处理器，那么移交控制权
 //    {
 //        after = &current[nextKernel]->context; //求出下一个要调度的目标上下文
-//        copy_context(pt_context, &(current[curKernel]->context)); */
-///* 将新的上下文保存到pt_context中 *//*
-//
+//        copy_context(pt_context, &(current[curKernel]->context));
+///* 将新的上下文保存到pt_context中 */
 //        curKernel = nextKernel;
 //        copy_context(&(current[nextKernel]->context), pt_context);
 //    } //如果等于-1，那么就依然运行当前的kernel，这意味着要么其他没在跑，要么都是idle
-//    kernel_printf("%s\n",current[curKernel]->name);
+////    kernel_printf("current epc : %d\n",pt_context->epc);
 //    asm volatile("mtc0 $zero, $9\n\t");
 //}
 //
@@ -1190,8 +1200,8 @@ void change_priority(struct task_struct *task, int delta) {
 //    kfree(&(task->task_files));
 //}
 //
-//*/
-///**************************************** 一些对队列的功能性操作 ********************************************//*
+//
+///**************************************** 一些对队列的功能性操作 ********************************************/
 //
 //
 //// 将进程添加进等待列表
@@ -1214,9 +1224,9 @@ void change_priority(struct task_struct *task, int delta) {
 //    u32 priority = PRIORITY[task->priority_class][task->priority_level];
 //    list_add_tail(&(task->schedule_list), &(ready_queue[priority].queue_head));
 //    ready_queue[priority].number++; // 该优先级的就绪队列长度加一
-//    */
+//
 ///*  if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
-//          ready_bitmap[priority] = 1;*//*
+//         ready_bitmap[priority] = 1;*/
 //
 ////    if (get_ready_bit(priority) == 0)  //这句话是不需要的
 //    set_ready_bit(priority); // 只要有相应的优先级进入，就直接把这一位置位
@@ -1255,7 +1265,5 @@ void change_priority(struct task_struct *task, int delta) {
 //// 修改进程的优先级
 //void change_priority(struct task_struct *task, int delta) {
 ////    task->priority += delta;
-//    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE_PRIORITY_CLASS);
+//    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE);
 //}
-//
-//*/

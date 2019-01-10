@@ -621,6 +621,6 @@ void remove_ready(struct task_struct *task) {
 // 修改进程的优先级
 void change_priority(struct task_struct *task, int delta) {
 //    task->priority += delta;
-    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE_PRIORITY_CLASS);
+    task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE);
 }
 

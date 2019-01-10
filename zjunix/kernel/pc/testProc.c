@@ -9,9 +9,16 @@ void system_loop_proc() {
 
 // for test ps_kill_syscall
 void system_suicide_proc() {
+    int i;
     debug_start("suicide: I'm in!\n");
+    for (i = 0; i < 100; i++);
     debug_info("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
+    for (i = 0; i < 100; i++);
     debug_info("I love OS with no bug.\n");
+    for (i = 0; i < 100; i++);
     debug_info("God bless me.\n");
+    for (i = 0; i < 100; i++);
     debug_end("suicide: I will call kill system call soon~ get ready baby!\n");
+    for (i = 0; i < 100; i++);
+    pc_exit();
 }

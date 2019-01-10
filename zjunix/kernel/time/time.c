@@ -39,6 +39,7 @@ void system_time_proc() {
     char buffer[8];
     char *day = "01/08/2019 ";
     while (1) {
+//        kernel_printf("System_time_proc_time get into! \n");
         asm volatile(
             "mfc0 %0, $9, 6\n\t"
             "mfc0 %1, $9, 7\n\t"

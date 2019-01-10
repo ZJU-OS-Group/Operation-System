@@ -417,8 +417,6 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
 //    struct address_space *target_address_space = inode->i_mapping;
     struct vfs_page *curPage, *targetPage;  //这里没动过page里面的东西，所以不需要标注成dirty
     struct ext3_dir_entry *curDentry;
-    debug_info("inode: ");
-    kernel_printf("%d %d\n",inode,root_dentry->d_inode);
     u8 *pageTail;
     u8 *curAddr;
 //    debug_warning("hello I'm here!!!!!!!\n");
@@ -427,13 +425,14 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
 //    debug_warning("hello I'm here!\n");
     kernel_printf("%d\n",inode->i_blocks);
     for (i = 0; i < inode->i_blocks; i++) { //遍历这个目录文件内的所有块
+        // 这里证实了inode确实是root_inode
         curPage = ext3_fetch_page(inode, i);
         if (IS_ERR_OR_NULL(curPage)) return -ENOMEM;
         //这里curPage一定已经加载进来了，现在是第i块，现在需要遍历每一个目录项
 //        debug_warning("hello I'm here!!!!\n");
         curAddr = curPage->page_data;
         pageTail = curPage->page_data + inode->i_block_size;  //当前页的尾部地址
-        debug_warning("WWWWWWWWWWWWWWW!\n");
+//        debug_warning("WWWWWWWWWWWWWWW!\n");
         while (*curAddr != 0 && curAddr < pageTail) {
             curDentry = (struct ext3_dir_entry *) curAddr;  //这里不需要做文件类型判断
             curInode = (struct inode *) kmalloc(sizeof(struct inode));
