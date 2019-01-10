@@ -12,7 +12,7 @@
 #define                 EXT3_FIRST_MAP_INDEX                12
 #define                 EXT3_SECOND_MAP_INDEX               13
 #define                 EXT3_THIRD_MAP_INDEX                14
-#define                 EXT3_BLOCK_ADDR_SHIFT               2  //每个数据块两个字节
+#define                 EXT3_BLOCK_ADDR_SHIFT               2               //每个数据块地址两个字节
 
 enum{EXT3_BLOCK_BITMAP_OFFSET,EXT3_INODE_BITMAP_OFFSET,EXT3_INODE_TABLE_OFFSET};
 

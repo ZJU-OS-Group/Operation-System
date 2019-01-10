@@ -171,6 +171,7 @@ struct ext3_base_information *ext3_init_base_information(u32 base) {
     ans->super_block.fill = (u8 *) kmalloc(sizeof(u8) * EXT3_SUPER_SECTOR_SIZE * SECTOR_BYTE_SIZE);  //初始化super_block区域
     if (ans->super_block.fill == 0) return ERR_PTR(-ENOMEM);
     u32 err = vfs_read_block(ans->super_block.fill, ans->first_sb_sect, EXT3_SUPER_SECTOR_SIZE);  //从指定位置开始读取super_block
+
     if (err) return ERR_PTR(-EIO);
     //SECTOR是物理的， BASE_BLOCK_SIZE是逻辑的
     u32 ratio = EXT3_BLOCK_SIZE_BASE << ans->super_block.content->block_size >> SECTOR_LOG_SIZE;   //一个block里放多少个sector
@@ -281,6 +282,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     u32 inode_sect = inode_table_base + offset_sect;
     u32 err = vfs_read_block(target_buffer, inode_sect, 1);
     if (err) return -EIO;
+
     u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
     // 求inode在扇区内的偏移量
     struct ext3_inode *target_inode = (struct ext3_inode *) (target_buffer + inode_sect_offset * inode_size);

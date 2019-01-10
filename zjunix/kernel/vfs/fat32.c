@@ -772,7 +772,6 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
 
 
     //直接重新分配一个新页给此inode
-    if (tempPage == 0) {
         tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
         if (tempPage == 0) {
             err = -ENOMEM;
@@ -795,7 +794,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         pcache_add(pcache, (void *) tempPage);
         //将文件已缓冲的页接入链表
         list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
-    }
+
     temp_address_space->a_pagesize = parent_inode->i_data.a_pagesize;
     //将temp_dentry与新建inode关联
     temp_dentry->d_inode = temp_inode;
@@ -967,7 +966,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         }
         if(writen)
         {
-            parent_inode->i_data.a_op->writepage(tempPage);
             break;
         }
     }
@@ -978,22 +976,23 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         kernel_printf("error mkdir on writing dir to parent root sector\n");
         return err;
     }
-    debug_info("make %s dir ok!\n");
+    kernel_printf("make %s dir ok!\n", temp_dir_entry->name);
     parent_dentry = parent_inode->i_dentry;
 
-    parent_dentry = parent_inode->i_dentry;
     temp_dentry->d_parent = parent_dentry;
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
     err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
-    temp_dir_entry->starthi = temp_inode->i_ino >> 16;
-    temp_dir_entry->startlo = (temp_inode->i_ino << 16 >> 16);
     if(err)
     {
         debug_err("fat32:813 create inode in mkdir error!\n");
         err = -EEXIST;
         return err;
     }
+    kernel_printf("i_ino :%d\n", temp_inode->i_ino);
+    temp_dir_entry->starthi = (unsigned int)(temp_inode->i_ino);
+    temp_dir_entry->startlo = (unsigned int)((temp_inode->i_ino >> 16) & 0x0000FFFF);
+    parent_inode->i_data.a_op->writepage(tempPage);
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
     return err;
 }
@@ -1006,9 +1005,7 @@ u32 read_fat(struct inode * temp_inode, u32 index)
     fat32_BI = (struct fat32_basic_information*)(temp_inode->i_sb->s_fs_info);
     sec_addr = fat32_BI->fat32_FAT1->base + (index >> (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT));
     //只取这些位
-    kernel_printf(" ");
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
-    kernel_printf(" ");
     vfs_read_block(buffer, sec_addr, 1);
     return vfs_get_u32(buffer + (sec_index << (FAT32_FAT_ENTRY_LEN_SHIFT)));
 }
@@ -1046,18 +1043,19 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
 
 //长短文件名转换
 void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, u32 direction){
-    u8* name;
+    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN + 1];
     u32 i;
     u32 j;
     u32 err;
     u32 dot;
     u32 end, null_len, dot_pos;
+    for(i = 0;i <= MAX_FAT32_SHORT_FILE_NAME_LEN;i++)
+        name[i] = '\0';
 
     dest->name = 0;
     dest->len = 0;
     //从一般文件名到8-3文件名
     if ( direction == FAT32_FILE_NAME_NORMAL_TO_LONG ){
-        name = (u8 *) kmalloc ( MAX_FAT32_SHORT_FILE_NAME_LEN * sizeof(u8) );
 
         // 找到作为拓展名的“.”
         dot = 0;
@@ -1090,11 +1088,14 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
                 name[i] = '\0';
             else
             {
-                if ( src->name[i] <= 'z' && src->name[i] >= 'a' )
+                if (src->name[i] <= 'z' && src->name[i] >= 'a' && (mode == UBASE_LEXT || mode == UCASE) )
                     name[i] = src->name[i] - 'a' + 'A';
+                else if (src->name[i] <= 'Z' && src->name[i] >= 'A' && (mode == LBASE_UEXT || mode == LCASE) )
+                    name[i] = src->name[i] - 'A' + 'a';
                 else
                     name[i] = src->name[i];
             }
+            kernel_printf("name[i]: %c", name[i]);
         }
             // 再转换“.”后面的部分
             for ( i = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN, j = dot_pos + 1; i < MAX_FAT32_SHORT_FILE_NAME_LEN; i++, j++ )
@@ -1103,11 +1104,14 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
                     name[i] == '\0';
                 else
                 {
-                    if ( src->name[j] <= 'z' && src->name[j] >= 'a' )
+                    if (src->name[i] <= 'z' && src->name[i] >= 'a' && (mode == UBASE_LEXT || mode == UCASE) )
                         name[i] = src->name[j] - 'a' + 'A';
+                    else if (src->name[i] <= 'Z' && src->name[i] >= 'A' && (mode == LBASE_UEXT || mode == LCASE) )
+                        name[i] = src->name[j] - 'A' + 'a';
                     else
                         name[i] = src->name[j];
                 }
+                kernel_printf("name[i]: %c", name[i]);
             }
         dest->name = name;
         dest->len = MAX_FAT32_SHORT_FILE_NAME_LEN;
@@ -1130,7 +1134,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
         }
 
         dest->len = MAX_FAT32_SHORT_FILE_NAME_LEN - null_len;
-        name = (u8 *) kmalloc ( (dest->len + 2) * sizeof(u8) );     // 空字符 + '.'(不一定有)
+             // 空字符 + '.'(不一定有)
 
         if ( dot_pos > MAX_FAT32_SHORT_FILE_NAME_BASE_LEN )
             dot_pos = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN;
@@ -1190,7 +1194,6 @@ u32 fat32_readpage(struct vfs_page* page) {
     debug_warning("absolute sector addr: ");
     kernel_printf("%d\n", abs_sect_addr);
     page->page_data = (u8*)kmalloc(sizeof(u8) * temp_inode->i_block_size);
-    kernel_printf("%d\n", temp_inode->i_block_size);
     if(page->page_data == 0)
     {
 
