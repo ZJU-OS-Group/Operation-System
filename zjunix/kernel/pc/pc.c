@@ -414,7 +414,6 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
-   kernel_printf("");
     while (semaphore);
     semaphore = 1;
 //    debug_warning("current procname:\n");

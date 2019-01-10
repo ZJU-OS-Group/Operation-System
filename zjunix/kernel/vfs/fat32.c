@@ -916,14 +916,12 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                 kernel_printf("no dir left!\n");
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
+                    name[k] = temp_dentry->d_name.name[k];
                     if(temp_dentry->d_name.name[k] == '\0')
                         break;
-                    name[k] = temp_dentry->d_name.name[k];
                 }
                 temp_dir_entry->lcase = UCASE;
                 kernel_printf("name: %s\n", name);
-                kernel_memset(normal_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
-                kernel_memset(long_str.name, 0, sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
 
                 normal_str.name = name;
                 normal_str.len = k;
@@ -945,9 +943,9 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                 debug_info("file has been deleted\n");
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
+                    name[k] = temp_dentry->d_name.name[k];
                     if(temp_dentry->d_name.name[k] == '\0')
                         break;
-                    name[k] = temp_dentry->d_name.name[k];
                 }
                 temp_dir_entry->lcase = UCASE;
                 normal_str.name = name;
@@ -1061,6 +1059,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
     dest->len = 0;
     //从一般文件名到8-3文件名
     if ( direction == FAT32_FILE_NAME_NORMAL_TO_LONG ){
+        debug_info("convert normal to long\n");
         name = (u8 *) kmalloc ( MAX_FAT32_SHORT_FILE_NAME_LEN * sizeof(u8) );
 
         // 找到作为拓展名的“.”
@@ -1074,13 +1073,19 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
                 break;
             }
         }
+        if(dot == 1)
+        {
+            // 先转换“.”前面的部分
+            if ( dot_pos > MAX_FAT32_SHORT_FILE_NAME_BASE_LEN )
+                end = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN - 1;
+            else
+                end = dot_pos - 1;
+        }
 
-        // 先转换“.”前面的部分
-        if ( dot_pos > MAX_FAT32_SHORT_FILE_NAME_BASE_LEN )
-            end = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN - 1;
         else
-            end = dot_pos - 1;
-
+        {
+            end = src->len - 1;
+        }
         for ( i = 0; i < MAX_FAT32_SHORT_FILE_NAME_BASE_LEN; i++ )
         {
             if ( i > end )
@@ -1093,23 +1098,22 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
                     name[i] = src->name[i];
             }
         }
-
-        // 再转换“.”后面的部分
-        for ( i = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN, j = dot_pos + 1; i < MAX_FAT32_SHORT_FILE_NAME_LEN; i++, j++ )
+        if(dot == 1)
         {
-            if ( j >= src->len )
-                name[i] == '\0';
-            else
+            // 再转换“.”后面的部分
+            for ( i = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN, j = dot_pos + 1; i < MAX_FAT32_SHORT_FILE_NAME_LEN; i++, j++ )
             {
-                if ( src->name[j] <= 'z' && src->name[j] >= 'a' )
-                    name[i] = src->name[j] - 'a' + 'A';
+                if ( j >= src->len )
+                    name[i] == '\0';
                 else
-                    name[i] = src->name[j];
+                {
+                    if ( src->name[j] <= 'z' && src->name[j] >= 'a' )
+                        name[i] = src->name[j] - 'a' + 'A';
+                    else
+                        name[i] = src->name[j];
+                }
             }
         }
-
-        dest->name = name;
-        dest->len = MAX_FAT32_SHORT_FILE_NAME_LEN;
     }
 
     // 从8-3到一般文件名
