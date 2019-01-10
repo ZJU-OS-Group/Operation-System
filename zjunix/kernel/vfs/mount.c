@@ -39,6 +39,7 @@ u32 mount_ext3(){
     kernel_printf("mount ext3 in %d, %d\n", dentry->d_parent);
     mnt->mnt_mountpoint = dentry;
     mnt->mnt_parent = root_mnt;
+//    mnt->mnt_root = root_dentry;
     mnt->mnt_root = dentry;
     debug_warning("Mount ext3 successfully!\n");
     return 0;
