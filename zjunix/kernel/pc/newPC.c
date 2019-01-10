@@ -32,12 +32,15 @@ struct task_struct * current[KERNEL_NUM];                // 当前进程
 int curKernel = 0;  //标记当前所用的核是0号核
 volatile int semaphore = 0;   //信号量，避免两个中断产生临界区问题
 int proc_priority[KERNEL_NUM];  //每个处理器上的进程优先级
+volatile int counter_num = 0;
 
-int findLowest(){
+// 寻找当前运行的进程优先级最低的处理器
+int findLowest() {
     int i = 0;
     int pos = 0;
     for (i = 1; i < KERNEL_NUM; i++)
         if (proc_priority[i] < proc_priority[pos]) pos = i;
+    return pos;
 }
 
 int min(int a, int b) {
@@ -72,9 +75,10 @@ void reset_free_bit(int bitPos) {
     free_bitmap &= ~(1 << bitPos);
 }
 
+// 找到下一个工作中的处理器
 int find_next_working_bit(int bitPos) {
     int i;
-    if (free_bitmap == 0x00000000) return -1;  //如果所有的机器都在运行，那么就返回-1
+    if (free_bitmap == 0x00000000) return -1;  //如果所有的机器都未在运行，那么就返回-1
     for (i = bitPos+1; i < KERNEL_NUM; i++)
         if (get_free_bit(i) == 1 && current[i]->priority_class != ZERO_PRIORITY_CLASS) return i;   //这里要求从bitPos的下一个开始扫描，选取第一个非空类
     for (i = 0; i < bitPos; i++)
@@ -82,9 +86,10 @@ int find_next_working_bit(int bitPos) {
     return -1;
 }
 
+// 找到下一个空闲中的处理器
 int find_next_free_bit(){  //寻找空闲处理器
     int i;
-    if (free_bitmap == 0xFFFFFFFF) return -1;  //如果所有空闲位图都满了，那么就返回-1
+    if (free_bitmap == 0xFFFFFFFF) return -1;  //如果所有位图都是满的，那么就返回-1
     for (i = 0; i < 32; i++)
         if (get_free_bit(i) == 0) return i;   //否则返回空的bit
     return -1;
@@ -136,12 +141,10 @@ void init_pc_list() {
         /* 初始化就绪队列 */
         INIT_LIST_HEAD(&(ready_queue[i].queue_head));
         ready_queue[i].number = 0;
-//        ready_bitmap[i] = 0; // 初始化就绪位图
     }
     ready_bitmap = 0x00000000;  //初始化就绪位图，标记所有优先级都没有进程
-    free_bitmap = 0xFFFFFFFF;   //初始化空闲位图，标记所有的处理器都已经空闲
+    free_bitmap = 0x00000000;   //初始化空闲位图，标记所有的处理器都已经空闲
     debug_end("[pc.c: init_pc_list:86]\n");
-
 }
 
 // current等待pid对应的进程
@@ -187,21 +190,31 @@ void wake(pid_t target_pid){
     }
 }
 
+// idle 进程入口
+void system_idle_proc() {
+//    debug_info("system_loop_proc: I'm in!!!\n");
+    while (1);
+}
+
 void init_pc() {
     debug_start("[pc.c: init_pc:134]\n");
-    struct task_struct **idle;
+//    struct task_struct *idle[KERNEL_NUM];
     init_pc_list();
 
-    idle = (struct task_struct**)(kernel_sp - KERNEL_NUM * KERNEL_STACK_SIZE); //这里可以分配KERNEL_NUM个idle
+//    idle = (struct task_struct**)(kernel_sp - KERNEL_STACK_SIZE); //这里可以分配KERNEL_NUM个idle
+//    idle = (struct task_struct**)(KERNEL_NUM * sizeof(struct task_struct));
     int i;
     for (i = 0; i < KERNEL_NUM; i++) {
-        idle[i]->ASID = 0;
-        idle[i]->time_counter = PROC_DEFAULT_TIMESLOTS;
-        kernel_strcpy(idle[i]->name, "init");
-        idle[i]->priority_class = ZERO_PRIORITY_CLASS;
-        idle[i]->priority_level = NORMAL;
-        current[curKernel] = idle[i];
-        add_task(idle[i]);
+        int pc_pid = pc_create("idle", (void*)system_idle_proc, 0, 0, 0, 0, ZERO_PRIORITY_CLASS);
+        current[i] = find_in_tasks((pid_t)pc_pid);
+//        idle[i] = (struct task_struct*)kmalloc(sizeof(struct task_struct));
+//        idle[i]->ASID = 0;
+//        idle[i]->time_counter = PROC_DEFAULT_TIMESLOTS;
+//        kernel_strcpy(idle[i]->name, "init");
+//        idle[i]->priority_class = ZERO_PRIORITY_CLASS;
+//        idle[i]->priority_level = NORMAL;
+//        current[i] = idle[i];
+//        add_task(current[i]);
     }
 
     register_syscall(10, pc_kill_syscall);
@@ -249,7 +262,7 @@ void init_context(context * dest){
     dest->ra = 0;
 }
 
-
+// 创建新进程，返回进程pid
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class) {
     debug_start("[pc.c: pc_create:158]\n");
@@ -283,7 +296,7 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     //debug_warning("PC: NEXT\n");
     context* new_context = &(new_task->task.context);
     //debug_warning("PC: NEXT\n");
-//  kernel_printf("%d\n",&(new_task->task.context));
+//    kernel_printf("%d\n",&(new_task->task.context));
     init_context(new_context); //初始化新进程的上下文信息
     //debug_warning("PC: NEXT\n");
 //    kernel_memset(new_task->kernel_stack,0,KERNEL_STACK_SIZE);
@@ -314,8 +327,8 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     //debug_warning("PC: NEXT 22\n");
     add_ready(&(new_task->task));
     debug_end("[pc.c: pc_create:200]\n");
-    return 1;
-    err_handler:
+    return new_task->task.pid;
+err_handler:
     {
         if (pid_num != -1) pid_free(pid_num);
         debug_err("[pc.c: pc_create:205]\n");
@@ -323,8 +336,8 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     }
 }
 
-
 /*************************************************************************************************/
+
 // 每次调度的时候清空退出列表
 void clear_exit() {
     struct task_struct* next;
@@ -369,7 +382,8 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
 int pc_kill(pid_t pid) {
     debug_start("[pc.c: pc_kill:244]\n");
     struct task_struct* target;
-    /* 三种不能kill的特殊情况进行特判 */
+/* 三种不能kill的特殊情况进行特判 */
+
     if (pid==IDLE_PID) {
         kernel_puts("Can't kill the idle process.\n", VGA_RED, VGA_BLACK);
         return -1;
@@ -422,9 +436,19 @@ int is_realtime(struct task_struct* task) {
 }
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
-    int preemFlag = 0;
-    struct task_struct* next,last;
-    /* 判断异常类型 */
+    counter_num++;
+    kernel_printf("");
+    if (counter_num == 1000) {
+        kernel_printf("current procname: %d %d\n",curKernel,free_bitmap);
+        int i;
+        for (i = 0; i < 32; i++)
+            kernel_printf("%s, ",current[i]->name);
+        counter_num = 1;
+    }
+
+    struct task_struct* next,last,preemBefore,preemAfter;
+/* 判断异常类型 */
+
     if (cause==0) {
         // TODO: interruption
     }
@@ -435,7 +459,8 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     context *before,*after;
     before = &(current[curKernel]->context);
     clear_exit();
-    /* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
+/* 时间配额减少，每次触发时钟中断，从时间配额里面减少3 */
+
     current[curKernel]->time_counter -= 3;
     change_priority(current[curKernel],1);
     if (current[curKernel]->time_counter == 0) {
@@ -466,6 +491,12 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
             int nextPriority = PRIORITY[next->priority_class][next->priority_level];
             int currentPriority = PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level];
             if (nextPriority > currentPriority) { //这里直接抢占
+                if (allocKernel == curKernel) {
+                    copy_context(pt_context, &(current[curKernel]->context));
+/* 将新的上下文保存到pt_context中 */
+
+                    copy_context(&(next->context), pt_context);
+                }
                 add_ready(current[allocKernel]);  //目标分配核的进程标记为ready
                 current[allocKernel]->state = S_READY;
                 remove_ready(next);
@@ -480,17 +511,19 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     if (nextKernel != -1)    //如果能找到下一个正在运行的处理器，那么移交控制权
     {
         after = &current[nextKernel]->context; //求出下一个要调度的目标上下文
-        copy_context(pt_context, &(current[curKernel]->context)); /* 将新的上下文保存到pt_context中 */
+        copy_context(pt_context, &(current[curKernel]->context));
+/* 将新的上下文保存到pt_context中 */
         curKernel = nextKernel;
         copy_context(&(current[nextKernel]->context), pt_context);
     } //如果等于-1，那么就依然运行当前的kernel，这意味着要么其他没在跑，要么都是idle
+//    kernel_printf("current epc : %d\n",pt_context->epc);
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
+//    debug_start("[pc.c: pc_schedule:417]\n");
     while (semaphore);
     semaphore = 1;
-//    debug_start("[pc.c: pc_schedule:417]\n");
 //    debug_warning("current procname:\n");
 //    kernel_printf("%s\n",current[curKernel]->name);
     pc_schedule_core(status,cause,pt_context);
@@ -501,15 +534,15 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    kernel_puts("PID\tname\tpriority\n", 0xfff, 0);
-    kernel_printf(" %x  %s  %d\n", current[curKernel]->ASID, current[curKernel]->name, PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level]);
+    kernel_puts("ASID\tPID\tname\tpriority\n", 0xfff, 0);
+    kernel_printf(" %x\t%d\t%s\t%d\n", current[curKernel]->ASID, current[curKernel]->pid, current[curKernel]->name, PRIORITY[current[curKernel]->priority_class][current[curKernel]->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (get_ready_bit(i) == 1) {
             int number = ready_queue[i].number;
             struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
             struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
             while(number) { // 循环完为止
-                kernel_printf(" %x  %s  %d\n", pcb->ASID, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
+                kernel_printf(" %x\t%d\t%s\t%d\n", pcb->ASID, pcb->pid, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
                 this = this->next;
                 pcb = container_of(this, struct task_struct, schedule_list);
                 number--;
@@ -560,7 +593,9 @@ void task_files_release(struct task_struct* task) {
     kfree(&(task->task_files));
 }
 
+
 /**************************************** 一些对队列的功能性操作 ********************************************/
+
 
 // 将进程添加进等待列表
 void add_wait(struct task_struct *task) {
@@ -582,8 +617,10 @@ void add_ready(struct task_struct *task) {
     u32 priority = PRIORITY[task->priority_class][task->priority_level];
     list_add_tail(&(task->schedule_list), &(ready_queue[priority].queue_head));
     ready_queue[priority].number++; // 该优先级的就绪队列长度加一
-    /*  if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
-          ready_bitmap[priority] = 1;*/
+
+/*  if (ready_bitmap[priority]==0) // 修改就绪位图对应位状态
+         ready_bitmap[priority] = 1;*/
+
 //    if (get_ready_bit(priority) == 0)  //这句话是不需要的
     set_ready_bit(priority); // 只要有相应的优先级进入，就直接把这一位置位
 }
@@ -623,4 +660,3 @@ void change_priority(struct task_struct *task, int delta) {
 //    task->priority += delta;
     task->priority_level = max(min(TIME_CRITICAL,task->priority_level + delta),IDLE);
 }
-

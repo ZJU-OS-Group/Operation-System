@@ -87,6 +87,7 @@ typedef union {
 
 
 void init_pc();
+void system_idle_proc(); // idle进程入口
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
 int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class);
