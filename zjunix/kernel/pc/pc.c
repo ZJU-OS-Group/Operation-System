@@ -29,6 +29,7 @@ struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 struct task_struct *current = 0;                // 当前进程
 volatile int semaphore = 0;   //信号量，避免两个中断产生临界区问题
 extern void switch_ex(context* regs);
+volatile int counter_num = 0;
 
 void pc_exit(){
     asm volatile (      //进入异常模式 => 中断关闭
@@ -384,9 +385,11 @@ int is_realtime(struct task_struct* task) {
 
 void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
     /*** 展示动态优先级变化 *****/
-    int cnt = 0;
-    while(cnt++<500) ;
-    print_proc();
+    counter_num ++;
+    if(counter_num==500) {
+        print_proc();
+        counter_num = 0;
+    }
     /*************************/
 
     struct task_struct* next;
