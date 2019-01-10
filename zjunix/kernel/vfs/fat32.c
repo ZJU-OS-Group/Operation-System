@@ -981,7 +981,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
 
-    parent_dentry = container_of(&parent_inode, struct dentry, d_inode);
+    parent_dentry = parent_inode->i_dentry;
     temp_dentry->d_parent = parent_dentry;
 
     list_add(&(parent_dentry->d_subdirs), &(temp_dentry->d_alias));
