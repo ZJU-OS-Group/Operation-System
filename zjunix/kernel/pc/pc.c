@@ -1106,7 +1106,7 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
         curKernel = nextKernel;
         copy_context(&(current[nextKernel]->context), pt_context);
     } //如果等于-1，那么就依然运行当前的kernel，这意味着要么其他没在跑，要么都是idle
-    kernel_printf("current epc : %d\n",pt_context->epc);
+//    kernel_printf("current epc : %d\n",pt_context->epc);
     asm volatile("mtc0 $zero, $9\n\t");
 }
 
