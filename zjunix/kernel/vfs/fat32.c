@@ -800,7 +800,7 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     temp_address_space->a_pagesize = parent_inode->i_data.a_pagesize;
     //将temp_dentry与新建inode关联
     temp_dentry->d_inode = temp_inode;
-
+    parent_inode->i_size += 32;
     debug_end("fat32.c:768 fat32_create_inode ok!\n");
     return 0;
 }
@@ -812,11 +812,16 @@ u32 fat32_rename (struct inode* old_inode, struct dentry* old_dentry, struct ino
 }
 u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
 {
-    u32 err;
+    u32 err, realPageNo;
+    int i, j;
     struct dentry* parent_dentry;
+    struct vfs_page* tempPage;
+    struct inode* temp_inode;
+    struct condition conditions;
     kernel_printf("file to be deleted: %s\n", temp_dentry->d_name);
     kernel_printf("parent dir %s\n", parent_inode->i_dentry->d_name);
     parent_dentry = parent_inode->i_dentry;
+    temp_inode = temp_dentry->d_inode;
 
     kernel_printf("cluster number: %d\n", temp_dentry->d_inode->i_ino);
     err = write_fat(temp_dentry->d_inode, temp_dentry->d_inode->i_ino, 0x00000000);
@@ -832,6 +837,47 @@ u32 fat32_rmdir(struct inode* parent_inode, struct dentry* temp_dentry)
     {
         debug_info("delete inode error when deleting dir!\n");
         return err;
+    }
+
+    for(i = 0;i < temp_inode->i_blocks;i++)
+    {
+        realPageNo = temp_inode->i_data.a_op->bmap(temp_inode, i);
+        if (!realPageNo) return -ENOMEM;
+        conditions.cond1 = &(realPageNo);
+        conditions.cond2 = temp_inode;
+        tempPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &conditions);
+        //页不在高速缓存中就需要调重新分配
+        tempPage = 0;
+        if (tempPage == 0) {
+            debug_info("page is not in pcache!\n");
+            tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
+            if (!tempPage) {
+                debug_err("fat32.c:1065 get page of file information node error!\n");
+                return -ENOMEM;
+            }
+
+            tempPage->page_state = P_CLEAR;
+            tempPage->page_address = realPageNo;
+            tempPage->p_address_space = &(temp_inode->i_data);
+            INIT_LIST_HEAD(&(tempPage->p_lru));
+            INIT_LIST_HEAD(&(tempPage->page_hashtable));
+            INIT_LIST_HEAD(&(tempPage->page_list));
+
+            //fat32系统读入页
+            err = temp_inode->i_data.a_op->readpage(tempPage);
+            if (IS_ERR_VALUE(err)) {
+                release_page(tempPage);
+                return 0;
+            }
+            debug_info("read in new page ok!\n");
+            tempPage->page_state = P_CLEAR;
+            pcache_add(pcache, (void *) tempPage);
+            //将文件已缓冲的页接入链表
+            list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
+        }
+        //page_data数据中都是dentry项(暂时都按照短文件名处理)，遍历每个目录项
+        kernel_memset(tempPage->page_data, 0, temp_inode->i_blocks * temp_inode->i_block_size);
+        temp_inode->i_data.a_op->writepage(tempPage);
     }
 
     u8 *target_buffer = (u8*)kmalloc(sizeof(u8)*MAX_FAT32_SHORT_FILE_NAME_LEN);
@@ -869,7 +915,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     kernel_printf("making: %s\n", temp_dentry->d_name.name);
     for(i = 0;i < parent_inode->i_blocks;i++) {
         realPageNo = parent_inode->i_data.a_op->bmap(parent_inode, i);
-        if (!realPageNo) return -ENOMEM;
         if (!realPageNo) return -ENOMEM;
         conditions.cond1 = &(realPageNo);
         conditions.cond2 = parent_inode;
@@ -1002,7 +1047,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
     temp_inode = temp_dentry->d_inode;
-    kernel_printf("ino %d:\n", temp_inode->i_ino);
     temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
     temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
     parent_inode->i_data.a_op->writepage(tempPage);
