@@ -15,6 +15,12 @@ static LIST_HEAD(dentry_unused); // 处于unused和negtive
 
 void dput(struct dentry *dentry) {
     dentry->d_count -= 1;
+    if (dentry->d_count==0) {
+        list_del(&(dentry->d_lru));
+        list_del(&(dentry->d_hash));
+        list_del(&(dentry->d_alias));
+        list_del(&(dentry->d_subdirs));
+    }
 }
 
 // 为字符串计算哈希值
