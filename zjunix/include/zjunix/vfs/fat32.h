@@ -85,7 +85,7 @@ struct fat32_file_allocation_table
 };
 
 struct __attribute__((__packed__)) fat32_dir_entry {
-    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN + 1];             // 文件名(含拓展名)
+    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN];             // 文件名(含拓展名)
     u8 attr;                                            // 属性
     u8 lcase;                                           // 系统保留 Case for base and extension
     u8 ctime_cs;                                        // 创建时间的10毫秒位
