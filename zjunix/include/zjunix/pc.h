@@ -118,4 +118,8 @@ void change_priority(struct task_struct *task, int delta);  // 修改进程的�
 int min(int a, int b);
 unsigned max(unsigned int a,unsigned int b);
 
+// some test process
+void system_loop_proc();                // 死循环loop进程
+void system_suicide_proc();             // 自杀进程
+
 #endif
