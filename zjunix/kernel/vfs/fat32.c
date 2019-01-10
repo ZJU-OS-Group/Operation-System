@@ -920,10 +920,14 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                         break;
                 }
                 temp_dir_entry->lcase = UCASE;
+                name[k] = '\0';
                 kernel_printf("name: %s\n", name);
 
-                normal_str.name = name;
                 normal_str.len = k;
+                for(;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                    name[k] = '\0';
+
+                normal_str.name = name;
                 fat32_convert_filename(&long_str, &normal_str, temp_dir_entry->lcase, FAT32_FILE_NAME_NORMAL_TO_LONG);
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
@@ -946,9 +950,13 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
                     if(temp_dentry->d_name.name[k] == '\0')
                         break;
                 }
+                kernel_printf("name: %s\n", name);
                 temp_dir_entry->lcase = UCASE;
-                normal_str.name = name;
                 normal_str.len = k;
+                for(;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
+                    name[k] = '\0';
+
+                normal_str.name = name;
                 fat32_convert_filename(&long_str, &normal_str, temp_dir_entry->lcase, FAT32_FILE_NAME_NORMAL_TO_LONG);
                 for(k = 0;k < MAX_FAT32_SHORT_FILE_NAME_LEN;k++)
                 {
@@ -973,7 +981,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     if(!writen)
     {
         err = -EIO;
-        kernel_printf("error mkdir on writing dir to parent root sector\n");
         return err;
     }
     kernel_printf("make %s dir ok!\n", temp_dir_entry->name);
@@ -985,7 +992,6 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     err = fat32_create_inode(parent_inode, temp_dentry, _nameidata);
     if(err)
     {
-        debug_err("fat32:813 create inode in mkdir error!\n");
         err = -EEXIST;
         return err;
     }
@@ -1043,7 +1049,7 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
 
 //长短文件名转换
 void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, u32 direction){
-    u8 name[MAX_FAT32_SHORT_FILE_NAME_LEN + 1];
+    u8* name;
     u32 i;
     u32 j;
     u32 err;
@@ -1052,11 +1058,12 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
     for(i = 0;i <= MAX_FAT32_SHORT_FILE_NAME_LEN;i++)
         name[i] = '\0';
 
+    kernel_printf("src len:%d\n");
     dest->name = 0;
     dest->len = 0;
     //从一般文件名到8-3文件名
     if ( direction == FAT32_FILE_NAME_NORMAL_TO_LONG ){
-
+        name = (u8*) kmalloc(sizeof(u8) * MAX_FAT32_SHORT_FILE_NAME_LEN);
         // 找到作为拓展名的“.”
         dot = 0;
         dot_pos = 0;
@@ -1078,7 +1085,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
         }
         else
         {
-            end = src->len;
+            end = src->len - 1;
             dot_pos = src->len;
         }
 
@@ -1100,7 +1107,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
             // 再转换“.”后面的部分
             for ( i = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN, j = dot_pos + 1; i < MAX_FAT32_SHORT_FILE_NAME_LEN; i++, j++ )
             {
-                if ( j >= src->len )
+                if ( j >= src->len || dot_pos != 1)
                     name[i] == '\0';
                 else
                 {
@@ -1111,8 +1118,8 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
                     else
                         name[i] = src->name[j];
                 }
-                kernel_printf("name[i]: %c", name[i]);
             }
+            name[i] = '\0';
         dest->name = name;
         dest->len = MAX_FAT32_SHORT_FILE_NAME_LEN;
     }
@@ -1135,7 +1142,7 @@ void fat32_convert_filename(struct qstr* dest, const struct qstr* src, u8 mode, 
 
         dest->len = MAX_FAT32_SHORT_FILE_NAME_LEN - null_len;
              // 空字符 + '.'(不一定有)
-
+        name = (u8 *) kmalloc ( (dest->len + 2) * sizeof(u8) );
         if ( dot_pos > MAX_FAT32_SHORT_FILE_NAME_BASE_LEN )
             dot_pos = MAX_FAT32_SHORT_FILE_NAME_BASE_LEN;
 
