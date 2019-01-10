@@ -38,7 +38,7 @@ struct file *get_empty_file_pointer() {
 struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags) {
     debug_start("[open.c: dentry_open:37]\n");
     debug_warning("dentry_open: 38  ");
-    kernel_printf("%d\n",dentry);
+    kernel_printf("open: %d, %s\n",dentry, dentry->d_name);
     kernel_printf("root dentry:%d\n", root_dentry);
     kernel_printf("pwd dentry:%d\n", pwd_dentry);
     struct file *f;
