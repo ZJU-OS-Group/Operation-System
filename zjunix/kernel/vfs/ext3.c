@@ -46,12 +46,12 @@ struct dentry_operations ext3_dentry_operations = {
 };
 
 struct inode_operations ext3_inode_operations[2] = {{
-        .create = ext3_create,
+        .create = ext3_create_dir,
         .lookup = ext3_lookup,
         .mkdir = ext3_mkdir,
         .rmdir = ext3_rmdir
 },{
-        .create = ext3_create
+        .create = ext3_create_normal
 }};
 
 
@@ -477,8 +477,8 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
 struct vfs_page *ext3_fetch_page(struct inode *target_inode, u32 logical_page_num) {
     struct address_space *target_address_space = &(target_inode->i_data);  //寻找父级目录的索引节点地址
     struct condition find_condition;
-    kernel_printf("%d %d %d\n",target_address_space,target_inode,logical_page_num);
     u32 actual_page_num = target_address_space->a_op->bmap(target_inode, logical_page_num);
+    kernel_printf("actual page_num : %d\n",actual_page_num);
     if (actual_page_num == 0) return ERR_PTR(-ENOENT);
     find_condition.cond1 = (void *) (&actual_page_num);
     find_condition.cond2 = (void *) target_inode;
@@ -788,7 +788,8 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     if (IS_ERR_OR_NULL(allocated_inode)) return *((u32*) allocated_inode);  //如果错误的话这里一定会返回错误码
     ext3_fill_inode(allocated_inode);
     allocated_inode->i_data.a_page[0] = block_num;
-    allocated_inode->i_type = EXT3_NORMAL;
+    if (fileType == EXT3_NORMAL) allocated_inode->i_type = FTYPE_NORM;
+    else allocated_inode->i_type = FTYPE_DIR;
     struct ext3_inode* new_ext3_inode = (struct ext3_inode*)kmalloc(sizeof(struct ext3_inode));
     new_ext3_inode->i_block[0] = block_num;
 //    kfree(new_inode);
@@ -803,14 +804,17 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     kernel_memcpy(buffer + inode_sect_offset * inode_size,new_ext3_inode,inode_size);
     err = vfs_write_block(buffer, inode_sect, 1);
     if (err) return -EIO;
+    if (fileType == EXT3_DIR) allocated_inode->i_op = &(ext3_inode_operations[0]);
+    else allocated_inode->i_op = &(ext3_inode_operations[1]);
     target_dentry->d_inode = allocated_inode;
     target_dentry->d_parent = dir->i_dentry;
     nd->dentry = target_dentry;
     //下一步：在父级dentry里面添加当前目录项
     u8 *pageHead,*pageTail;
+    u32 first_empty_page = 16;
     for (i = 0; i < dir->i_blocks; i++) {
         struct vfs_page *target_page = ext3_fetch_page(dir, i); //加载目标页
-        if (IS_ERR_OR_NULL(target_page)) continue;
+        if (IS_ERR_OR_NULL(target_page)) first_empty_page = i;
         pageHead = target_page->page_data;
         pageTail = pageHead + dir->i_block_size;  //标记该页的首尾
         struct ext3_dir_entry *curDentry;
@@ -822,11 +826,15 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
         curDentry = (struct ext3_dir_entry *) pageHead;
         curDentry->entry_len = sizeof(struct ext3_dir_entry);
         kernel_strcpy(curDentry->file_name,target_dentry->d_name.name);
-        curDentry->file_type = EXT3_NORMAL;
+        curDentry->file_type = fileType;
         curDentry->file_name_len = target_dentry->d_name.len;
         curDentry->inode_num = allocated_inode->i_ino;
         kernel_memcpy(pageHead,curDentry,sizeof(struct ext3_dir_entry));
         target_page->p_address_space->a_op->writepage(target_page);
+        break;
+    }
+    if (first_empty_page != 16) {  //分配一个新的目录项块
+        
     }
     debug_end("EXT3_CREATE");
     return 0;
@@ -837,10 +845,8 @@ u32 ext3_mkdir(struct inode *dir, struct dentry *target_dentry, u32 mode) {  //�
     debug_start("EXT3-MKDIR");
     struct nameidata* nd = (struct nameidata*) kmalloc(sizeof(struct nameidata));
     if (nd == 0) return -ENOMEM;
-    u32 err = ext3_create(dir,target_dentry,nd);
-    target_dentry->d_inode->i_op = &(ext3_inode_operations[0]);
+    u32 err = ext3_create_dir(dir,target_dentry,nd);
     if (IS_ERR_VALUE(err)) return err;
-    target_dentry->d_inode->i_type = EXT3_DIR;
 
     debug_end("EXT3-MKDIR");
     return 0;

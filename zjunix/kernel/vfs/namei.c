@@ -289,22 +289,33 @@ void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
         struct vfsmount *parent;
         struct dentry *old = *dentry; // TODO：全程感觉old没啥用
 
+        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
+        if (*dentry != root_dentry && *dentry != (*mnt)->mnt_root) {
+            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
+                          (*mnt)->mnt_root->d_name.name );
+            *dentry = (*dentry)->d_parent;
+            dget(*dentry);
+            dput(old);
+            break;
+        }
+
         // 如果当前所处的目录即为根目录则退出
         if (*dentry == root_dentry && *mnt == root_mnt ){
             debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
             break;
         }
 
-        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
-        if (*dentry != (*mnt)->mnt_root) {
-            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
-            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
-            (*mnt)->mnt_root->d_name.name );
-            *dentry = (*dentry)->d_parent;
-            dget(*dentry);
-            dput(old);
-            break;
-        }
+//        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
+//        if (*dentry != (*mnt)->mnt_root) {
+//            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+//            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
+//            (*mnt)->mnt_root->d_name.name );
+//            *dentry = (*dentry)->d_parent;
+//            dget(*dentry);
+//            dput(old);
+//            break;
+//        }
 
         // 当前所处的目录为当前路径所属文件系统的根目录
         parent = (*mnt)->mnt_parent;

@@ -161,13 +161,17 @@ void parse_cmd() {
 
     } else if (kernel_strcmp(ps_buffer, "suicide") == 0) {
         pc_create("suicide", (void*)system_suicide_proc,0,0,0,0,NORMAL_PRIORITY_CLASS);
+    } else if (kernel_strcmp(ps_buffer, "father") == 0) {
+        pc_create("father", (void*)system_father,0,0,0,0,NORMAL_PRIORITY_CLASS);
+    } else if (kernel_strcmp(ps_buffer, "child") == 0) {
+        pc_create("child", (void*)system_child,0,0,0,0,NORMAL_PRIORITY_CLASS);
     }
-    /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
-        result = proc_demo_create();
-        kernel_printf("proc return with %d\n", result);
-    }
-    else if (kernel_strcmp(ps_buffer, "cat") == 0) {
-    } */
+        /*else if (kernel_strcmp(ps_buffer, "proc") == 0) {
+            result = proc_demo_create();
+            kernel_printf("proc return with %d\n", result);
+        }
+        else if (kernel_strcmp(ps_buffer, "cat") == 0) {
+        } */
     else if (kernel_strcmp(ps_buffer, "cat") == 0) {
         result = vfs_cat(param);
         kernel_printf("ext3 cat return with %d\n", result);
