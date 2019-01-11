@@ -544,6 +544,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     data_inode->i_sb = target_dentry->d_sb;
     for (i = 0; i < target_inode->i_blocks; i++) {
         u32 actual_block_num = (&(target_inode->i_data))->a_op->bmap(target_inode, i);  //获得真实块号
+        if (actual_block_num == 0) continue;
         u32 index = actual_block_num / (blocks_per_group);  //第几个块
         u32 offset = actual_block_num % (blocks_per_group);  //第几个块内的第几个位图位
         data_inode->i_ino = index * inodes_per_group + offset;  //精确求出目标块的i_ino
@@ -566,7 +567,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         }
     }
     //然后清除索引节点位图
-    kfree(data_inode);
+//    kfree(data_inode);
     u32 target_group_base = get_group_info_base(target_inode, EXT3_INODE_BITMAP_OFFSET);
     u32 offset = (target_inode->i_ino - 1) % (inodes_per_group);  //组内第几个inode
     u32 bitmap_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE);  //寻找这个inode位图位的扇区地址
@@ -648,7 +649,8 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         kernel_memcpy(sourceHead, targetHead, (int) (targetTail - targetHead));  //后面的向前拷贝
         kernel_memset(sourceHead + (int) (targetTail - targetHead), 0, (int) (sourceTail - sourceHead)); //后面清空
     } else kernel_memset(sourceHead, 0, (int) (sourceTail - sourceHead));  //但是如果后面没有的话还是要删除的
-    target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+//    target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+    target_page->p_address_space->a_op->writepage(target_page);
     debug_end("EXT3_DELETE_DENTRY");
     return 0;
 }

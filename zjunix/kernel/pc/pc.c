@@ -157,7 +157,7 @@ void init_pc() {
     kernel_printf("task_struct size : %d \n",sizeof(struct task_struct));
     idle->ASID = 0;
     idle->time_counter = PROC_DEFAULT_TIMESLOTS;
-    kernel_strcpy(idle->name, "init");
+    kernel_strcpy(idle->name, "idle");
 
     idle->priority_class = ZERO_PRIORITY_CLASS;
     idle->priority_level = NORMAL;
