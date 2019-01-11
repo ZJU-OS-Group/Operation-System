@@ -332,6 +332,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
     dot[0] = '.';
     if(kernel_strcmp(temp_dentry->d_name.name, dotdot) == 0)
     {
+        temp_dentry->d_inode = temp_inode;
         return temp_dentry->d_parent;
     }
 
@@ -1296,10 +1297,10 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
     sec_index = index & ((1 << (SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)) - 1);
     vfs_read_block(buffer, sec_addr, 1);
     //32位数据直接修改buffer
-    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 3] = (u8)((content & 0xFF));
-    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 2] = (u8)((content & 0x00FF00) >> 8);
-    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 1] = (u8)((content & 0xFF0000) >> 16);
-    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) ] = (u8)((content & 0xFF000000) >> 24);
+    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 0] = (u8)((content & 0xFF));
+    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 1] = (u8)((content & 0x00FF00) >> 8);
+    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 2] = (u8)((content & 0xFF0000) >> 16);
+    buffer[(sec_index << ((FAT32_FAT_ENTRY_LEN_SHIFT))) + 3] = (u8)((content & 0xFF000000) >> 24);
 
     err = vfs_write_block(buffer, sec_addr, 1);
     if(err != 0)
