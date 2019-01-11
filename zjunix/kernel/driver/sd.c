@@ -118,7 +118,13 @@ u32 sd_write_block(unsigned char* buf, unsigned long addr, unsigned long count) 
 #endif
     if (1 == count) {
         // write single block
-        return sd_write_sector_blocking(addr, buf);
+        result = sd_write_sector_blocking(addr, buf);
+        if (0 != result) {
+            kernel_printf("Error: sd_write_sector_blocking failed:%x\n", result);
+            kernel_printf("index=%x, buf=%x\n", addr, (int)(buf));
+            return 1;
+        }
+        return 0;
     } else {
         // write multiple block
         for (i = 0; i < count; ++i) {
