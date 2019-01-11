@@ -791,7 +791,11 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     if (fileType == EXT3_NORMAL) allocated_inode->i_type = FTYPE_NORM;
     else allocated_inode->i_type = FTYPE_DIR;
     struct ext3_inode* new_ext3_inode = (struct ext3_inode*)kmalloc(sizeof(struct ext3_inode));
+    kernel_memset(new_ext3_inode,0,sizeof(struct ext3_inode));
     new_ext3_inode->i_block[0] = block_num;
+    if (fileType == EXT3_DIR) new_ext3_inode->i_mode = 16895;
+    new_ext3_inode->i_blocks = 1;
+    new_ext3_inode->i_size = EXT3_BLOCK_SIZE_BASE << base_information->super_block.content->block_size;
 //    kfree(new_inode);
     u32 inode_size = base_information->super_block.content->inode_size;
     u32 inode_table_base = get_group_info_base(allocated_inode, EXT3_INODE_TABLE_OFFSET);
@@ -808,33 +812,35 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     else allocated_inode->i_op = &(ext3_inode_operations[1]);
     target_dentry->d_inode = allocated_inode;
     target_dentry->d_parent = dir->i_dentry;
+    target_dentry->d_op = &ext3_dentry_operations;
     nd->dentry = target_dentry;
     //下一步：在父级dentry里面添加当前目录项
-    u8 *pageHead,*pageTail;
-    u32 first_empty_page = 16;
+    u8 *pageHead,*pageTail,*pageLastHead;
     for (i = 0; i < dir->i_blocks; i++) {
         struct vfs_page *target_page = ext3_fetch_page(dir, i); //加载目标页
-        if (IS_ERR_OR_NULL(target_page)) first_empty_page = i;
+        if (IS_ERR_OR_NULL(target_page)) continue;
         pageHead = target_page->page_data;
         pageTail = pageHead + dir->i_block_size;  //标记该页的首尾
         struct ext3_dir_entry *curDentry;
+        u16 totalLen = 0;
         while (*pageHead != 0 && pageHead < pageTail) {
             curDentry = (struct ext3_dir_entry *) pageHead;
             pageHead += curDentry->entry_len;
         }
-        if (pageHead >= pageTail) continue;
-        curDentry = (struct ext3_dir_entry *) pageHead;
-        curDentry->entry_len = sizeof(struct ext3_dir_entry);
+        totalLen = dir->i_block_size - curDentry->entry_len;
+        curDentry->entry_len = 8 + (curDentry->file_name_len / 4 + (curDentry->file_name_len % 4 != 0)) * 4;
+        totalLen = totalLen + curDentry->entry_len;
+        curDentry = (struct ext3_dir_entry *) (target_page->page_data + totalLen);
+//        kernel_printf(" lollollol : %d\n",curDentry);
+        curDentry->entry_len = (dir->i_block_size) - totalLen;
+//        kernel_printf("KKKKKKKKKKKKKKKKKKKKKKKKKKKK %d %d\n",curDentry,curDentry->entry_len);
         kernel_strcpy(curDentry->file_name,target_dentry->d_name.name);
         curDentry->file_type = fileType;
         curDentry->file_name_len = target_dentry->d_name.len;
+//        kernel_printf("EXT3: curDentry : %d len : %d name : %s \n",curDentry->entry_len,target_dentry->d_name.len,target_dentry->d_name.name);
         curDentry->inode_num = allocated_inode->i_ino;
-        kernel_memcpy(pageHead,curDentry,sizeof(struct ext3_dir_entry));
         target_page->p_address_space->a_op->writepage(target_page);
         break;
-    }
-    if (first_empty_page != 16) {  //分配一个新的目录项块
-        
     }
     debug_end("EXT3_CREATE");
     return 0;

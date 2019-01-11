@@ -333,6 +333,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
     if(kernel_strcmp(temp_dentry->d_name.name, dotdot) == 0)
     {
         temp_dentry->d_inode = temp_inode;
+        temp_dentry->d_op = &(fat32_dentry_operations);
         return temp_dentry->d_parent;
     }
 

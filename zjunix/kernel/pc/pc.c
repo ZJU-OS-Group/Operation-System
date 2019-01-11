@@ -32,31 +32,10 @@ volatile int semaphore = 0;   //信号量，避免两个中断产生临界区问
 volatile int counter_num = 0;
 
 void pc_exit(){
-    struct list_head* current_wait_queue = &(current->wait_queue);
-//    debug_warning("killing current task name: ");
-//    kernel_printf("%s\n", current->name);
-//    kernel_printf("");
-    struct task_struct* waiting_pcb;
     asm volatile (      //进入异常模式 => 中断关闭
             "li $v0, 10\n\t"
             "syscall\n\t"
     );
-    kernel_printf("before while ");
-    while (current_wait_queue->next!=current_wait_queue) {
-        kernel_printf("while first ");
-        waiting_pcb = container_of(current_wait_queue->next, struct task_struct, wait_node);
-        if (waiting_pcb->state!=S_WAIT) {
-            debug_err("There's a task whose state is not wait.\n");
-            continue;
-        }
-        waiting_pcb->state = S_READY;
-        remove_wait(waiting_pcb);
-        remove_wait_queue(waiting_pcb);
-        add_ready(waiting_pcb);
-        waiting_pcb->priority_level = TIME_CRITICAL;
-        kernel_printf("while last ");
-    }
-    kernel_printf("after while ");
 }
 
 int min(int a, int b) {
@@ -120,7 +99,6 @@ void init_pc_list() {
 
 // current等待pid对应的进程
 void join(pid_t target_pid){
-    disable_interrupts();
     struct task_struct* target;
     struct task_struct* record = current; // 用来存一下current
 
@@ -463,6 +441,7 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
 //    kernel_printf("");
     //debug_end("[pc.c: pc_schedule:328]\n");
     // 复位count，结束时钟中断
+    asm volatile("mtc0 $zero, $9\n\t");
 }
 
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
@@ -473,7 +452,7 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
 //    kernel_printf("????\n");
     pc_schedule_core(status,cause,pt_context,0);
 //    debug_end("[pc.c: pc_schedule:419]\n");
-    asm volatile("mtc0 $zero, $9\n\t");
+
     semaphore = 0;
 }
 
@@ -535,9 +514,9 @@ struct task_struct* get_preemptive_task() {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    debug_end("--------------------------------------Process Info---------------------------------\n");
-    debug_end("-----------------------------------------------------------------------------------\n");
-    kernel_puts("PID\tname\tpriority\n", 0xfff, 0);
+    debug_end("------------------------------Process Info---------------------------\n");
+    debug_end("---------------------------------------------------------------------\n");
+    debug_start("PID\tname\tpriority\n");
     kernel_printf(" %x\t%s\t%d\n", current->ASID, current->name, PRIORITY[current->priority_class][current->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (ready_bitmap[i]) {
@@ -552,9 +531,11 @@ int print_proc() {
             }
         }
     }
-    debug_end("-----------------------------------------------------------------------------------\n");
+    debug_end("---------------------------------------------------------------------\n");
     return 0;
 }
+
+
 
 struct task_struct* get_curr_pcb() {
     return current;

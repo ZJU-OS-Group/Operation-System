@@ -146,6 +146,9 @@ void parse_cmd() {
     }
     else if (kernel_strcmp(ps_buffer, "kill") == 0) {
         pid_t pid = (pid_t) (param[0] - '0');
+        if (param[1]!=0) {
+            pid = (pid_t) (pid * 10 + param[1] - '0');
+        }
         kernel_printf("Killing process %d\n", pid);
         result = pc_kill(pid);
         kernel_printf("kill return with %d\n", result);
