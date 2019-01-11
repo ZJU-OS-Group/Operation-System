@@ -97,7 +97,11 @@ u32 sd_read_block(unsigned char* buf, unsigned long addr, unsigned long count) {
     u32 result;
     if (1 == count) {
         // read single block
-        return sd_read_sector_blocking(addr, buf);
+        result = sd_read_sector_blocking(addr, buf);
+        if (0 != result) {
+            return 1;
+        }
+        return 0;
     } else {
         // read multiple block
         for (i = 0; i < count; ++i) {
