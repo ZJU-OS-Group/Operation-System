@@ -548,7 +548,7 @@ u32 fat32_delete_inode(struct dentry* temp_dentry)
         }
 
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
-        for (k = 0;j < parent_inode->i_block_size;j += FAT32_DIR_ENTRY_LEN ){
+        for (j = 0;j < parent_inode->i_block_size;j += FAT32_DIR_ENTRY_LEN ){
             temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + j);
 
             // 先判断是不是短文件名，如果不是的话跳过（08 卷标、0F长文件名）
