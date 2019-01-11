@@ -728,6 +728,8 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
     struct dentry* parent_dentry;
     struct vfs_page* tempPage;
     struct address_space* temp_address_space;
+    struct fat32_dir_entry* dotdot;
+    struct fat32_dir_entry* dot;
     debug_start("fat32.c:682 debug fat32_create_inode start\n");
     parent_dentry = parent_inode->i_dentry;
     temp_inode = (struct inode*) kmalloc(sizeof(struct inode));
@@ -800,8 +802,35 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         INIT_LIST_HEAD(&(tempPage->page_hashtable));
         INIT_LIST_HEAD(&(tempPage->page_list));
         //fat32系统写入页
-        tempPage->page_data = (struct vfs_page*)kmalloc(temp_inode->i_block_size * temp_inode->i_blocks);
-        kernel_memset(tempPage->page_data, 0, (temp_inode->i_block_size * temp_inode->i_blocks) >> SECTOR_LOG_SIZE);
+        tempPage->page_data = (u8*)kmalloc(4096);
+        kernel_memset(tempPage->page_data, 0, 4096);
+
+        //创建..和.
+        dot = (struct fat32_dir_entry*) tempPage->page_data;
+        for(i = 0;i < MAX_FAT32_SHORT_FILE_NAME_LEN;i++)
+            dot->name[i] = 0x20;
+        dot->name[0] = '.';
+        dot->time = 0x57;
+        dot->ctime = 0xE663;
+        dot->cdate = 0x2B4E;
+        dot->adate = 0x2B4E;
+        dot->date = 0x2B4E;
+        dot->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
+        dot->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
+
+    dotdot = (struct fat32_dir_entry*) (tempPage->page_data + FAT32_DIR_ENTRY_LEN);
+    for(i = 0;i < MAX_FAT32_SHORT_FILE_NAME_LEN;i++)
+        dotdot->name[i] = 0x20;
+    dotdot->name[0] = '.';
+    dotdot->name[1] = '.';
+    dotdot->time = 0x57;
+    dotdot->ctime = 0xE663;
+    dotdot->cdate = 0x2B4E;
+    dotdot->adate = 0x2B4E;
+    dotdot->date = 0x2B4E;
+    dotdot->starthi = (unsigned int)((parent_inode->i_ino & 0xFFFF0000) >> 16);
+    dotdot->startlo = (unsigned int)(parent_inode->i_ino & 0x0000FFFF);
+
 
         err = temp_inode->i_data.a_op->writepage(tempPage);
 
@@ -1224,10 +1253,16 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
     }
     temp_inode = temp_dentry->d_inode;
     kernel_printf("cluNo: %d\n", temp_inode->i_ino);
+    temp_dir_entry->time = 0x57;
+    temp_dir_entry->ctime = 0xE663;
+    temp_dir_entry->cdate = 0x2B4E;
+    temp_dir_entry->adate = 0x2B4E;
+    temp_dir_entry->date = 0x2B4E;
     temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
     temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
 
     parent_inode->i_data.a_op->writepage(tempPage);
+
     debug_end("fat32.c:815 fat32_mkdir ok!\n");
     return err;
 }
