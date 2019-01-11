@@ -1220,6 +1220,7 @@ u32 fat32_mkdir(struct inode* parent_inode, struct dentry* temp_dentry, u32 mode
         return err;
     }
     temp_inode = temp_dentry->d_inode;
+    kernel_printf("cluNo: %d\n", temp_inode->i_ino);
     temp_dir_entry->starthi = (unsigned int)((temp_inode->i_ino & 0xFFFF0000) >> 16);
     temp_dir_entry->startlo = (unsigned int)(temp_inode->i_ino & 0x0000FFFF);
 
@@ -1259,6 +1260,12 @@ u32 write_fat(struct inode* temp_inode, u32 index, u32 content)
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 2] = (u8)((content & 0x00FF00) >> 8);
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 1] = (u8)((content & 0xFF0000) >> 16);
     buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) ] = (u8)((content & 0xFF000000) >> 24);
+
+    kernel_printf("write fat buf: %d\n", buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 3]);
+    kernel_printf("write fat buf: %d\n", buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 2]);
+    kernel_printf("write fat buf: %d\n", buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT))) + 1]);
+    kernel_printf("write fat buf: %d\n", buffer[(sec_index << ((SECTOR_LOG_SIZE - FAT32_FAT_ENTRY_LEN_SHIFT)))]);
+
     err = vfs_write_block(buffer, sec_addr, 1);
     if(err)
     {
