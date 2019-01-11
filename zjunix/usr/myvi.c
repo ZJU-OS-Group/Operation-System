@@ -77,7 +77,6 @@ void load_file(char *file_path) {
     } else {
         is_new_file = 0; // 非新文件
     }
-
     file_size = target_file->f_dentry->d_inode->i_size;
     int i = 0;
     u32 base = 0;
