@@ -389,14 +389,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
         }
         kernel_printf("page addr: %d\n", tempPage->page_address);
         //现在p_data指向的数据就是页的数据。假定页里面的都是fat32短文件目录项。对每一个目录项
-        struct inode* test_inode;
-        u32 abs_sect_addr;
-        test_inode = tempPage->p_address_space->a_host;
-        abs_sect_addr = ((struct fat32_basic_information *) (test_inode->i_sb->s_fs_info)) \
-->fat32_FAT1->data_sec + (tempPage->page_address - 2) * (test_inode->i_block_size >> SECTOR_LOG_SIZE);
-        //第一、第二个扇区是系统扇区
-        debug_warning("absolute sector addr: ");
-        kernel_printf("%d\n", abs_sect_addr);
+
         for (i = 0;i < temp_inode->i_block_size;i += FAT32_DIR_ENTRY_LEN ){
 
             temp_dir_entry = (struct fat32_dir_entry *)(tempPage->page_data + i);
@@ -436,7 +429,7 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
                 new_inode->i_block_size     = temp_inode->i_block_size;
                 new_inode->i_sb             = temp_inode->i_sb;
                 new_inode->i_size           = temp_dir_entry->size;
-                new_inode->i_blocks         = 0;
+                new_inode->i_blocks         = 1;
                 new_inode->i_fop            = &(fat32_file_operations);
                 new_inode->i_dentry = temp_dentry;
                 INIT_LIST_HEAD(&(new_inode->i_sb_list));
@@ -450,10 +443,12 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
                     new_inode->i_op         = &(fat32_inode_operations[1]);
 
                 // 填充关联的address_space结构
+
                 new_inode->i_data.a_host        = new_inode;
                 new_inode->i_data.a_pagesize    = new_inode->i_block_size;
                 new_inode->i_data.a_op          = &(fat32_address_space_operations);
 
+                addr = read_fat(new_inode, new_inode->i_ino);
                 while ( 0x0FFFFFFF != addr ){
                     new_inode->i_blocks++;
                     addr = read_fat(new_inode, addr);          // 读FAT32表
