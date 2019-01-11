@@ -782,9 +782,10 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
 
     temp_address_space->a_page = (u32*)kmalloc(sizeof(u32) * temp_inode->i_blocks);
     temp_address_space->a_page[0] = i;
+    temp_address_space->a_pagesize = parent_inode->i_data.a_pagesize;
 
     temp_inode->i_data = *(temp_address_space);
-    debug_info("temp inode init ok!\n");
+    kernel_printf("block size %d\n", temp_inode->i_block_size);
     //直接重新分配一个新页,清空数据给此inode
     realPageNo = temp_inode->i_data.a_op->bmap(temp_inode, 0);
         tempPage = (struct vfs_page *) kmalloc(sizeof(struct vfs_page));
@@ -799,11 +800,12 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         INIT_LIST_HEAD(&(tempPage->page_hashtable));
         INIT_LIST_HEAD(&(tempPage->page_list));
         //fat32系统写入页
+        tempPage->page_data = (struct vfs_page*)kmalloc(temp_inode->i_block_size * temp_inode->i_blocks);
         kernel_memset(tempPage->page_data, 0, (temp_inode->i_block_size * temp_inode->i_blocks) >> SECTOR_LOG_SIZE);
-        debug_end("fat32.c:768 fat32_create_inode ok!\n");
+
         err = temp_inode->i_data.a_op->writepage(tempPage);
 
-        if (IS_ERR_VALUE(err))
+        if (err != 0)
         {
             release_page(tempPage);
             return 0;
@@ -813,11 +815,11 @@ u32 fat32_create_inode(struct inode* parent_inode, struct dentry* temp_dentry, s
         //将文件已缓冲的页接入链表
         list_add(&(tempPage->page_list), &(temp_inode->i_data.a_cache));
 
-    temp_address_space->a_pagesize = parent_inode->i_data.a_pagesize;
+
     //将temp_dentry与新建inode关联
     temp_dentry->d_inode = temp_inode;
     parent_inode->i_size += 32;
-
+    debug_end("fat32.c:768 fat32_create_inode ok!\n");
     return 0;
 }
 
