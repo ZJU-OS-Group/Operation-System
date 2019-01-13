@@ -29,7 +29,6 @@ unsigned char ready_bitmap[PRIORITY_LEVELS];                 // 就绪位图，�
 struct ready_queue_element ready_queue[PRIORITY_LEVELS];     // 就绪队列
 struct task_struct *current = 0;                // 当前进程
 volatile int semaphore = 0;   //信号量，避免两个中断产生临界区问题
-extern void switch_ex(context* regs);
 volatile int counter_num = 0;
 
 void pc_exit(){
@@ -110,15 +109,22 @@ void join(pid_t target_pid){
     }
 
     target = find_in_tasks(target_pid);
+    if (target->state==S_TERMINATE) {
+        debug_err("The process already exits\n");
+        return ;
+    }
 
     // 向target的等待队列里面添加上current
     list_add_tail(&(current->wait_node),&(target->wait_queue));
+    enable_interrupts();
+    debug_info("Before 13 syscall\n");
+    asm volatile (
+            "li $v0, 13\n\t"
+            "syscall\n\t"
+    );
 
+//    debug_info("I'm getting into the join function\n");
     // todo：系统调用，触发schedule，然后将原来的current从ready加入wait中
-
-    record->state = S_WAIT;
-    remove_ready(record);
-    add_wait(record);
 }
 
 // 唤醒pid对应的进程
@@ -151,7 +157,7 @@ void init_pc() {
     kernel_printf("task_struct size : %d \n",sizeof(struct task_struct));
     idle->ASID = 0;
     idle->time_counter = PROC_DEFAULT_TIMESLOTS;
-    kernel_strcpy(idle->name, "init");
+    kernel_strcpy(idle->name, "idle");
 
     idle->priority_class = ZERO_PRIORITY_CLASS;
     idle->priority_level = NORMAL;
@@ -159,6 +165,7 @@ void init_pc() {
     current = idle;
     add_task(current);
     register_syscall(10, pc_kill_syscall);
+    register_syscall(13, pc_schedule_wait);
     register_interrupt_handler(7, pc_schedule);
 
     asm volatile(
@@ -204,7 +211,7 @@ void init_context(context * dest){
 }
 
 
-int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
+pid_t pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class) {
     debug_start("[pc.c: pc_create:158]\n");
     //这里暂时不考虑is_user的情况
@@ -268,7 +275,7 @@ int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     //debug_warning("PC: NEXT 22\n");
     add_ready(&(new_task->task));
     debug_end("[pc.c: pc_create:200]\n");
-    return 1;
+    return new_task->task.pid;
     err_handler:
     {
         if (pid_num != -1) pid_free(pid_num);
@@ -311,7 +318,7 @@ void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_contex
         kernel_printf("Current PID = %d\n",current->pid);
         current->priority_class = ZERO_PRIORITY_CLASS;
         current->priority_level = IDLE;
-        pc_schedule_core(status, cause, pt_context);
+        pc_schedule_core(status, cause, pt_context, 0);
         kernel_printf("Current PID = %d\n",current->pid);
         pc_kill(kill_pid);
     }
@@ -384,7 +391,7 @@ int is_realtime(struct task_struct* task) {
     return PRIORITY[task->priority_class][task->priority_level] > 15;
 }
 
-void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context){
+void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context,int option){
     /*** 展示动态优先级变化 *****/
 //    counter_num ++;
 //    if(counter_num==500) {
@@ -426,7 +433,7 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     } else {
 //        kernel_printf("Test2: what's the current process? %s\n",current->name);
 //        /* 找到将要调度的下一个进程 */
-        next = find_next_task();
+        next = find_next_task(option);
         if (next!=current) {
             pc_exchange(next, pt_context, 1);
         }
@@ -443,12 +450,24 @@ void pc_schedule(unsigned int status, unsigned int cause, context* pt_context) {
 //    debug_warning("current procname:\n");
 //    kernel_printf("%s\n",current->name);
 //    kernel_printf("????\n");
-    pc_schedule_core(status,cause,pt_context);
+    pc_schedule_core(status,cause,pt_context,0);
 //    debug_end("[pc.c: pc_schedule:419]\n");
 
     semaphore = 0;
 }
 
+void pc_schedule_wait(unsigned int status, unsigned int cause, context* pt_context) {  //供wait进程进行调度
+    debug_info("In 13 syscall\n");
+    while (semaphore);
+    semaphore = 1;
+//    debug_warning("current procname:\n");
+//    kernel_printf("%s\n",current->name);
+//    kernel_printf("????\n");
+    pc_schedule_core(status,cause,pt_context,1);
+//    debug_end("[pc.c: pc_schedule:419]\n");
+
+    semaphore = 0;
+}
 // 将当前进程换成next
 // pt_context：当前上下文
 // flag：是否需要重置时间片
@@ -495,23 +514,28 @@ struct task_struct* get_preemptive_task() {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    kernel_puts("ASID\tPID\tname\tpriority\n", 0xfff, 0);
-    kernel_printf(" %x\t%d\t%s\t%d\n", current->ASID, current->pid, current->name, PRIORITY[current->priority_class][current->priority_level]);
+    debug_end("------------------------------Process Info---------------------------\n");
+    debug_end("---------------------------------------------------------------------\n");
+    debug_start("PID\tname\tpriority\n");
+    kernel_printf(" %x\t%s\t%d\n", current->ASID, current->name, PRIORITY[current->priority_class][current->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (ready_bitmap[i]) {
             int number = ready_queue[i].number;
             struct list_head *this = ready_queue[i].queue_head.next; // 从第一个task开始
             struct task_struct *pcb = container_of(this, struct task_struct, schedule_list); // 找到对应的pcb
             while(number) { // 循环完为止
-                kernel_printf(" %x\t%d\t%s\t%d\n", pcb->ASID, pcb->pid, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
+                kernel_printf(" %x\t%s\t%d\n", pcb->ASID, pcb->name, PRIORITY[pcb->priority_class][pcb->priority_level]);
                 this = this->next;
                 pcb = container_of(this, struct task_struct, schedule_list);
                 number--;
             }
         }
     }
+    debug_end("---------------------------------------------------------------------\n");
     return 0;
 }
+
+
 
 struct task_struct* get_curr_pcb() {
     return current;
@@ -536,7 +560,7 @@ struct task_struct* find_in_tasks(pid_t pid) {
 }
 
 // 在就绪队列中寻找下一个要运行的进程并返回
-struct task_struct* find_next_task() {
+struct task_struct* find_next_task(int option) {  //option : 0：正常， 1 ：不可以找自己
     //debug_start("[pc.c: find_next_task:410]\n");
     struct task_struct* next;
     u32 current_priority = PRIORITY[current->priority_class][current->priority_level];
@@ -549,6 +573,14 @@ struct task_struct* find_next_task() {
     // 如果没有找到，那么找同级的
     if (ready_bitmap[current_priority]) {
         next = container_of(ready_queue[current_priority].queue_head.next, struct task_struct, schedule_list);
+    }
+
+    if (option && next == current) {
+        int i = 0;
+        for (i = current_priority - 1; i >= 0; i--) {
+            if (ready_bitmap[i])
+                next = container_of(ready_queue[i].queue_head.next, struct task_struct, schedule_list);
+        }
     }
     //debug_end("[pc.c: find_next_task:423] equal priority\n");
     return next;
@@ -590,6 +622,12 @@ void add_ready(struct task_struct *task) {
 void remove_wait(struct task_struct *task) {
     list_del(&(task->schedule_list));
     INIT_LIST_HEAD(&(task->schedule_list));
+}
+
+// 从某个wait queue中删除进程
+void remove_wait_queue(struct task_struct *task) {
+    list_del(&(task->wait_node));
+    INIT_LIST_HEAD(&(task->wait_node));
 }
 
 // 从退出列表中删除进程

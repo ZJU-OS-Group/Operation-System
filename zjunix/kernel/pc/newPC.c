@@ -218,6 +218,8 @@ void init_pc() {
     }
 
     register_syscall(10, pc_kill_syscall);
+    register_syscall(13, pc_schedule_wait);
+
     register_interrupt_handler(7, pc_schedule);
 
     asm volatile(

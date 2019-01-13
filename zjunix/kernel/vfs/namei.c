@@ -105,6 +105,9 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
     u32 lookup_flags = nd->flags;
     struct path next;
     struct qstr this;
+
+    int flag_mount=0; // 是否已经到了挂载点
+
     // 跳过开始的'/'，'/test/zc'变成'test/zc'
     while(*name=='/'||*name==' ') name++;
 
@@ -163,8 +166,9 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
 
         // 检查next.dentry是否指向某个文件系统的安装点
         // 如果是的话，更新乘这个文件系统的上级的dentry和mount
-        follow_mount(&next.mnt,&next.dentry);
-        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
+        flag_mount = follow_mount(&next.mnt,&next.dentry);
+//        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
+        if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
         {
             root_dentry = next.dentry;
             root_mnt = next.mnt;
@@ -234,7 +238,8 @@ last_component:
         nd->mnt = next.mnt;
         err = -ENOENT;
         kernel_printf("hhhhhhhhhhhh %s\n",next.dentry->d_name.name);
-        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
+//        if (kernel_strcmp(next.dentry->d_name.name, "/") == 0)
+        if (kernel_strcmp(next.dentry->d_name.name, "ext3") == 0 && next.dentry->d_parent == root_dentry)
         {
             root_dentry = next.dentry;
             root_mnt = next.mnt;
@@ -284,22 +289,33 @@ void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
         struct vfsmount *parent;
         struct dentry *old = *dentry; // TODO：全程感觉old没啥用
 
+        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
+        if (*dentry != root_dentry && *dentry != (*mnt)->mnt_root) {
+            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
+                          (*mnt)->mnt_root->d_name.name );
+            *dentry = (*dentry)->d_parent;
+            dget(*dentry);
+            dput(old);
+            break;
+        }
+
         // 如果当前所处的目录即为根目录则退出
         if (*dentry == root_dentry && *mnt == root_mnt ){
             debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
             break;
         }
 
-        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
-        if (*dentry != (*mnt)->mnt_root) {
-            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
-            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
-            (*mnt)->mnt_root->d_name.name );
-            *dentry = (*dentry)->d_parent;
-            dget(*dentry);
-            dput(old);
-            break;
-        }
+//        // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
+//        if (*dentry != (*mnt)->mnt_root) {
+//            debug_warning("[namei.c: follow_dotdot:294] case 2 not root");
+//            kernel_printf("nd.dentry: %d, %s, mnt_root: %d, %s\n", (*dentry),(*dentry)->d_name.name, (*mnt)->mnt_root,
+//            (*mnt)->mnt_root->d_name.name );
+//            *dentry = (*dentry)->d_parent;
+//            dget(*dentry);
+//            dput(old);
+//            break;
+//        }
 
         // 当前所处的目录为当前路径所属文件系统的根目录
         parent = (*mnt)->mnt_parent;

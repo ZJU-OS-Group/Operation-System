@@ -46,12 +46,12 @@ struct dentry_operations ext3_dentry_operations = {
 };
 
 struct inode_operations ext3_inode_operations[2] = {{
-        .create = ext3_create,
+        .create = ext3_create_dir,
         .lookup = ext3_lookup,
         .mkdir = ext3_mkdir,
         .rmdir = ext3_rmdir
 },{
-        .create = ext3_create
+        .create = ext3_create_normal
 }};
 
 
@@ -64,12 +64,9 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
 //    debug_start("Hello I'm getting into ext3_bmap!\n");
     u32 *pageTable = inode->i_data.a_page;
     u32 entry_num = inode->i_block_size >> EXT3_BLOCK_ADDR_SHIFT;
-//    kernel_printf("UUUUUUUUUUUUUUUUU %d\n",target_page);
     if (target_page < EXT3_FIRST_MAP_INDEX) {
-//        kernel_printf("IIIIIIIIIIIII %d\n",pageTable[target_page]);
         return pageTable[target_page];  //因为初始化的时候就已经把所有能直接访问到的数据块都添加到页缓存里了
     }
-    debug_start("After first!\n");
     if (target_page < EXT3_FIRST_MAP_INDEX + entry_num) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
@@ -78,10 +75,9 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
         //index_block块里的都是地址
         u32 index = (target_page - EXT3_FIRST_MAP_INDEX) << EXT3_BLOCK_ADDR_SHIFT;
         u32 actual_addr = vfs_get_u32(index_block + index);
-        kfree(index_block);
+//        kfree(index_block);
         return actual_addr;
     }
-    debug_start("After Second!\n");
     if (target_page < EXT3_FIRST_MAP_INDEX + (entry_num + 1) * entry_num) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
@@ -96,10 +92,9 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
         err = vfs_read_block(index_block, index1_addr, inode->i_block_size >> SECTOR_LOG_SIZE);
         index = (pre_index % entry_num) << EXT3_BLOCK_ADDR_SHIFT;
         u32 actual_addr = vfs_get_u32(index_block + index);
-        kfree(index_block);
+//        kfree(index_block);
         return actual_addr;
     }
-    debug_start("After Third!\n");
     if (target_page < EXT3_FIRST_MAP_INDEX + entry_num * (entry_num * (entry_num + 1) + 1)) {
         u8 *index_block = (u8 *) kmalloc(inode->i_block_size * sizeof(u8));
         if (index_block == 0) return -ENOMEM;
@@ -119,7 +114,7 @@ u32 ext3_bmap(struct inode *inode, u32 target_page) {
         if (err) return -EIO;
         index = (pre_index % entry_num) << EXT3_BLOCK_ADDR_SHIFT;
         u32 actual_addr = vfs_get_u32(index_block + index);
-        kfree(index_block);
+//        kfree(index_block);
         return actual_addr;
     }
     return -EFAULT;
@@ -280,6 +275,7 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     u32 offset_sect = inner_index / (SECTOR_BYTE_SIZE / inode_size);
     //求组内扇区偏移量：计算方式：下标*大小/扇区大小，之所以用两个除法是为了能够避免每个SECTOR里不能刚好容纳若干inode的情况
     u32 inode_sect = inode_table_base + offset_sect;
+    kernel_printf("EXT3 : ---------- %d %d\n",inode->i_ino,inode_sect);
     u32 err = vfs_read_block(target_buffer, inode_sect, 1);
     if (err) return -EIO;
 
@@ -299,7 +295,12 @@ u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信�
     inode->i_data.a_page = (u32 *) kmalloc(EXT3_N_BLOCKS * sizeof(u32));
     if (inode->i_data.a_page == 0) return -ENOMEM;
     for (i = 0; i < EXT3_N_BLOCKS; i++)
+    {
         inode->i_data.a_page[i] = target_inode->i_block[i];
+//        kernel_printf("%d ,",inode->i_data.a_page[i]);
+    }
+//    kernel_printf("\n");
+//    while(1);
     //拷贝数据块
     return 0;
 }
@@ -364,6 +365,8 @@ u32 init_ext3(u32 base) {
 
     struct inode *root_inode = ext3_init_inode(super_block,EXT3_ROOT_INO);      //初始化索引节点
     if (IS_ERR_OR_NULL(root_inode)) goto err;
+    root_inode->i_dentry = root_dentry;
+    root_dentry->d_inode = root_inode;
 
     u32 result = ext3_fill_inode(root_inode);                   //填充索引节点
     if (IS_ERR_VALUE(result)) goto err;
@@ -387,12 +390,13 @@ u32 init_ext3(u32 base) {
 
 u32 ext3_check_inode_exists(struct inode *inode) { //返回0说明不存在该inode的位图，返回1则存在且为1
     u8 target_buffer[SECTOR_BYTE_SIZE];
-    u32 target_inode_base = get_group_info_base(inode, EXT3_INODE_TABLE_OFFSET);
+    u32 target_inode_base = get_group_info_base(inode, EXT3_INODE_BITMAP_OFFSET);
     //找到inode数据区的基址
     //然后往前推一个block就是inode位图所在的block
     u32 block_size = ((struct ext3_base_information *) inode->i_sb->s_fs_info)->super_block.content->block_size;
     u32 inodes_per_group = ((struct ext3_base_information *) inode->i_sb->s_fs_info)->super_block.content->inodes_per_group;
-    u32 target_sect = target_inode_base - block_size >> SECTOR_LOG_SIZE;
+    u32 target_sect = target_inode_base;
+//    kernel_printf("TARGET INODE BITMAP : %d \n",target_sect);
     //此处获得了inode对应的块的inode位图所在的首个扇区
     u32 group_inner_index = (inode->i_ino - 1) % inodes_per_group;
     //计算inode在这一组内的下标
@@ -402,7 +406,9 @@ u32 ext3_check_inode_exists(struct inode *inode) { //返回0说明不存在该in
     u32 sect_index = group_inner_index % (BITS_PER_BYTE * SECTOR_BYTE_SIZE);  //该sector内的定位
     u32 err = vfs_read_block(target_buffer, sect_addr, 1); //读一块就行，因为一个扇区肯定能包含这个bit
     if (err) return 0;
+//    kernel_printf("!!!!!!!!! sect-index : %d\n, group_inner_index : %d\n, sect_addr : %d\n",sect_index,group_inner_index,sect_addr);
     u8 ans = get_bit(target_buffer, sect_index);
+//    kernel_printf("target ans: %d\n",ans);
     return ans;
 }
 
@@ -429,7 +435,7 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
     for (i = 0; i < inode->i_blocks; i++) { //遍历这个目录文件内的所有块
         // 这里证实了inode确实是root_inode
         curPage = ext3_fetch_page(inode, i);
-        if (IS_ERR_OR_NULL(curPage)) return -ENOMEM;
+        if (IS_ERR_OR_NULL(curPage)) continue;
         //这里curPage一定已经加载进来了，现在是第i块，现在需要遍历每一个目录项
 //        debug_warning("hello I'm here!!!!\n");
         curAddr = curPage->page_data;
@@ -438,17 +444,22 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
         while (*curAddr != 0 && curAddr < pageTail) {
             curDentry = (struct ext3_dir_entry *) curAddr;  //这里不需要做文件类型判断
             curInode = (struct inode *) kmalloc(sizeof(struct inode));
+            kernel_printf("curDentry : %s\n",curDentry->file_name);
             if (curInode == 0) return -ENOMEM;
             curInode->i_ino = curDentry->inode_num;
             curInode->i_sb = super_block;
             curInode->i_block_size = inode->i_block_size; //其他的都没有用到所以这里不做初始化
-            if (0 == ext3_check_inode_exists(curInode)) {  //这个inode不存在就往后挪，寻找下一个
+            u32 test = ext3_check_inode_exists(curInode);
+//            kernel_printf("TEST ! : %d\n",test);
+            if (ext3_check_inode_exists(curInode) == 0) {  //这个inode不存在就往后挪，寻找下一个
                 curAddr += curDentry->entry_len;
-                kfree(curInode);
+//                kfree(curInode);
+//                kernel_printf("!!!!!!!!");
+//                kernel_printf("???????? %d\n",curInode->i_ino);
                 continue;
             }
             //能走到这里说明inode对应的文件是存在的
-            u8 *file_name = (u8 *) kmalloc(sizeof(curDentry->file_name_len + 1)); //一定要拷贝出去，否则可能会出现指针对应的内容被销毁的问题
+            u8 *file_name = (u8 *) kmalloc(sizeof(u8)*(curDentry->file_name_len + 1)); //一定要拷贝出去，否则可能会出现指针对应的内容被销毁的问题
             if (file_name == 0) return -ENOMEM;
             kernel_strcpy(file_name, curDentry->file_name);
             getdent->dirent[getdent->count].name = file_name;
@@ -464,12 +475,11 @@ u32 ext3_readdir(struct file *file, struct getdent *getdent) {
 
 //lpn是target_inode里的逻辑页号
 struct vfs_page *ext3_fetch_page(struct inode *target_inode, u32 logical_page_num) {
-    debug_start("Hello I'm getting into fetch_page!\n");
     struct address_space *target_address_space = &(target_inode->i_data);  //寻找父级目录的索引节点地址
     struct condition find_condition;
-    kernel_printf("%d %d %d\n",target_address_space,target_inode,logical_page_num);
     u32 actual_page_num = target_address_space->a_op->bmap(target_inode, logical_page_num);
-    debug_info("Hello I'm getting into fetch_page!\n");
+    kernel_printf("actual page_num : %d\n",actual_page_num);
+    if (actual_page_num == 0) return ERR_PTR(-ENOENT);
     find_condition.cond1 = (void *) (&actual_page_num);
     find_condition.cond2 = (void *) target_inode;
     struct vfs_page *curPage = (struct vfs_page *) pcache->c_op->look_up(pcache, &find_condition);
@@ -534,6 +544,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     data_inode->i_sb = target_dentry->d_sb;
     for (i = 0; i < target_inode->i_blocks; i++) {
         u32 actual_block_num = (&(target_inode->i_data))->a_op->bmap(target_inode, i);  //获得真实块号
+        if (actual_block_num == 0) continue;
         u32 index = actual_block_num / (blocks_per_group);  //第几个块
         u32 offset = actual_block_num % (blocks_per_group);  //第几个块内的第几个位图位
         data_inode->i_ino = index * inodes_per_group + offset;  //精确求出目标块的i_ino
@@ -543,33 +554,33 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         //! 注意这里inner_offset计算的时候不要乘任何东西
         err = vfs_read_block(target_sect, sect_addr, 1);
         if (err) {
-            kfree(super_block);
-            kfree(data_inode);
+//            kfree(super_block);
+//            kfree(data_inode);
             return -EIO;
         }
         reset_bit(target_sect, inner_offset);
         err = vfs_write_block(target_sect, sect_addr, 1);
         if (err) {
-            kfree(super_block);
-            kfree(data_inode);
+//            kfree(super_block);
+//            kfree(data_inode);
             return -EIO;
         }
     }
     //然后清除索引节点位图
-    kfree(data_inode);
+//    kfree(data_inode);
     u32 target_group_base = get_group_info_base(target_inode, EXT3_INODE_BITMAP_OFFSET);
     u32 offset = (target_inode->i_ino - 1) % (inodes_per_group);  //组内第几个inode
     u32 bitmap_sect_addr = target_group_base + offset / (SECTOR_BYTE_SIZE * BITS_PER_BYTE);  //寻找这个inode位图位的扇区地址
     u32 bitmap_inner_offset = offset % (SECTOR_BYTE_SIZE * BITS_PER_BYTE); //这个inode位图位的扇区内偏移
     err = vfs_read_block(target_sect, bitmap_sect_addr, 1);
     if (err) {
-        kfree(super_block);
+//        kfree(super_block);
         return -EIO;
     }
     reset_bit(target_sect, bitmap_inner_offset);
     err = vfs_write_block(target_sect, bitmap_sect_addr, 1);
     if (err) {
-        kfree(super_block);
+//        kfree(super_block);
         return -EIO;
     }
     //然后清除inode表内数据
@@ -579,7 +590,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //这里继续使用上一步产生的offset，计算在inode表里的位移
     err = vfs_read_block(target_sect, data_sect_addr, 1);
     if (err) {
-        kfree(super_block);
+//        kfree(super_block);
         return -EIO;
     }
     struct ext3_inode* fetched_inode = (struct ext3_inode*) (target_sect + super_block->inode_size * data_inner_offset);
@@ -596,7 +607,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //指针移动到目标地址，并且把指定长度都写0
     err = vfs_write_block(target_sect, data_sect_addr, 1);
     if (err) {
-        kfree(super_block);
+//        kfree(super_block);
         return -EIO;
     }
     //修改sb和gdt
@@ -613,7 +624,7 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
     //获得该dentry下的a-page
     for (i = 0; i < dir->i_blocks; i++) {  //对该目录下的所有数据块进行扫描
         target_page = ext3_fetch_page(dir, i);
-        if (IS_ERR_OR_NULL(target_page)) return -ENOMEM;
+        if (IS_ERR_OR_NULL(target_page)) continue;
         curAddr = target_page->page_data;
         pageTail = curAddr + dir->i_block_size;
         while (*curAddr != 0 && curAddr < pageTail) {
@@ -638,7 +649,8 @@ u32 ext3_delete_dentry_inode(struct dentry *target_dentry) {
         kernel_memcpy(sourceHead, targetHead, (int) (targetTail - targetHead));  //后面的向前拷贝
         kernel_memset(sourceHead + (int) (targetTail - targetHead), 0, (int) (sourceTail - sourceHead)); //后面清空
     } else kernel_memset(sourceHead, 0, (int) (sourceTail - sourceHead));  //但是如果后面没有的话还是要删除的
-    target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+//    target_page->page_state = P_DIRTY; //写脏该页，如果找到了的话肯定target_page是有值的
+    target_page->p_address_space->a_op->writepage(target_page);
     debug_end("EXT3_DELETE_DENTRY");
     return 0;
 }
@@ -650,17 +662,51 @@ struct dentry *ext3_lookup(struct inode *target_inode, struct dentry *target_den
     u32 i; //for loop
     u8 *pageHead, *pageTail;
     struct qstr newStr;
+    /*
+//        debug_warning("WWWWWWWWWWWWWWW!\n");
+        while (*curAddr != 0 && curAddr < pageTail) {
+            curDentry = (struct ext3_dir_entry *) curAddr;  //这里不需要做文件类型判断
+            curInode = (struct inode *) kmalloc(sizeof(struct inode));
+            kernel_printf("curDentry : %s\n",curDentry->file_name);
+            if (curInode == 0) return -ENOMEM;
+            curInode->i_ino = curDentry->inode_num;
+            curInode->i_sb = super_block;
+            curInode->i_block_size = inode->i_block_size; //其他的都没有用到所以这里不做初始化
+            u32 test = ext3_check_inode_exists(curInode);
+//            kernel_printf("TEST ! : %d\n",test);
+            if (ext3_check_inode_exists(curInode) == 0) {  //这个inode不存在就往后挪，寻找下一个
+                curAddr += curDentry->entry_len;
+//                kfree(curInode);
+//                kernel_printf("!!!!!!!!");
+//                kernel_printf("???????? %d\n",curInode->i_ino);
+                continue;
+            }
+            //能走到这里说明inode对应的文件是存在的
+            u8 *file_name = (u8 *) kmalloc(sizeof(u8)*(curDentry->file_name_len + 1)); //一定要拷贝出去，否则可能会出现指针对应的内容被销毁的问题
+            if (file_name == 0) return -ENOMEM;
+            kernel_strcpy(file_name, curDentry->file_name);
+            getdent->dirent[getdent->count].name = file_name;
+            getdent->dirent[getdent->count].ino = curInode->i_ino;
+            getdent->dirent[getdent->count].type = curDentry->file_type;
+            getdent->count++;
+            curAddr += curDentry->entry_len;
+        }  //页内的目录遍历*/
     for (i = 0; i < target_inode->i_blocks; i++) {
         struct vfs_page *target_page = ext3_fetch_page(target_inode, i); //加载目标页
-        if (IS_ERR_OR_NULL(target_page)) return 0;
-        pageHead = (u8 *) target_page;
-        pageTail = pageHead + base_information->super_block.content->block_size;  //标记该页的首尾
+        if (IS_ERR_OR_NULL(target_page)) continue;
+        pageHead = target_page->page_data;
+        pageTail = pageHead + target_inode->i_block_size;  //标记该页的首尾
         while (*pageHead != 0 && pageHead < pageTail) {
             struct ext3_dir_entry *curDentry = (struct ext3_dir_entry *) pageHead;
             newStr.len = curDentry->file_name_len;
             newStr.name = curDentry->file_name;
             if (generic_qstr_compare(&(target_dentry->d_name), &newStr) == 0) {  //如果找到了的话
                 nd->dentry = target_dentry;  //写回nd
+                struct inode* real_inode = ext3_init_inode(target_inode->i_sb,curDentry->inode_num);
+                ext3_fill_inode(real_inode);
+                target_dentry->d_inode = real_inode;  //这里要拿到inode绑定上
+                target_dentry->d_op = &ext3_dentry_operations;
+//                debug_warning("YYYYYYYYYYYYYYYYY\n");
                 return target_dentry;       //返回目标dentry
             }
             pageHead += curDentry->entry_len;
@@ -672,7 +718,15 @@ struct dentry *ext3_lookup(struct inode *target_inode, struct dentry *target_den
 
 //创建ext3文件节点
 //返回ERRVALUE说明出错，返回0说明成功
-u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd){
+u32 ext3_create_normal(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd){
+    ext3_create(dir,target_dentry,nd,EXT3_NORMAL);
+}
+
+u32 ext3_create_dir(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd) {
+    ext3_create(dir,target_dentry,nd,EXT3_DIR);
+}
+
+u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidata * nd,u32 fileType){
     debug_start("EXT3_CREATE");
     u8 buffer[SECTOR_BYTE_SIZE];
     struct ext3_base_information* base_information = dir->i_sb->s_fs_info;
@@ -680,8 +734,10 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     u32 i,j;  //for loop
     struct ext3_super_block* super_block = base_information->super_block.content;
     u32 inode_per_group = super_block->inodes_per_group;
+    u32 block_per_group = super_block->blocks_per_group;
     if (super_block->free_inode_num <= 0) return -ENOMEM;
     struct inode* new_inode = (struct inode *)kmalloc(sizeof(struct inode));
+    u32 block_num = 0;
     if (new_inode == 0) return -ENOMEM;
     new_inode->i_block_size = dir->i_block_size;
     new_inode->i_sb = dir->i_sb;
@@ -707,12 +763,42 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
         }
         if (position != -1) break;
     }
-    //下一步：在磁盘上找到这个inode
+    //下一步：在磁盘上找到一个块，并且记录这个块
+    for (i = 0; i < total_group_num; i++) {  //遍历所有的组
+        block_num = block_per_group * i;
+        u32 block_bitmap_base = get_group_info_base(new_inode,EXT3_BLOCK_BITMAP_OFFSET);  //拿到BLOCK_BITMAP
+        u32 sect_addr = block_bitmap_base;
+        u32 sect_num = EXT3_BLOCK_SIZE_BASE << super_block->block_size >> SECTOR_LOG_SIZE; //把一整块都导入进来
+        for (j = 0; j < sect_num; j++){
+            err = vfs_read_block(buffer,sect_addr,1);
+            if (err) return -EIO;
+            position = get_next_zero_bit(buffer,SECTOR_BYTE_SIZE);
+            if (position != -1)   //找到了一个合适的位置
+            {
+                set_bit(buffer,position);  //置位该位图
+                block_num = block_per_group * i + position;
+                err = vfs_write_block(buffer,sect_addr,1);
+                if (err) return -EIO;
+            }
+            sect_addr += SECTOR_BYTE_SIZE; //向后移动一个扇区，这样可以省一省buffer
+            if (position != -1) break;
+        }
+        if (position != -1) break;
+    }
+    //下一步：在磁盘上找到这个inode，把inode第一个数据块设置成分配好的块
     struct inode* allocated_inode = ext3_init_inode(dir->i_sb,new_inode->i_ino);
     if (IS_ERR_OR_NULL(allocated_inode)) return *((u32*) allocated_inode);  //如果错误的话这里一定会返回错误码
     ext3_fill_inode(allocated_inode);
-    allocated_inode->i_type = EXT3_NORMAL;
-    kfree(new_inode);
+    allocated_inode->i_data.a_page[0] = block_num;
+    if (fileType == EXT3_NORMAL) allocated_inode->i_type = FTYPE_NORM;
+    else allocated_inode->i_type = FTYPE_DIR;
+    struct ext3_inode* new_ext3_inode = (struct ext3_inode*)kmalloc(sizeof(struct ext3_inode));
+    kernel_memset(new_ext3_inode,0,sizeof(struct ext3_inode));
+    new_ext3_inode->i_block[0] = block_num;
+    if (fileType == EXT3_DIR) new_ext3_inode->i_mode = 16895;
+    new_ext3_inode->i_blocks = 1;
+    new_ext3_inode->i_size = EXT3_BLOCK_SIZE_BASE << base_information->super_block.content->block_size;
+//    kfree(new_inode);
     u32 inode_size = base_information->super_block.content->inode_size;
     u32 inode_table_base = get_group_info_base(allocated_inode, EXT3_INODE_TABLE_OFFSET);
     u32 inner_index = (u32) ((new_inode->i_ino - 1) % base_information->super_block.content->inodes_per_group);
@@ -721,12 +807,43 @@ u32 ext3_create(struct inode *dir, struct dentry *target_dentry, struct nameidat
     u32 err = vfs_read_block(buffer, inode_sect, 1);
     if (err) return -EIO;
     u32 inode_sect_offset = inner_index % (SECTOR_BYTE_SIZE / inode_size);
-    kernel_memcpy(buffer + inode_sect_offset * inode_size,allocated_inode,inode_size);
+    kernel_memcpy(buffer + inode_sect_offset * inode_size,new_ext3_inode,inode_size);
     err = vfs_write_block(buffer, inode_sect, 1);
     if (err) return -EIO;
+    if (fileType == EXT3_DIR) allocated_inode->i_op = &(ext3_inode_operations[0]);
+    else allocated_inode->i_op = &(ext3_inode_operations[1]);
     target_dentry->d_inode = allocated_inode;
-    target_dentry->d_parent = container_of(dir,struct dentry,d_inode);
+    target_dentry->d_parent = dir->i_dentry;
+    target_dentry->d_op = &ext3_dentry_operations;
     nd->dentry = target_dentry;
+    //下一步：在父级dentry里面添加当前目录项
+    u8 *pageHead,*pageTail,*pageLastHead;
+    for (i = 0; i < dir->i_blocks; i++) {
+        struct vfs_page *target_page = ext3_fetch_page(dir, i); //加载目标页
+        if (IS_ERR_OR_NULL(target_page)) continue;
+        pageHead = target_page->page_data;
+        pageTail = pageHead + dir->i_block_size;  //标记该页的首尾
+        struct ext3_dir_entry *curDentry;
+        u16 totalLen = 0;
+        while (*pageHead != 0 && pageHead < pageTail) {
+            curDentry = (struct ext3_dir_entry *) pageHead;
+            pageHead += curDentry->entry_len;
+        }
+        totalLen = dir->i_block_size - curDentry->entry_len;
+        curDentry->entry_len = 8 + (curDentry->file_name_len / 4 + (curDentry->file_name_len % 4 != 0)) * 4;
+        totalLen = totalLen + curDentry->entry_len;
+        curDentry = (struct ext3_dir_entry *) (target_page->page_data + totalLen);
+//        kernel_printf(" lollollol : %d\n",curDentry);
+        curDentry->entry_len = (dir->i_block_size) - totalLen;
+//        kernel_printf("KKKKKKKKKKKKKKKKKKKKKKKKKKKK %d %d\n",curDentry,curDentry->entry_len);
+        kernel_strcpy(curDentry->file_name,target_dentry->d_name.name);
+        curDentry->file_type = fileType;
+        curDentry->file_name_len = target_dentry->d_name.len;
+//        kernel_printf("EXT3: curDentry : %d len : %d name : %s \n",curDentry->entry_len,target_dentry->d_name.len,target_dentry->d_name.name);
+        curDentry->inode_num = allocated_inode->i_ino;
+        target_page->p_address_space->a_op->writepage(target_page);
+        break;
+    }
     debug_end("EXT3_CREATE");
     return 0;
 }
@@ -736,10 +853,9 @@ u32 ext3_mkdir(struct inode *dir, struct dentry *target_dentry, u32 mode) {  //�
     debug_start("EXT3-MKDIR");
     struct nameidata* nd = (struct nameidata*) kmalloc(sizeof(struct nameidata));
     if (nd == 0) return -ENOMEM;
-    u32 err = ext3_create(dir,target_dentry,nd);
-    target_dentry->d_inode->i_op = &(ext3_inode_operations[0]);
+    u32 err = ext3_create_dir(dir,target_dentry,nd);
     if (IS_ERR_VALUE(err)) return err;
-    target_dentry->d_inode->i_type = EXT3_DIR;
+
     debug_end("EXT3-MKDIR");
     return 0;
 }

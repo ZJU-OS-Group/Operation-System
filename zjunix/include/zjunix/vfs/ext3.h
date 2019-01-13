@@ -133,7 +133,11 @@ u32 ext3_readdir (struct file *, struct getdent *);
 
 u32 init_ext3(u32 base);
 
-u32 ext3_create(struct inode *, struct dentry *, struct nameidata *);
+u32 ext3_create(struct inode *, struct dentry *, struct nameidata *,u32);
+
+u32 ext3_create_dir(struct inode *, struct dentry *, struct nameidata *);
+
+u32 ext3_create_normal(struct inode *, struct dentry *, struct nameidata *);
 
 struct dentry *ext3_lookup(struct inode *, struct dentry *, struct nameidata *);
 

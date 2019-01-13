@@ -89,9 +89,10 @@ typedef union {
 void init_pc();
 void system_idle_proc(); // idle进程入口
 void pc_schedule(unsigned int status, unsigned int cause, context* pt_context);
-int pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
+pid_t pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
               unsigned int argc, void *args, pid_t *retpid, int is_user, unsigned int priority_class);
 void pc_kill_syscall(unsigned int status, unsigned int cause, context* pt_context);
+void pc_schedule_wait(unsigned int status, unsigned int cause, context* pt_context);
 int pc_kill(pid_t pid); // 杀死pid对应的进程
 struct task_struct* find_in_tasks(pid_t pid); // 在tasks列表中找到pid对应的进程并返回其控制块
 struct task_struct* get_curr_pcb();
@@ -100,10 +101,10 @@ int print_proc();   // 打印出就绪队列中的进程信息
 void join(pid_t);
 void wake(pid_t);
 struct task_struct* get_preemptive_task();                                  // 找到可以抢占当前task的进程
-struct task_struct* find_next_task();                                       // 找到下一个要被运行的task
+struct task_struct* find_next_task(int option);                                       // 找到下一个要被运行的task
 void task_files_release(struct task_struct* task);                          // 释放进程的文件
 int is_realtime(struct task_struct* task);                                  // 根据进程优先级判断是否是实时任务
-void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context); // 从pc_schedule中抽出来的core code
+void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_context,int option); // 从pc_schedule中抽出来的core code
 void pc_exchange(struct task_struct* next, context* pt_context, int flag);  // 将当前进程换成next
 
 void add_wait(struct task_struct *task);                    // 将进程添加进等待列表
@@ -111,6 +112,7 @@ void add_exit(struct task_struct *task);                    // 将进程添加�
 void add_task(struct task_struct *task);                    // 将进程添加至所有进程列表
 void add_ready(struct task_struct *task);                   // 将进程添加进就绪队列
 void remove_wait(struct task_struct *task);                 // 从等待列表中删除进程
+void remove_wait_queue(struct task_struct *task);           // 从等待队列中删除进程
 void remove_exit(struct task_struct *task);                 // 从退出列表中删除进程
 void remove_task(struct task_struct *task);                 // 从进程列表中删除进程
 void remove_ready(struct task_struct *task);                // 从就绪队列中删除task
@@ -122,6 +124,8 @@ unsigned max(unsigned int a,unsigned int b);
 // some test process
 void system_loop_proc();                // 死循环loop进程
 void system_suicide_proc();             // 自杀进程
+void system_father();                   // 父进程
+void system_child();                    // 子进程
 void pc_exit();
 
 #endif

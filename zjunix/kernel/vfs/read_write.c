@@ -8,9 +8,16 @@ u32 vfs_read(struct file *file, char *buf, u32 count, u32 *pos) {
 	u32 ret;
 
 	if (!(file->f_mode & FMODE_READ))
+	{
 		return -EBADF;
+	}
+
 	if (!file->f_op || (!file->f_op->read))
-        return -EINVAL;
+	{
+		kernel_printf("read_write:18 no file operation bond!\n");
+		return -EINVAL;
+	}
+
         			
 	ret = file->f_op->read(file, buf, count, pos);
 	debug_end("[read_write.c vfs_read: 16] ");

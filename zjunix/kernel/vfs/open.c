@@ -58,7 +58,7 @@ struct file *dentry_open(struct dentry* dentry, struct vfsmount* mnt, u32 flags)
     if (f->f_mode & FMODE_WRITE) {
         // TODO: continue...
     }
-    f->f_mode = ((flags+1) & O_ACCMODE) | FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE ; // 用来干嘛的，我也不知道呜呜呜
+    f->f_mode = ((flags+1) & O_ACCMODE) | FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE | FMODE_READ | FMODE_WRITE;
     f->f_dentry = dentry;
     f->f_vfsmnt = mnt;
     f->f_pos = 0;
