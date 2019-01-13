@@ -5,6 +5,7 @@
 #include <zjunix/bootmm.h>
 #include <zjunix/buddy.h>
 #include <zjunix/slab.h>
+#include <zjunix/slob.h>
 #include <zjunix/time.h>
 #include <zjunix/vfs/vfs.h>
 #include "ls.h"
@@ -136,6 +137,10 @@ void parse_cmd() {
     else if (kernel_strcmp(ps_buffer, "mminfo") == 0) {
         bootmap_info("bootmm");
         buddy_info();
+    }
+    else if(kernel_strcmp(ps_buffer, "smalloc") == 0)
+    {
+        smalloc(param);
     }
     else if (kernel_strcmp(ps_buffer, "mmtest") == 0) {
         kernel_printf("kmalloc : %x, size = 1KB\n", kmalloc(1024));
