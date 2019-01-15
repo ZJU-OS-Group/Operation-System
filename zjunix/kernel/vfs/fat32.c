@@ -205,7 +205,7 @@ u32 init_fat32(u32 base)
     INIT_LIST_HEAD(&(root_inode->i_hash));
     INIT_LIST_HEAD(&(root_inode->i_sb_list));
     //root_inode->i_size              = fat32_BI->fat32_FAT1->fat.table[fat32_BI->fat32_DBR->root_clu].size;
-    // TODO 得到i_size
+
     root_inode->i_block_size = fat32_sb->s_block_size;
     if(fat32_sb->s_block_size == 1024)
     {
@@ -230,7 +230,7 @@ u32 init_fat32(u32 base)
     }
     //相关联项赋值
     root_dentry->d_inode = root_inode;
-    root_dentry->d_parent = root_dentry; // todo: zc change
+    root_dentry->d_parent = root_dentry;
     debug_err("root_inode address:");
     kernel_printf("%d\n",root_inode);
 
@@ -480,8 +480,6 @@ struct dentry* fat32_inode_lookup(struct inode *temp_inode, struct dentry* temp_
 
     if (!found)
         return 0;
-    //todo : zy :这里存疑，不过不应该给nameidata复写不存在的目标内容！
-    // 完善nameidata的信息
     _nameidata->dentry = temp_dentry;
     _nameidata->mnt = root_mnt;
     _nameidata->flags = found;

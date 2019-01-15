@@ -184,7 +184,6 @@ struct path {
 };
 
 /********************************* 查找条件结构 *******************************/
-struct condition {   //todo: todo: Refactor! 这里的结构用得太泛了
     void    *cond1;    // parent 目录 or pageNum
     void    *cond2;    // name
     void    *cond3;

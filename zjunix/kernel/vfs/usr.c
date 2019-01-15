@@ -7,8 +7,6 @@
 /****************************** 外部变量 *******************************/
 extern struct dentry                    * pwd_dentry;   /* 当前工作目录 */
 extern struct vfsmount                  * pwd_mnt;
-// TODO: vfs_open
-// TODO: path_lookup
 
 
 const char* __my_strcat(const u8* dest,const u8* src)
@@ -191,7 +189,6 @@ u32 vfs_rm(const u8 * path) {
 //            const u8* new_path = __my_strcat(tmp_path, getdent.dirent[i].name);
 //            vfs_rm(new_path);
 //        } else if (getdent.dirent[i].type == FTYPE_LINK) {
-//            // TODO: 如何处理链接文件
 //        } else {
 //            return -ENOENT;
 //        }

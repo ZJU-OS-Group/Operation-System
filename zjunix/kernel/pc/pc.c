@@ -123,8 +123,6 @@ void join(pid_t target_pid){
             "syscall\n\t"
     );
 
-//    debug_info("I'm getting into the join function\n");
-    // todo：系统调用，触发schedule，然后将原来的current从ready加入wait中
 }
 
 // 唤醒pid对应的进程
@@ -234,7 +232,7 @@ pid_t pc_create(char *task_name, void(*entry)(unsigned int argc, void *args),
     //debug_warning("PC: NEXT\n");
     kernel_strcpy(new_task->task.name,task_name);
     //debug_warning("PC: NEXT\n");
-    new_task->task.parent = current->pid;  //todo: 这里保存的是父进程的pid号
+    new_task->task.parent = current->pid;
     //debug_warning("PC: NEXT\n");
     new_task->task.time_counter = PROC_DEFAULT_TIMESLOTS; //分配一整个默认时间配额
     //debug_warning("PC: NEXT\n");
@@ -406,10 +404,8 @@ void pc_schedule_core(unsigned int status, unsigned int cause, context* pt_conte
     struct task_struct* next;
     /* 判断异常类型 */
     if (cause==0) {
-        // TODO: interruption
     }
     else if (cause==8) {
-        // TODO: system call
     }
 
     // 清理结束链表

@@ -191,13 +191,11 @@ u32 link_path_walk(const u8 *name, struct nameidata *nd) {
             debug_err("[namei.c: link_path_walk:168] not a dentry\n");
             goto out_dput;
         }
-        // TODO：接下来对链接情况进行处理，先不考虑
         dput(nd->dentry);
         // 更新nd的mnt和dentry为next的，相当于往下走了一层
         nd->dentry=next.dentry;
         nd->mnt=next.mnt;
 
-        // TODO：检查next.dentry对应的inode的i_op是否存在，如果没有lookup操作就不是目录（存疑）
         // 而这里检查的都不是最后一个分量，所以必须得是目录，不然就返回错误
         err = -ENOTDIR;
         if (next.dentry->d_inode->i_op->lookup)
@@ -287,7 +285,7 @@ void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
     debug_start("[namei.c: follow_dotdot:239]\n");
     while(1) {
         struct vfsmount *parent;
-        struct dentry *old = *dentry; // TODO：全程感觉old没啥用
+        struct dentry *old = *dentry;
 
         // 如果当前所处的目录不为当前路径所属文件系统的根目录，可以直接向上退一级，然后退出
         if (*dentry != root_dentry && *dentry != (*mnt)->mnt_root) {
@@ -337,7 +335,7 @@ void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
 //    while (1) {
 //        // 如果已经是根目录了，没有办法回退了
 //        if (nd->dentry==root_dentry && nd->mnt == root_mnt) {
-//            // todo: ext3回fat32的特判
+//
 //            debug_warning("[namei.c: follow_dotdot:285] case 1 already root\n");
 //            break;
 //        }
@@ -352,14 +350,12 @@ void follow_dotdot(struct vfsmount **mnt, struct dentry **dentry){
 //            break;
 //        }
 //        // 如果当前在所属文件系统的根目录，如果没有父文件系统，没有办法回退了
-//        //TODO：不太懂这种情况下为什么nd->dentry==root_dentry不成立，那就证明root_dentry不太对，那这个需要更新吗？
 //        if (nd->mnt->mnt_parent==nd->mnt) {
 //            debug_warning("[namei.c: follow_dotdot:294] case 3 no father fs\n");
 //            break;
 //        }
 //
 //        // 返回父文件系统，就可以继续判断是继续返回爷爷文件系统还是目录直接回到上一级
-//        // TODO：为什么要做文件系统间的上一级呢？感觉有点点乱
 //        nd->dentry = nd->mnt->mnt_mountpoint;
 //        dget(nd->dentry);
 //        nd->mnt=nd->mnt->mnt_parent;

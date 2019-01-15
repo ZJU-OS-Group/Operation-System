@@ -263,7 +263,6 @@ u32 get_group_info_base(struct inode *inode, u8 block_offset) {
     return group_target_base;
 }
 
-//todo:根目录下cd..就回到fat32
 u32 ext3_fill_inode(struct inode *inode) {  //从硬件获得真实的inode信息并填充到vfs块内
     u32 i;  //For loop
     u8 target_buffer[SECTOR_BYTE_SIZE];

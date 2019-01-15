@@ -46,7 +46,6 @@ u32 mount_ext3(){
 }
 
 
-// TODO：现在只是抄了cy的
 // 检查dentry处是否是挂载点，如果是，就更新
 u32 follow_mount(struct vfsmount **mnt, struct dentry **dentry) {
 
@@ -70,7 +69,6 @@ u32 follow_mount(struct vfsmount **mnt, struct dentry **dentry) {
     return res;
 }
 
-// TODO: 现在只是抄了cy的
 struct vfsmount * lookup_mnt(struct vfsmount *mnt, struct dentry *dentry) {
     struct list_head *head = &(mnt->mnt_hash);
     struct list_head *tmp = head;
