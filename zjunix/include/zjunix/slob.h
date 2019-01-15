@@ -1,7 +1,3 @@
-//
-// Created by m on 2019/1/6.
-//
-
 #ifndef OPERATION_SYSTEM_SLOB_H
 #define OPERATION_SYSTEM_SLOB_H
 #include <zjunix/list.h>

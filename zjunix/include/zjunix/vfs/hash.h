@@ -1,6 +1,3 @@
-//
-// Created by 章晨 on 2019-01-03.
-//
 
 #ifndef OPERATION_SYSTEM_HASH_H
 #define OPERATION_SYSTEM_HASH_H

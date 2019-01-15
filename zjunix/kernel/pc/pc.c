@@ -514,9 +514,9 @@ struct task_struct* get_preemptive_task() {
 
 // 打印在就绪队列中的所有进程信息
 int print_proc() {
-    debug_end("------------------------------Process Info---------------------------\n");
-    debug_end("---------------------------------------------------------------------\n");
-    debug_start("PID\tname\tpriority\n");
+    kernel_puts("------------------------------Process Info---------------------------\n",VGA_GREEN,VGA_BLACK);
+    kernel_puts("---------------------------------------------------------------------\n",VGA_GREEN,VGA_BLACK);
+    kernel_puts("PID\tname\tpriority\n",VGA_YELLOW,VGA_BLACK);
     kernel_printf(" %x\t%s\t%d\n", current->ASID, current->name, PRIORITY[current->priority_class][current->priority_level]);
     for (int i = 0; i < PRIORITY_LEVELS; ++i) {
         if (ready_bitmap[i]) {
@@ -531,7 +531,7 @@ int print_proc() {
             }
         }
     }
-    debug_end("---------------------------------------------------------------------\n");
+    kernel_puts("---------------------------------------------------------------------\n",VGA_GREEN,VGA_BLACK);
     return 0;
 }
 

@@ -2,7 +2,7 @@
 
 #include <zjunix/debug/debug.h>
 
-#define DEBUG_EN 1
+#define DEBUG_EN 0
 
 void debug_start(const char* information){
     if (DEBUG_EN) kernel_puts(information,VGA_START,VGA_BLACK);

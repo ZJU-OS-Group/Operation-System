@@ -1,7 +1,3 @@
-//
-// Created by zc on 2019-01-03.
-//
-
 #ifndef OPERATION_SYSTEM_VFSCACHE_H
 #define OPERATION_SYSTEM_VFSCACHE_H
 #include <zjunix/vfs/err.h>

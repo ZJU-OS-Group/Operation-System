@@ -374,17 +374,18 @@ u32 init_ext3(u32 base) {
 
     //将root_inode和root_dentry进行关联
     root_dentry->d_inode = root_inode;
-   // list_add(&(root_dentry->d_alias), &(root_inode->i_dentry));
-
     struct vfsmount *root_mount = ext3_init_mount(root_dentry, super_block);
     goto end;
     err:
     {
-        kernel_printf("ERROR: fail to initialize VFS!");
+        kernel_printf("ERROR: fail to initialize EXT3!");
         return -1;
     } //pass
     end:
     debug_end("EXT3-init ext3\n");
+    debug_err("I'm fetching the journal inode number : \n");
+    kernel_printf("%d\n",base_information->super_block.content->journal_inum);
+    while(1);
     return 0;
 }
 
