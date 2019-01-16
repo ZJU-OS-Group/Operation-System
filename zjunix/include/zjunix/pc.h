@@ -81,9 +81,9 @@ struct task_struct{
 };
 
 typedef union {
-    struct task_struct task;
-    unsigned char kernel_stack[KERNEL_STACK_SIZE];
-} task_union;  //进程控制块
+    struct task_struct task; // 进程控制块
+    unsigned char kernel_stack[KERNEL_STACK_SIZE]; // 进程内核栈
+} task_union;
 
 
 void init_pc();
